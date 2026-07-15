@@ -1,7 +1,7 @@
 {
   "name": "@shuji-bonji/pdf-writer-mcp",
-  "version": "0.1.0",
-  "description": "MCP server that generates PDFs from text, Markdown, or tabular data using pdf-lib, with Japanese font embedding (fontkit subset).",
+  "version": "0.2.0",
+  "description": "MCP server that generates and edits PDFs (text/Markdown/table creation, metadata & page operations) using pdf-lib, with Japanese font embedding (fontkit subset).",
   "type": "module",
   "bin": {
     "pdf-writer-mcp": "dist/index.js"
