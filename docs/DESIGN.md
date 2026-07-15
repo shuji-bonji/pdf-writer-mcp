@@ -239,7 +239,7 @@ sequenceDiagram
 
 ## 6. ツール仕様
 
-共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`(A4/A3/A5/LETTER/LEGAL) / `margin` / `title` / `author`。
+共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`(A4/A3/A5/LETTER/LEGAL) / `margin` / `title` / `author` / `onMissingGlyph`(error|replace|ignore)。
 
 | ツール | 固有入力 | 説明 |
 |--------|----------|------|
@@ -335,6 +335,16 @@ flowchart TD
   マジックバイト `ttcf` で **検知して明示的にエラー**にする（単一フェイス抽出を案内）。
 - フォント未指定時は標準 `Helvetica`（`isStandard=true`）。
 - 標準フォント × 非 Latin-1 文字（日本語等）は、描画前に **renderer 側で親切なエラー** に変換（§8）。
+
+**グリフ欠落ポリシー（v0.2.1）**
+
+フォント未収録文字（例: Noto Sans JP に無い ✔ U+2714）は pdf-lib が無警告で .notdef（空白）を
+埋め込んでしまう。これを防ぐため、埋め込み時に fontkit で二重パースして
+`hasGlyphForCodePoint` による照会関数を `LoadedFont.hasGlyph` として保持し、
+builder が描画前に全入力テキストを走査する（`applyMissingGlyphPolicy`）。
+`onMissingGlyph` は error（既定・欠落文字を列挙して throw）/ replace（〓 置換 + warnings）/
+ignore（従来動作 + warnings）。warnings は `CreateResult.warnings` で返却する。
+標準フォントは従来どおり `assertRenderable`（Latin-1 検査）が担当。
 
 **ToUnicode について**（重要な発見）
 

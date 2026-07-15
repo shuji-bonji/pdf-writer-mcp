@@ -100,7 +100,19 @@ npm run typecheck  # tsc --noEmit
     TTCollection('NotoSansCJK-Regular.ttc').fonts[0].save('NotoSansCJKjp-Regular.otf')"
   ```
 
-- 日本語フォントの入手先の例: [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP)（SIL OFL）。
+- 日本語フォントの入手先の例:
+  [notofonts/noto-cjk の日本語サブセット OTF](https://github.com/notofonts/noto-cjk/tree/main/Sans/SubsetOTF/JP)（SIL OFL、静的・単一フェイス）。
+
+### フォント未収録文字（グリフ欠落）の扱い
+
+指定フォントに存在しない文字（例: Noto Sans JP に無い ✔ U+2714 や絵文字）を検知した場合の
+挙動を `onMissingGlyph` で選べます（v0.2.1〜）:
+
+| 値 | 挙動 |
+|----|------|
+| `error`（既定） | 欠落文字を `"✔" (U+2714)` 形式で列挙してエラー。無警告の空白出力を防ぐ |
+| `replace` | 〓（下駄記号）に置換して生成し、`warnings` で報告 |
+| `ignore` | そのまま生成（該当文字は空白になる）し、`warnings` で報告 |
 
 ## ツール
 
@@ -119,6 +131,7 @@ npm run typecheck  # tsc --noEmit
 | `margin` | number |  | 余白 pt（既定 56、0〜300） |
 | `title` | string |  | タイトル（メタデータ＋冒頭見出し） |
 | `author` | string |  | 作成者（メタデータ） |
+| `onMissingGlyph` | enum |  | フォント未収録文字の扱い: error（既定）/ replace / ignore |
 
 ### `create_markdown_pdf`
 

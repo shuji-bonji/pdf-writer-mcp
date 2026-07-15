@@ -36,26 +36,38 @@ import {
 
 export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> {
   validateCreateTextArgs(args);
-  return buildPdf(args, (engine, loaded) => renderText(engine, args.text, loaded));
+  return buildPdf(args, [args.text], (engine, loaded, [text]) =>
+    renderText(engine, text, loaded)
+  );
 }
 
 export async function handleCreateMarkdownPdf(args: unknown): Promise<CreateResult> {
   validateCreateMarkdownArgs(args);
-  return buildPdf(args, (engine, loaded) => renderMarkdown(engine, args.markdown, loaded));
+  return buildPdf(args, [args.markdown], (engine, loaded, [markdown]) =>
+    renderMarkdown(engine, markdown, loaded)
+  );
 }
 
 export async function handleCreateTablePdf(args: unknown): Promise<CreateResult> {
   validateCreateTableArgs(args);
-  return buildPdf(args, (engine, loaded) => {
+  // ポリシー適用のためセルを平坦化して渡し、render 内で元の形に戻す
+  const cells = [...args.headers, ...args.rows.flat()];
+  return buildPdf(args, cells, (engine, loaded, texts) => {
     // 表は標準フォントで日本語不可のため、描画前に検査
-    const flat = [...args.headers, ...args.rows.flat()].join('\n');
-    if (loaded.isStandard && /[^\x00-\xff]/.test(flat)) {
+    if (loaded.isStandard && /[^\x00-\xff]/.test(texts.join('\n'))) {
       throw new Error(
         'The table contains non-Latin characters (e.g. Japanese) but no embeddable font was provided. ' +
           'Pass "fontPath" pointing to a .ttf/.otf font, or set PDF_WRITER_FONT.'
       );
     }
-    renderTable(engine, args.headers, args.rows);
+    const headers = texts.slice(0, args.headers.length);
+    const rows: string[][] = [];
+    let i = args.headers.length;
+    for (const row of args.rows) {
+      rows.push(texts.slice(i, i + row.length));
+      i += row.length;
+    }
+    renderTable(engine, headers, rows);
   });
 }
 

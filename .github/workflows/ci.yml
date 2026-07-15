@@ -35,9 +35,12 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      # 日本語フォント依存テスト（ToUnicode 回帰等）も CI で実行する場合は、
-      # フォントを取得して TEST_FONT_PATH を設定する（describe.skipIf で自動有効化）
+      # 日本語フォント依存テスト（ToUnicode 回帰・グリフ欠落ポリシー）を有効化する
+      - name: Fetch Japanese test font (Noto Sans JP)
+        run: curl -sL -o /tmp/NotoSansJP-Regular.otf https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/JP/NotoSansJP-Regular.otf
       - name: Run tests
         run: npm test
+        env:
+          TEST_FONT_PATH: /tmp/NotoSansJP-Regular.otf
       - name: Build
         run: npm run build

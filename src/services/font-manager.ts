@@ -10,6 +10,7 @@ import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
+import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 export interface LoadedFont {
@@ -18,6 +19,8 @@ export interface LoadedFont {
   name: string;
   /** 標準フォント（英数字のみ）か否か。true の場合、日本語描画は不可 */
   isStandard: boolean;
+  /** コードポイントのグリフ有無（埋め込みフォントのみ。標準フォントは undefined） */
+  hasGlyph?: (codePoint: number) => boolean;
 }
 
 const CTX = 'FontManager';
@@ -70,7 +73,81 @@ export async function loadFont(doc: PDFDocument, fontPath?: string): Promise<Loa
     throw new Error(`Failed to embed font ${resolvedPath}: ${msg}`);
   }
 
+  // グリフ有無の照会用に fontkit でもパースする（失敗しても埋め込み自体は続行）
+  let hasGlyph: LoadedFont['hasGlyph'];
+  try {
+    const fk = fontkit.create(Buffer.from(bytes));
+    hasGlyph = (cp: number) => fk.hasGlyphForCodePoint(cp);
+  } catch {
+    logger.warn(CTX, 'fontkit parse for glyph-coverage check failed; missing-glyph detection disabled');
+  }
+
   const name = basename(resolvedPath);
   logger.info(CTX, `Embedded custom font: ${name}`);
-  return { font, name, isStandard: false };
+  return { font, name, isStandard: false, hasGlyph };
+}
+
+/** 〓（下駄記号）: 日本語組版でのグリフ欠落の慣習的代替 */
+const GETA = 0x3013;
+
+/**
+ * フォントに存在しない文字の扱い（onMissingGlyph オプション）を適用する。
+ *
+ * - error（既定）: 欠落文字を列挙してエラー。無警告の空白（.notdef）出力を防ぐ
+ * - replace: 欠落文字を 〓（フォントに無ければ ?）へ置換し、warnings で報告
+ * - ignore: そのまま描画（空白になる）。warnings で報告
+ */
+export function applyMissingGlyphPolicy(
+  texts: string[],
+  loaded: LoadedFont,
+  policy: MissingGlyphPolicy = 'error'
+): { texts: string[]; warnings: string[] } {
+  const hasGlyph = loaded.hasGlyph;
+  // 標準フォントは assertRenderable（Latin-1 検査）側で扱うため対象外
+  if (!hasGlyph) return { texts, warnings: [] };
+
+  const missing = new Set<string>();
+  for (const text of texts) {
+    for (const ch of text) {
+      if (ch === '\n' || ch === '\r' || ch === '\t') continue;
+      if (!hasGlyph(ch.codePointAt(0) as number)) missing.add(ch);
+    }
+  }
+  if (missing.size === 0) return { texts, warnings: [] };
+
+  const list = [...missing]
+    .slice(0, 10)
+    .map((ch) => `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`)
+    .join(', ');
+  const suffix = missing.size > 10 ? ` and ${missing.size - 10} more` : '';
+
+  if (policy === 'error') {
+    throw new Error(
+      `The font "${loaded.name}" has no glyph for: ${list}${suffix}. ` +
+        'These characters would render as blank boxes. ' +
+        'Remove/replace them, use a font that covers them, ' +
+        'or set onMissingGlyph to "replace" (substitutes 〓) or "ignore".'
+    );
+  }
+
+  if (policy === 'ignore') {
+    return {
+      texts,
+      warnings: [
+        `Rendered blank glyphs for unsupported characters (onMissingGlyph=ignore): ${list}${suffix}`,
+      ],
+    };
+  }
+
+  // replace
+  const replacement = hasGlyph(GETA) ? '〓' : '?';
+  const replaced = texts.map((text) =>
+    [...text].map((ch) => (missing.has(ch) ? replacement : ch)).join('')
+  );
+  return {
+    texts: replaced,
+    warnings: [
+      `Replaced ${missing.size} unsupported character(s) with "${replacement}": ${list}${suffix}`,
+    ],
+  };
 }
