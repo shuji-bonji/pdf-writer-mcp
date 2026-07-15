@@ -3,12 +3,20 @@
  * asserts 型述語で narrowing しつつ検査。閾値は constants.ts に集約。
  */
 
-import { LIMITS, PAGE_SIZES, type PageSizeName } from '../constants.js';
+import { LIMITS, PAGE_SIZES, ROTATION_ANGLES, type PageSizeName } from '../constants.js';
 import type {
   CreateTextArgs,
   CreateMarkdownArgs,
   CreateTableArgs,
   CommonCreateOptions,
+  CommonEditOptions,
+  SetMetadataArgs,
+  MergePdfsArgs,
+  ExtractPagesArgs,
+  DeletePagesArgs,
+  ReorderPagesArgs,
+  RotatePagesArgs,
+  SplitPdfArgs,
 } from '../types/index.js';
 
 export function validateNonEmptyString(
@@ -98,6 +106,102 @@ export function validateCreateMarkdownArgs(args: unknown): asserts args is Creat
   const a = args as Record<string, unknown>;
   validateTextLength(a.markdown, 'markdown');
   validateCommonOptions(a as CommonCreateOptions);
+}
+
+/** 編集系共通オプションの検査 + オブジェクト形状の確認 */
+function asEditArgs(args: unknown): Record<string, unknown> {
+  if (typeof args !== 'object' || args === null) {
+    throw new Error('arguments must be an object');
+  }
+  const a = args as Record<string, unknown>;
+  const opts = a as CommonEditOptions;
+  if (opts.outputPath !== undefined) {
+    validateNonEmptyString(opts.outputPath, 'outputPath');
+  }
+  if (opts.allowBreakingSignatures !== undefined && typeof opts.allowBreakingSignatures !== 'boolean') {
+    throw new Error('allowBreakingSignatures must be a boolean');
+  }
+  return a;
+}
+
+export function validateSetMetadataArgs(args: unknown): asserts args is SetMetadataArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  for (const f of ['title', 'author', 'subject', 'creator'] as const) {
+    if (a[f] !== undefined && typeof a[f] !== 'string') {
+      throw new Error(`${f} must be a string`);
+    }
+  }
+  if (a.keywords !== undefined) {
+    if (!Array.isArray(a.keywords) || a.keywords.some((k) => typeof k !== 'string')) {
+      throw new Error('keywords must be an array of strings');
+    }
+  }
+  if (
+    a.title === undefined &&
+    a.author === undefined &&
+    a.subject === undefined &&
+    a.keywords === undefined &&
+    a.creator === undefined
+  ) {
+    throw new Error('set_metadata requires at least one of: title, author, subject, keywords, creator');
+  }
+}
+
+export function validateMergePdfsArgs(args: unknown): asserts args is MergePdfsArgs {
+  const a = asEditArgs(args);
+  if (!Array.isArray(a.inputPaths) || a.inputPaths.some((p) => typeof p !== 'string' || p.length === 0)) {
+    throw new Error('inputPaths must be an array of non-empty strings');
+  }
+  if (a.inputPaths.length < 2) {
+    throw new Error('inputPaths must contain at least 2 files to merge');
+  }
+  if (a.inputPaths.length > LIMITS.MERGE_MAX_INPUTS) {
+    throw new Error(`inputPaths has too many files (max ${LIMITS.MERGE_MAX_INPUTS})`);
+  }
+}
+
+export function validateExtractPagesArgs(args: unknown): asserts args is ExtractPagesArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateNonEmptyString(a.pages, 'pages');
+}
+
+export function validateDeletePagesArgs(args: unknown): asserts args is DeletePagesArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateNonEmptyString(a.pages, 'pages');
+}
+
+export function validateReorderPagesArgs(args: unknown): asserts args is ReorderPagesArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  if (!Array.isArray(a.order) || a.order.length === 0 || a.order.some((n) => typeof n !== 'number')) {
+    throw new Error('order must be a non-empty array of page numbers (1-based)');
+  }
+}
+
+export function validateRotatePagesArgs(args: unknown): asserts args is RotatePagesArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  if (!ROTATION_ANGLES.includes(a.rotation as (typeof ROTATION_ANGLES)[number])) {
+    throw new Error(`rotation must be one of ${ROTATION_ANGLES.join(', ')}, got ${String(a.rotation)}`);
+  }
+  if (a.pages !== undefined) {
+    validateNonEmptyString(a.pages, 'pages');
+  }
+}
+
+export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateNonEmptyString(a.outputDir, 'outputDir');
+  if (!Array.isArray(a.ranges) || a.ranges.length === 0 || a.ranges.some((r) => typeof r !== 'string' || r.length === 0)) {
+    throw new Error('ranges must be a non-empty array of page-spec strings (e.g. ["1-3", "4-"])');
+  }
+  if (a.prefix !== undefined) {
+    validateNonEmptyString(a.prefix, 'prefix');
+  }
 }
 
 export function validateCreateTableArgs(args: unknown): asserts args is CreateTableArgs {

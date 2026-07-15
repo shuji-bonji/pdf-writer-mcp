@@ -31,10 +31,11 @@
 - [ ] **B-2. `.ttc` フェイス自動抽出** — Node 単体で完結（現状は検知してエラー）
 - [ ] **B-3. 見出し/本文のフォント分け** — 太字フェイス埋め込み。制約「インライン装飾は字面のみ」の解消と関連
 - [ ] **B-4. 画像埋め込み・ヘッダー/フッター・ページ番号**
-- [ ] **B-5. 編集系ツール**（reader の後段: read → edit → verify。specs/05 の Tier A/B に対応）
-  - Tier A 相当: `set_metadata` / `merge_pdfs` / `split_pdf` / `rotate_pages` / `extract_pages` / `add_bookmarks` / `add_annotation`（DESIGN.md 案の `delete_pages` / `reorder_pages` 含む）
-  - Tier B 相当: `fill_form` / `flatten_form` / `add_watermark` / `attach_file`（PDF/A-3・電帳法）/ `stamp_page_numbers`
-  - 設計原則: 署名済 PDF は増分更新を既定とし署名を壊さない（specs/05 §3-1。本格対応は Tier C `incremental_save`）
+- [x] **B-5a. 編集系 Tier A 第1波**（v0.2.0 実装済み・2026-07-16）
+  - `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages`
+  - 署名ガード実装済み（/ByteRange 検知 → 既定エラー、`allowBreakingSignatures` で続行。specs/05 §3-1 の暫定対応）
+- [ ] **B-5b. 編集系 Tier A 第2波**: `add_bookmarks` / `add_annotation`（pdf-lib 低レベル辞書操作）
+- [ ] **B-5c. 編集系 Tier B**: `fill_form` / `flatten_form` / `add_watermark` / `attach_file`（PDF/A-3・電帳法）/ `stamp_page_numbers`
 - [ ] **B-6. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
 
 ## C. 既知の制約（§10）との対応

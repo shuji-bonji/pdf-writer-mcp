@@ -41,6 +41,23 @@ const commonProperties = {
   },
 } as const;
 
+const editCommonProperties = {
+  outputPath: {
+    type: 'string',
+    description: '保存先ファイルパス。省略した場合は base64 文字列を返す。',
+  },
+  returnBase64: {
+    type: 'boolean',
+    description: 'true の場合、保存に加えて base64 文字列も結果に含める。',
+  },
+  allowBreakingSignatures: {
+    type: 'boolean',
+    description:
+      '編集対象が電子署名済み(/ByteRange 検知)の場合、既定ではエラーにする。' +
+      'true を指定すると署名が無効化されることを承知の上で編集を続行する。',
+  },
+} as const;
+
 export const tools = [
   {
     name: 'create_text_pdf',
@@ -95,6 +112,141 @@ export const tools = [
         ...commonProperties,
       },
       required: ['headers', 'rows'],
+    },
+  },
+  {
+    name: 'set_metadata',
+    description:
+      '既存 PDF のメタデータ(Info 辞書)を更新する。指定したフィールドのみ変更し、他は保持する。' +
+      'title / author / subject / keywords / creator のうち最低 1 つが必要。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '編集対象 PDF の絶対パス。' },
+        title: { type: 'string', description: 'タイトル。' },
+        author: { type: 'string', description: '作成者。' },
+        subject: { type: 'string', description: 'サブタイトル・件名。' },
+        keywords: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'キーワードの配列。',
+        },
+        creator: { type: 'string', description: '作成アプリケーション名。' },
+        ...editCommonProperties,
+      },
+      required: ['inputPath'],
+    },
+  },
+  {
+    name: 'merge_pdfs',
+    description: '複数の PDF を指定順に 1 つへ結合する。文書メタデータは先頭ファイルから引き継ぐ。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPaths: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '結合する PDF の絶対パスの配列(結合順・2 件以上)。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPaths'],
+    },
+  },
+  {
+    name: 'split_pdf',
+    description:
+      'PDF をページ範囲ごとに複数ファイルへ分割する。ranges の各要素が 1 ファイルになる。' +
+      '出力は "<prefix>1.pdf", "<prefix>2.pdf", ... の連番。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '分割対象 PDF の絶対パス。' },
+        ranges: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'ページ範囲指定の配列。各要素は "1-3" / "5" / "7-" / "-2" 形式(1 始まり)。例: ["1-3", "4-"]。',
+        },
+        outputDir: { type: 'string', description: '出力先ディレクトリ。' },
+        prefix: {
+          type: 'string',
+          description: '出力ファイル名の接頭辞。既定は "<入力ファイル名>-part"。',
+        },
+        allowBreakingSignatures: editCommonProperties.allowBreakingSignatures,
+      },
+      required: ['inputPath', 'ranges', 'outputDir'],
+    },
+  },
+  {
+    name: 'extract_pages',
+    description:
+      '指定ページだけを含む新しい PDF を作る。指定順を保持するため、ページの並べ替えを兼ねた抽出も可能。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        pages: {
+          type: 'string',
+          description: 'ページ指定。"1,3-5,8-" 形式(1 始まり)。指定順が出力順になる。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'pages'],
+    },
+  },
+  {
+    name: 'delete_pages',
+    description: '指定ページを削除した新しい PDF を作る。全ページの削除はエラー。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        pages: {
+          type: 'string',
+          description: '削除するページ指定。"1,3-5,8-" 形式(1 始まり)。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'pages'],
+    },
+  },
+  {
+    name: 'reorder_pages',
+    description: 'ページを並べ替える。order には全ページを新しい順序で 1 回ずつ列挙する。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        order: {
+          type: 'array',
+          items: { type: 'number' },
+          description: '新しいページ順(1 始まり)。例: 5 ページの逆順は [5,4,3,2,1]。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'order'],
+    },
+  },
+  {
+    name: 'rotate_pages',
+    description: 'ページを時計回りに回転する(90/180/270 度)。pages 省略時は全ページ。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        rotation: {
+          type: 'number',
+          enum: [90, 180, 270],
+          description: '時計回りの回転角(度)。',
+        },
+        pages: {
+          type: 'string',
+          description: '対象ページ指定。"1,3-5" 形式(1 始まり)。省略時は全ページ。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'rotation'],
     },
   },
 ] as const;

@@ -60,6 +60,86 @@ export interface CreateResult {
 }
 
 /**
+ * すべての編集ツールに共通するオプション
+ */
+export interface CommonEditOptions {
+  /** 出力先パス。指定時はファイルに保存する */
+  outputPath?: string;
+  /** base64 文字列を結果に含めるか（outputPath 未指定なら自動的に true 相当） */
+  returnBase64?: boolean;
+  /** 署名済み PDF（/ByteRange 検知）でも編集を続行するか。既定 false */
+  allowBreakingSignatures?: boolean;
+}
+
+export interface SetMetadataArgs extends CommonEditOptions {
+  /** 編集対象の PDF パス */
+  inputPath: string;
+  title?: string;
+  author?: string;
+  subject?: string;
+  keywords?: string[];
+  creator?: string;
+}
+
+export interface MergePdfsArgs extends CommonEditOptions {
+  /** 結合する PDF のパス（結合順） */
+  inputPaths: string[];
+}
+
+export interface ExtractPagesArgs extends CommonEditOptions {
+  inputPath: string;
+  /** ページ指定（"1,3-5,8-" 形式・1 始まり） */
+  pages: string;
+}
+
+export interface DeletePagesArgs extends CommonEditOptions {
+  inputPath: string;
+  pages: string;
+}
+
+export interface ReorderPagesArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 新しいページ順（1 始まり・全ページを 1 回ずつ） */
+  order: number[];
+}
+
+export interface RotatePagesArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 時計回りの回転角 */
+  rotation: 90 | 180 | 270;
+  /** 対象ページ指定。省略時は全ページ */
+  pages?: string;
+}
+
+export interface SplitPdfArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 分割単位のページ指定の配列。各要素が 1 ファイルになる（例: ["1-3", "4-6", "7-"]） */
+  ranges: string[];
+  /** 出力先ディレクトリ */
+  outputDir: string;
+  /** 出力ファイル名の接頭辞。既定は "<入力名>-part" */
+  prefix?: string;
+}
+
+/**
+ * 編集結果
+ */
+export interface EditResult {
+  path?: string;
+  base64?: string;
+  pageCount: number;
+  bytes: number;
+}
+
+/**
+ * 分割結果
+ */
+export interface SplitResult {
+  files: Array<{ path: string; pageCount: number; bytes: number }>;
+  count: number;
+}
+
+/**
  * MCP レスポンスの content block（最小限）
  */
 export interface ContentBlock {

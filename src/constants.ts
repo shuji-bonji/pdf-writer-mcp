@@ -32,7 +32,14 @@ export const LIMITS = {
   /** 表の最大列数・行数。レイアウト破綻と巨大化の防止 */
   TABLE_MAX_COLS: 40,
   TABLE_MAX_ROWS: 5_000,
+  /** merge の最大入力ファイル数。暴走防止 */
+  MERGE_MAX_INPUTS: 50,
+  /** split の最大分割数。暴走防止 */
+  SPLIT_MAX_PARTS: 200,
 } as const;
+
+/** rotate_pages が受け付ける回転角（時計回り・度） */
+export const ROTATION_ANGLES = [90, 180, 270] as const;
 
 /**
  * フォントファイルのマジックナンバー（先頭 4 bytes）
