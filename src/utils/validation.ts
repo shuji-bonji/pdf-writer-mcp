@@ -80,6 +80,14 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
   if (opts.outputPath !== undefined) {
     validateNonEmptyString(opts.outputPath, 'outputPath');
   }
+
+  if (opts.onMissingGlyph !== undefined) {
+    if (!['error', 'replace', 'ignore'].includes(opts.onMissingGlyph as string)) {
+      throw new Error(
+        `onMissingGlyph must be one of error, replace, ignore, got ${String(opts.onMissingGlyph)}`
+      );
+    }
+  }
 }
 
 export function validatePageSize(value: unknown): asserts value is PageSizeName {

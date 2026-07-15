@@ -5,6 +5,14 @@
 import type { PageSizeName } from '../constants.js';
 
 /**
+ * フォントに存在しない文字（グリフ欠落）の扱い
+ * - error: 欠落文字を列挙してエラー（既定）
+ * - replace: 〓 に置換して警告
+ * - ignore: そのまま描画（空白になる）して警告
+ */
+export type MissingGlyphPolicy = 'error' | 'replace' | 'ignore';
+
+/**
  * すべての生成ツールに共通するオプション
  */
 export interface CommonCreateOptions {
@@ -24,6 +32,8 @@ export interface CommonCreateOptions {
   title?: string;
   /** PDF メタデータ: 作成者 */
   author?: string;
+  /** フォント未収録文字の扱い。既定 'error' */
+  onMissingGlyph?: MissingGlyphPolicy;
 }
 
 export interface CreateTextArgs extends CommonCreateOptions {
@@ -57,6 +67,8 @@ export interface CreateResult {
   bytes: number;
   /** 埋め込みフォント名（標準フォント時は 'Helvetica'） */
   font: string;
+  /** グリフ欠落の置換・無視など、注意すべき事象の報告 */
+  warnings?: string[];
 }
 
 /**

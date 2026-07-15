@@ -39,6 +39,13 @@ const commonProperties = {
     type: 'string',
     description: 'PDF 作成者(メタデータ)。',
   },
+  onMissingGlyph: {
+    type: 'string',
+    enum: ['error', 'replace', 'ignore'],
+    description:
+      'フォントに存在しない文字(例: Noto Sans JP に無い ✔ U+2714)の扱い。' +
+      'error(既定)=欠落文字を列挙してエラー / replace=〓 に置換して警告 / ignore=空白のまま描画して警告。',
+  },
 } as const;
 
 const editCommonProperties = {
