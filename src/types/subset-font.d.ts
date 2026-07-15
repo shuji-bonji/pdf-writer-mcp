@@ -6,8 +6,13 @@ declare module 'subset-font' {
   interface SubsetFontOptions {
     /** 出力フォーマット。'sfnt' は入力のアウトライン形式（CFF/glyf）を維持する */
     targetFormat?: 'sfnt' | 'woff' | 'woff2' | 'truetype';
-    /** OpenType feature タグの指定（省略時は既定のフィーチャを保持） */
+    /** 残す name テーブルの nameId */
     preserveNameIds?: number[];
+    /**
+     * HB_SUBSET_FLAGS_NO_LAYOUT_CLOSURE 相当。
+     * GSUB 等のレイアウト機能から到達するグリフをサブセットに含めない。
+     */
+    noLayoutClosure?: boolean;
     variationAxes?: Record<string, number | { min: number; max: number; default: number }>;
   }
 

@@ -116,7 +116,16 @@ export async function embedFontFor(
   let toEmbed: Uint8Array = source.bytes;
   const used = texts.join('') || ' ';
   try {
-    toEmbed = await subsetFont(Buffer.from(source.bytes), used, { targetFormat: 'sfnt' });
+    // noLayoutClosure: GSUB による字形置換の連鎖を取り込まない。
+    //   pdf-lib(subset:false) は「layout() が返した置換後グリフ」を CID として書く一方、
+    //   ToUnicode は「cmap 由来のベースグリフ」からしか作らないため、置換が起きると
+    //   CID と ToUnicode がずれてテキスト抽出が壊れる（数字が化ける等）。
+    //   置換候補をサブセットに含めなければ置換自体が発生せず、両者が一致する。
+    //   副次効果としてサブセットはさらに小さくなる（実測 9.1KB -> 4.5KB）。
+    toEmbed = await subsetFont(Buffer.from(source.bytes), used, {
+      targetFormat: 'sfnt',
+      noLayoutClosure: true,
+    });
     logger.info(
       CTX,
       `Subset ${source.name} with harfbuzz: ${source.bytes.length} -> ${toEmbed.length} bytes`

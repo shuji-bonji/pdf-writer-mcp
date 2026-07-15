@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.3.0（MVP + Tier A 編集系 第1波 + サブセット方式の刷新） |
+| バージョン | 0.3.1（MVP + Tier A 編集系 第1波 + サブセット方式の刷新） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-16 |
 | ステータス | create 系 3 ツール + 編集系 7 ツール実装済み |
@@ -352,6 +352,26 @@ builder が描画前に全入力テキストを走査する（`applyMissingGlyph
 ignore（従来動作 + warnings）。warnings は `CreateResult.warnings` で返却する。
 標準フォントは従来どおり `assertRenderable`（Latin-1 検査）が担当。
 
+**GSUB 置換と ToUnicode の不整合（v0.3.1・ADR-8）**
+
+pdf-lib の `CustomFontEmbedder`（subset:false）は 2 つの経路で別々にグリフを求める。
+
+| 用途 | 経路 | 結果 |
+|------|------|------|
+| 本文に書く CID | `font.layout(text)` | GSUB 適用**後**のグリフ |
+| ToUnicode CMap | `font.characterSet` → `glyphForCodePoint` | GSUB 適用**前**のベースグリフ |
+
+Noto Sans JP はラテン文脈の数字を別字形に置換するため（`layout('English 0')` の 0 は
+gid 17 ではなく **17460**）、CID と ToUnicode がずれて抽出が壊れる
+（`v0.3.0` → `vô.õ.ô`、poppler では欠落。描画は正しいので気づきにくい）。
+
+対策は harfbuzz サブセット時の `noLayoutClosure: true`。置換候補グリフをサブセットに
+含めないため置換自体が発生せず、`layout()` == `glyphsForString()` となって両者が一致する。
+`render.test.ts` がこの一致を検証する。
+
+> なお `subset:true`（旧実装）は ToUnicode を「実際に描画したグリフ」から作るためこの問題は
+> 起きなかった。つまり **v0.3.0 でのみ発生した回帰**であり、旧実装は別の理由（ADR-7）で破綻していた。
+
 **ToUnicode について**（重要な発見）
 
 pdf-lib の `embedFont(subset)` は **ToUnicode CMap を自動付与する**。
@@ -484,6 +504,7 @@ TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
 | ADR-5 | レイアウトは **自前の薄い層** | Markdown/表の自動組版に必要 | 外部組版ライブラリ（重い・過剰） |
 | ADR-6 | 生成フローを **builder に共通化** | 3ツールで doc→font→engine→render→save が同一 | 各ハンドラで重複実装 |
 | ADR-7 | **fontkit のサブセッタを使わない**（v0.3.0） | Noto Sans JP で glyph が失われ、poppler/Chrome/Firefox/Acrobat すべてで豆腐・空白になることを実測。ToUnicode は正しいため抽出テストでは検知できず、`render.test.ts` で担保する | pdf-lib `embedFont(subset:true)`（破損）、`subset:false` 単体（3.9MB） |
+| ADR-8 | harfbuzz サブセット時に **`noLayoutClosure: true`** を指定（v0.3.1） | pdf-lib(subset:false) は CID を `font.layout()` の結果から、ToUnicode を cmap 由来のベースグリフから作る。GSUB 置換が起きると両者がずれ、抽出が壊れる（§7.1 参照）。置換候補をサブセットに含めなければ置換自体が起きない。副次効果でサイズも縮小（9.1KB→4.5KB） | ToUnicode の後段パッチ（pdf-lib 内部への侵襲）、GSUB テーブルの手動除去（sfnt 再構築が必要） |
 
 ---
 

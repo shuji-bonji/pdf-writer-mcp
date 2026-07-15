@@ -82,6 +82,26 @@ describe.skipIf(!fontPath)('embedded font integrity (glyph outlines survive subs
     expect(broken, `characters lost their outlines after subsetting: ${broken.join('')}`).toEqual([]);
   });
 
+  it('writes CIDs that match the ToUnicode CMap (no GSUB substitution)', async () => {
+    // 回帰: harfbuzz サブセット時に GSUB の字形置換が生きていると、
+    // pdf-lib(subset:false) は「置換後グリフ」を CID として書くのに ToUnicode は
+    // 「ベースグリフ」からしか作られず、抽出が壊れる（例: 数字 0 が ô になる）。
+    // ラテン文脈の数字（v0.3.0 / 123）が最も再現しやすい。
+    const text = 'v0.3.0 描画検証 English 123';
+    const result = (await handleCreateTextPdf({ text, fontPath, returnBase64: true })) as CreateResult;
+    const fontData = extractEmbeddedFont(Buffer.from(result.base64 as string, 'base64'));
+    expect(fontData).toBeDefined();
+
+    const embedded = fontkit.create(fontData as Buffer);
+    // layout()（= pdf-lib が CID 決定に使う経路）と、cmap 直引き（= ToUnicode の作成元）が
+    // 同じグリフを指していること
+    const laidOut = embedded.layout(text).glyphs.map((g) => g.id);
+    const fromCmap = embedded.glyphsForString(text).map((g) => g.id);
+    expect(laidOut, 'layout() substituted glyphs; ToUnicode would not match the written CIDs').toEqual(
+      fromCmap
+    );
+  });
+
   it('subsets the font (output stays far smaller than the source font)', async () => {
     const result = (await handleCreateTextPdf({
       text: '短いテキスト',
