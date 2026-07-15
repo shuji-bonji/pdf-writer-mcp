@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.2.0（MVP + Tier A 編集系 第1波） |
+| バージョン | 0.3.0（MVP + Tier A 編集系 第1波 + サブセット方式の刷新） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-16 |
 | ステータス | create 系 3 ツール + 編集系 7 ツール実装済み |
@@ -318,19 +318,25 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  Start[loadFont fontPath?] --> R{fontPath or<br/>PDF_WRITER_FONT?}
+  Start[openFont fontPath?] --> R{fontPath or<br/>PDF_WRITER_FONT?}
   R -- なし --> STD[標準フォント Helvetica<br/>isStandard=true / ASCII のみ]
   R -- あり --> Read[ファイル読込]
   Read --> Magic{先頭4byte<br/>= 'ttcf'?}
   Magic -- はい --> ErrTTC[エラー: .ttc 非対応<br/>単一フェイス抽出を促す]
-  Magic -- いいえ --> Embed[registerFontkit<br/>embedFont subset:true]
+  Magic -- いいえ --> Probe[fontkit でパース<br/>hasGlyph を用意]
+  Probe --> Policy[applyMissingGlyphPolicy<br/>欠落文字の error/replace/ignore]
+  Policy --> Sub[embedFontFor:<br/>harfbuzz で使用文字のみに subset]
+  Sub -- 失敗 --> Full[警告し元フォントを埋め込む<br/>正しさ優先]
+  Sub -- 成功 --> Embed[embedFont subset:false<br/>※fontkit の再サブセットは使わない]
+  Full --> Embed
   Embed -- 失敗 --> ErrEmbed[エラー: 埋め込み失敗]
   Embed -- 成功 --> OK[LoadedFont<br/>isStandard=false]
 ```
 
-**確定した方針**
+**確定した方針**（v0.3.0 改訂）
 
-- 単一 `.ttf/.otf` を `fontkit` + `subset:true` で埋め込む（16MB フォントでも出力は数十 KB）。
+- 単一 `.ttf/.otf` を **harfbuzz（subset-font）で事前サブセット**し、pdf-lib には `subset:false` で
+  埋め込む。**pdf-lib（fontkit）のサブセッタは使わない** — CJK グリフを破壊するため（ADR-7・付録 A.1）。
 - `.ttc`（TrueTypeCollection）は pdf-lib がサブセット化できず失敗するため、
   マジックバイト `ttcf` で **検知して明示的にエラー**にする（単一フェイス抽出を案内）。
 - フォント未指定時は標準 `Helvetica`（`isStandard=true`）。
@@ -437,6 +443,12 @@ MCP の stdio（JSON-RPC）を汚染しないための最重要規約。
 | `layout.test.ts` | `wrapText`（折返し/CJK/長語分割）・`hasNonLatin1` | 不要（標準フォント） |
 | `generate.test.ts` | 3ツールの生成・ページ数・ガード（日本語×無フォント等） | 一部（skipIf） |
 | `extract.test.ts` | 抽出可能性の回帰（標準=hex復号一致、埋込=ToUnicodeに日→65E5） | 一部（skipIf） |
+| `glyph.test.ts` | onMissingGlyph の error/replace/ignore | 一部（skipIf） |
+| `render.test.ts` | **描画実体の回帰**（埋め込みフォントを取り出し、使用文字のアウトラインが残存するか） | 一部（skipIf） |
+
+> `render.test.ts` の存在理由: v0.2.1 以前のグリフ破損（ADR-7）は ToUnicode が正しかったため
+> `extract.test.ts` を素通りした。**抽出できること ≠ 描画できること**。旧実装に戻すと本テストが
+> 失敗することを確認済み（バグ捕捉能力の検証）。
 
 - 日本語フォント依存テストは `TEST_FONT_PATH` があるときのみ実行（`describe.skipIf`）。
   CI にフォントが無くても標準フォント分は常に検証される。
@@ -455,8 +467,9 @@ TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
 |------|------|------|
 | インライン装飾 | 太字/斜体は字面のみ（書体反映なし） | 単一フォント運用のため |
 | `.ttc` 非対応 | 単一フェイス抽出が必要 | Node 単体で分解困難 |
-| サブセット名接頭辞 | pdf-lib は `ABCDEF+` を付けない | 一部ツールが誤認。表示/抽出は無影響、PDF/A 厳密対応時の課題 |
-| poppler 警告 | `Embedded font file may be invalid` | 無害（表示/抽出/qpdf 健全）。`subset:false` でも解消せず肥大 |
+| サブセット名接頭辞 | `ABCDEF+` を付けない | 一部ツールが誤認。表示/抽出は無影響、PDF/A 厳密対応時の課題 |
+| ~~poppler 警告は無害~~ | ~~`Embedded font file may be invalid`~~ | **誤り（v0.3.0 で訂正）**。この警告は実害ありで、poppler は続けて `Couldn't create a font` を出し全文字が豆腐化していた。原因は fontkit サブセッタのグリフ破損（ADR-7）。harfbuzz 事前サブセットで解消 |
+| フォント種別の警告 | `Mismatch between font type and embedded font file` | 無害。OTF(CFF) を CIDFontType0 として埋め込む際の poppler の指摘で、描画・抽出とも正常 |
 
 ---
 
@@ -465,11 +478,12 @@ TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
 | # | 判断 | 理由 | 却下案 |
 |---|------|------|--------|
 | ADR-1 | コアに **pdf-lib** を採用 | 依存が軽く Node/ESM 純正、既存 pdf 系と親和 | pdfkit（生成専用だが将来の編集で不利）、puppeteer（Chromium 依存で重い） |
-| ADR-2 | フォントは **単一 .ttf/.otf + subset** | サイズ最小・日本語対応 | フルフォント埋め込み（16MB 肥大） |
+| ADR-2 | ~~フォントは 単一 .ttf/.otf + pdf-lib subset~~ → **harfbuzz で事前サブセット + subset:false 埋め込み**（v0.3.0 改訂） | pdf-lib(fontkit) のサブセッタは CJK グリフを破壊し全ビューアで豆腐化する（下記 ADR-7）。harfbuzz なら小さく・正しい | フルフォント埋め込み（3.9MB 肥大）、fontkit subset（破損） |
 | ADR-3 | **.ttc は非対応**（検知して弾く） | pdf-lib が subset 不可、Node 単体分解が困難 | 実行時分解（Python 依存を持ち込むことになる） |
 | ADR-4 | ToUnicode の自前付与は**しない** | pdf-lib が既に正しく出力（実測確認） | 独自 CMap 注入（不要かつ二重化リスク） |
 | ADR-5 | レイアウトは **自前の薄い層** | Markdown/表の自動組版に必要 | 外部組版ライブラリ（重い・過剰） |
 | ADR-6 | 生成フローを **builder に共通化** | 3ツールで doc→font→engine→render→save が同一 | 各ハンドラで重複実装 |
+| ADR-7 | **fontkit のサブセッタを使わない**（v0.3.0） | Noto Sans JP で glyph が失われ、poppler/Chrome/Firefox/Acrobat すべてで豆腐・空白になることを実測。ToUnicode は正しいため抽出テストでは検知できず、`render.test.ts` で担保する | pdf-lib `embedFont(subset:true)`（破損）、`subset:false` 単体（3.9MB） |
 
 ---
 
@@ -517,10 +531,20 @@ reader との連携を自然にする。
 |--------|------|
 | `.ttc` を直接 embed（subset:true） | 失敗（`createSubset is not a function`） |
 | `.ttc` を直接 embed（subset:false） | 失敗（`layout is not a function`） |
-| 単一 `.otf`（16.5MB）を subset:true | 成功、出力 **約 57KB**、日英混在 OK |
 | ToUnicode（pikepdf 検査） | 存在。`<0001> <65E5>`（日）等の正しい逆引き |
 | `pdffonts` | `uni yes`（ToUnicode 認識）、`emb yes` |
 | `qpdf --check` | 構造エラーなし |
+
+### A.1 サブセット方式の比較（v0.3.0・NotoSansJP-Regular.otf 4.5MB / 本文 35 文字）
+
+| 方式 | PDF サイズ | 描画 | 備考 |
+|------|-----------|------|------|
+| pdf-lib `subset:true`（fontkit） | 24KB | ✗ **全滅**（豆腐） | poppler: `Embedded font file may be invalid` → `Couldn't create a font`。Chrome/Firefox/Acrobat/Claude Desktop でも同様。ToUnicode は正しいため**抽出だけは通る**（検知困難） |
+| pdf-lib `subset:false` | 3.9MB | ✓ 正常 | 正しいが実用外のサイズ |
+| **harfbuzz(subset-font) + `subset:false`** | **14.5KB** | **✓ 正常** | **採用**。fontkit サブセットより小さく、かつ正しい |
+
+> 注: TTF（可変フォント）でも fontkit サブセットは同様に破損した（一部文字のみ描画）。
+> 問題は入力フォントの形式ではなく fontkit のサブセッタにある。
 
 ## 付録 B: 参考
 
