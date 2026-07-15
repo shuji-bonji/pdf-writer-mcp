@@ -1,0 +1,470 @@
+# pdf-writer-mcp 設計書
+
+| 項目 | 内容 |
+|------|------|
+| ドキュメント種別 | 設計書（Design Document） |
+| 対象システム | `@shuji-bonji/pdf-writer-mcp` |
+| バージョン | 0.1.0（MVP） |
+| リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
+| 最終更新 | 2026-07-16 |
+| ステータス | MVP 実装完了・稼働確認済み |
+
+---
+
+## 1. 概要
+
+### 1.1 目的
+
+テキスト・Markdown・表データを入力として **PDF を新規生成** する MCP (Model Context Protocol) サーバを提供する。
+LLM エージェント（Claude Desktop 等）から自然言語の指示で、体裁の整った日本語 PDF を生成できることを目標とする。
+
+### 1.2 スコープ
+
+**対象（MVP）**
+
+- プレーンテキスト → PDF
+- Markdown → PDF（見出し・段落・リスト・コード・引用・水平線・表）
+- 表データ（ヘッダ＋行）→ PDF
+- 日本語フォントのサブセット埋め込み
+- ファイル保存 / base64 返却
+
+**対象外（将来）**
+
+- 既存 PDF の編集（結合・分割・回転・透かし・フォーム記入）
+- タグ付き PDF / PDF/UA（アクセシビリティの構造タグ）
+- PDF/A 変換、電子署名（PAdES）
+- 画像埋め込み・ヘッダー/フッター・ページ番号
+
+### 1.3 用語
+
+| 用語 | 説明 |
+|------|------|
+| MCP | Model Context Protocol。LLM とツールを繋ぐプロトコル |
+| サブセット埋め込み | フォントから使用グリフのみを抽出して PDF に埋め込む手法 |
+| ToUnicode CMap | CID/グリフ番号から Unicode への逆引き表。テキスト抽出・検索に必須 |
+| CID フォント | 大規模文字集合（CJK 等）向けのフォント形式 |
+| WinAnsi | 標準14フォントが使う Latin-1 系エンコーディング |
+
+---
+
+## 2. 背景とエコシステム上の位置づけ
+
+本サーバは `shuji-bonji` の PDF 系 MCP 群における「生成（write）」担当である。
+読み取り・検証は既存サーバが担い、責務を分離する。
+
+```mermaid
+graph LR
+  subgraph 生成 write
+    W[pdf-writer-mcp<br/>text / md / table → PDF]
+  end
+  subgraph 読取 read
+    R[pdf-reader-mcp<br/>抽出・構造検査]
+  end
+  subgraph 検証 verify
+    V[pdf-verify-mcp<br/>署名・準拠性]
+  end
+  subgraph 仕様 spec
+    S[pdf-spec-mcp<br/>ISO 32000 参照]
+  end
+  W --> R
+  R --> V
+  S -.仕様根拠.-> W
+  S -.仕様根拠.-> V
+```
+
+将来 writer は「新規生成（create）」に加え「既存 PDF 編集（edit）」の二面性を持ち、
+reader の後段（read → edit → verify）に位置づく想定である（§12 参照）。
+
+---
+
+## 3. 要件
+
+### 3.1 機能要件（FR）
+
+| ID | 要件 |
+|----|------|
+| FR-1 | テキストから PDF を生成できる（改行・空行段落・自動折り返し・改ページ） |
+| FR-2 | Markdown から PDF を生成できる（見出し/リスト/コード/引用/水平線/表） |
+| FR-3 | 表データから罫線付き PDF を生成できる（列幅自動・セル折り返し・改ページ時ヘッダ再描画） |
+| FR-4 | 日本語を含むテキストを、埋め込みフォントで描画できる |
+| FR-5 | 出力をファイル保存、または base64 で返却できる |
+| FR-6 | ページサイズ・マージン・フォントサイズ・タイトル・作成者を指定できる |
+| FR-7 | 生成 PDF のテキストは抽出・検索・コピーが可能である |
+
+### 3.2 非機能要件（NFR）
+
+| ID | 要件 | 方針 |
+|----|------|------|
+| NFR-1 | MCP stdio プロトコルを汚染しない | `console.log` 禁止、全ログを stderr へ |
+| NFR-2 | 不正入力を早期・明確に拒否する | `asserts` バリデーション＋上限値 |
+| NFR-3 | 巨大入力による暴走を防ぐ | テキスト長・表サイズの上限 |
+| NFR-4 | フォント埋め込みサイズを抑える | サブセット化（16MB→数十KB） |
+| NFR-5 | 保守性・拡張性 | レイヤ分離、ツール追加は Map に1行 |
+| NFR-6 | 回帰を防ぐ | vitest による層別テスト |
+
+---
+
+## 4. アーキテクチャ
+
+### 4.1 レイヤ構成
+
+```mermaid
+graph TD
+  A[index.ts<br/>MCP エントリ / ディスパッチャ] --> B[tools/handlers.ts<br/>ツールハンドラ]
+  A --> D[tools/definitions.ts<br/>入力スキーマ]
+  B --> C[utils/validation.ts<br/>入力検査]
+  B --> E[services/builder.ts<br/>生成オーケストレーション]
+  E --> F[services/font-manager.ts<br/>フォント埋め込み]
+  E --> G[services/layout.ts<br/>レイアウトエンジン]
+  E --> H[services/renderers/*<br/>text / markdown / table]
+  E --> I[services/output.ts<br/>保存・base64・メタデータ]
+  H --> G
+  B -.型.-> T[types/index.ts]
+  F -.log.-> L[utils/logger.ts]
+  I -.log.-> L
+```
+
+**設計原則**
+
+- `index.ts` は薄いディスパッチャに徹し、`try/catch` を一元化（`isError:true` を返す）。
+- ハンドラは例外を **throw** する（`{error}` を返さない）。整形は `index.ts` が担う。
+- ビジネスロジック（生成）は `services/` に集約し、レンダラは責務ごとに分割。
+
+### 4.2 ディレクトリ構成
+
+```
+pdf-writer-mcp/
+├── src/
+│   ├── index.ts                     # MCP サーバ起動・ディスパッチ
+│   ├── config.ts                    # 版数（動的取得）・環境変数キー・既定値
+│   ├── constants.ts                 # ページサイズ・上限値・マジックナンバー
+│   ├── types/index.ts               # 共有型
+│   ├── tools/
+│   │   ├── definitions.ts           # ツール入力スキーマ
+│   │   └── handlers.ts              # ハンドラ＋ディスパッチ Map
+│   ├── services/
+│   │   ├── builder.ts               # 生成フロー共通化
+│   │   ├── font-manager.ts          # 埋め込み・.ttc 検知・フォールバック
+│   │   ├── layout.ts                # 折返し・改ページ・描画
+│   │   ├── output.ts                # 保存・base64・メタデータ
+│   │   └── renderers/
+│   │       ├── text.ts              # テキスト
+│   │       ├── markdown.ts          # Markdown
+│   │       └── table.ts             # 表
+│   └── utils/
+│       ├── logger.ts                # stderr ログ抽象化
+│       └── validation.ts            # asserts 検査
+├── tests/                           # validation / layout / generate / extract
+├── docs/DESIGN.md                   # 本書
+├── package.json / tsconfig.json / vitest.config.ts / .gitignore
+└── README.md / LICENSE
+```
+
+### 4.3 責務分担
+
+| モジュール | 責務 | 依存 |
+|-----------|------|------|
+| `index.ts` | MCP 起動、ツール一覧応答、呼出しの try/catch 集約 | tools, logger |
+| `tools/definitions.ts` | JSON スキーマ定義 | （なし） |
+| `tools/handlers.ts` | 検査 → builder 呼出し | validation, builder, renderers |
+| `services/builder.ts` | doc生成→フォント→エンジン→描画→保存の統括 | font-manager, layout, output |
+| `services/font-manager.ts` | フォント読込・埋め込み・種別判定 | pdf-lib, fontkit |
+| `services/layout.ts` | 座標管理・折返し・改ページ・描画 API | pdf-lib |
+| `services/renderers/*` | 各入力を layout API で描画 | layout |
+| `services/output.ts` | メタデータ・保存・base64 | pdf-lib |
+| `utils/validation.ts` | asserts による入力検査 | constants |
+| `utils/logger.ts` | stderr ログ | （なし） |
+
+---
+
+## 5. 処理フロー
+
+### 5.1 起動とツール呼出しのディスパッチ
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP クライアント
+  participant Index as index.ts
+  participant H as handlers
+  Client->>Index: ListTools
+  Index-->>Client: tools[]（definitions）
+  Client->>Index: CallTool(name, args)
+  Index->>Index: toolHandlers[name] を解決
+  alt 未知のツール
+    Index-->>Client: isError, "Unknown tool"
+  else
+    Index->>H: handler(args)
+    H-->>Index: CreateResult / throw
+    Index-->>Client: content(JSON) / isError
+  end
+```
+
+### 5.2 PDF 生成フロー
+
+```mermaid
+sequenceDiagram
+  participant H as handler
+  participant V as validation
+  participant B as builder
+  participant F as font-manager
+  participant L as LayoutEngine
+  participant Rd as renderer
+  participant O as output
+
+  H->>V: validateCreateXxxArgs(args)
+  V-->>H: OK（型が確定）/ throw
+  H->>B: buildPdf(opts, render)
+  B->>F: loadFont(doc, fontPath)
+  F-->>B: LoadedFont{font, name, isStandard}
+  B->>L: new LayoutEngine(doc, opts)
+  opt title 指定
+    B->>L: drawParagraph(title)
+  end
+  B->>Rd: render(engine, loaded)
+  Rd->>L: drawParagraph / drawRule / 表描画
+  B->>O: finalizePdf(doc, opts, fontName)
+  O-->>B: CreateResult{path?, base64?, pageCount, bytes, font}
+  B-->>H: CreateResult
+```
+
+---
+
+## 6. ツール仕様
+
+共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`(A4/A3/A5/LETTER/LEGAL) / `margin` / `title` / `author`。
+
+| ツール | 固有入力 | 説明 |
+|--------|----------|------|
+| `create_text_pdf` | `text: string` | 改行・空行段落・自動折り返し |
+| `create_markdown_pdf` | `markdown: string` | 見出し/リスト/コード/引用/水平線/表 |
+| `create_table_pdf` | `headers: string[]`, `rows: string[][]` | 罫線付き表・改ページ時ヘッダ再描画 |
+
+**返り値（共通）**
+
+```jsonc
+{
+  "path": "/abs/out.pdf",     // outputPath 指定時
+  "base64": "JVBERi0xLj...",  // returnBase64 or outputPath 未指定時
+  "pageCount": 3,
+  "bytes": 91788,
+  "font": "NotoSansJP-Regular.otf"
+}
+```
+
+**入力上限（constants.ts）**
+
+| 項目 | 値 | 根拠 |
+|------|----|------|
+| fontSize | 4〜96 pt | 実用範囲・暴走防止 |
+| margin | 0〜300 pt | 0=全面、上限で破綻防止 |
+| text 最大長 | 500,000 文字 | DoS・巨大PDF防止 |
+| 表 最大列/行 | 40 / 5,000 | レイアウト破綻・肥大防止 |
+
+---
+
+## 7. 主要コンポーネント設計
+
+### 7.1 font-manager（フォント戦略）
+
+最重要の設計判断。日本語生成の可否とサイズを左右する。
+
+```mermaid
+flowchart TD
+  Start[loadFont fontPath?] --> R{fontPath or<br/>PDF_WRITER_FONT?}
+  R -- なし --> STD[標準フォント Helvetica<br/>isStandard=true / ASCII のみ]
+  R -- あり --> Read[ファイル読込]
+  Read --> Magic{先頭4byte<br/>= 'ttcf'?}
+  Magic -- はい --> ErrTTC[エラー: .ttc 非対応<br/>単一フェイス抽出を促す]
+  Magic -- いいえ --> Embed[registerFontkit<br/>embedFont subset:true]
+  Embed -- 失敗 --> ErrEmbed[エラー: 埋め込み失敗]
+  Embed -- 成功 --> OK[LoadedFont<br/>isStandard=false]
+```
+
+**確定した方針**
+
+- 単一 `.ttf/.otf` を `fontkit` + `subset:true` で埋め込む（16MB フォントでも出力は数十 KB）。
+- `.ttc`（TrueTypeCollection）は pdf-lib がサブセット化できず失敗するため、
+  マジックバイト `ttcf` で **検知して明示的にエラー**にする（単一フェイス抽出を案内）。
+- フォント未指定時は標準 `Helvetica`（`isStandard=true`）。
+- 標準フォント × 非 Latin-1 文字（日本語等）は、描画前に **renderer 側で親切なエラー** に変換（§8）。
+
+**ToUnicode について**（重要な発見）
+
+pdf-lib の `embedFont(subset)` は **ToUnicode CMap を自動付与する**。
+そのため生成 PDF は埋め込みフォントでも抽出・検索・コピーが可能。
+当初「抽出不可」と誤認していたが、実測（pikepdf）で ToUnicode に `日→U+65E5` 等の正しい逆引きを確認済み。
+→ 自前の ToUnicode 付与は **不要**。回帰テスト（§9）で担保する。
+
+### 7.2 LayoutEngine（レイアウトエンジン）
+
+pdf-lib の低レベル API（座標指定 `drawText`）の上に、上端(top)基準のカーソル管理を載せる薄い層。
+
+**座標系**
+
+- pdf-lib は左下原点。本エンジンは「上端 `cursorTop`」を管理し、下方向へ積む。
+- ベースライン = `cursorTop - fontSize * ASCENT_RATIO`（`ASCENT_RATIO = 0.8` の近似）。
+- 見出し・本文・表でサイズが変わっても top 基準で一貫して積み上がる。
+
+**折り返しアルゴリズム `wrapText`**
+
+```mermaid
+flowchart TD
+  A[入力テキスト] --> B[改行 \n で行分割<br/>空行は保持]
+  B --> C[各行をトークン化]
+  C --> D{トークン種別}
+  D -- 空白 --> E[行頭なら捨てる]
+  D -- CJK文字 --> F[1文字単位]
+  D -- ラテン語塊 --> G[連続塊]
+  E & F & G --> H{行幅 > maxWidth?}
+  H -- はい --> I[確定して改行]
+  H -- いいえ --> J[行に追加]
+  J --> K{単一トークンが<br/>maxWidth 超?}
+  K -- はい --> L[breakLongToken<br/>文字単位で強制分割]
+  K -- いいえ --> C
+```
+
+- 日英混在に対応（CJK は任意位置改行可、ラテンは単語単位）。
+- URL 等の長大トークンは文字単位で強制分割。
+- 幅測定は `font.widthOfTextAtSize` を使用（標準/埋め込み両対応）。
+
+**主な公開 API**: `drawParagraph` / `drawRule` / `newPage` / `ensureSpace` / `moveDown` /
+アクセサ（`page`, `leftX`, `bottomY`, `contentWidth`, `cursorTop`, `defaultFont`, `defaultSize`）。
+
+### 7.3 renderers
+
+| renderer | 方針 |
+|----------|------|
+| text | 空行で段落分割し `drawParagraph`。冒頭で標準フォント×非Latin1を検査 |
+| markdown | `marked.lexer` でブロックトークン化。heading/paragraph/list/code/blockquote/table/hr/space を描画。インライン記号は除去し字面のみ反映 |
+| table | 列幅を内容から自動算出（上限クランプ→比例配分）。セル折返し、ヘッダ背景、罫線、改ページ時ヘッダ再描画 |
+
+markdown の表描画は table renderer を共有（重複実装を排除）。
+
+### 7.4 output
+
+`setTitle/Author/Producer/CreationDate/ModificationDate` を付与 → `doc.save()`。
+`outputPath` があれば `mkdir -p` して保存、なければ（または `returnBase64`）base64 を返す。
+
+### 7.5 validation
+
+`asserts` 型述語で narrowing しつつ検査。閾値は `constants.ts` に集約。
+`validateCreateTextArgs` / `validateCreateMarkdownArgs` / `validateCreateTableArgs` /
+`validateCommonOptions` / `validatePageSize` を提供。
+
+### 7.6 logger
+
+`debug/info/warn/error` すべて `console.error`（stderr）へ。第1引数に `context` を必須化。
+MCP の stdio（JSON-RPC）を汚染しないための最重要規約。
+
+---
+
+## 8. エラーハンドリング方針
+
+- ハンドラ／サービスは**例外を throw** する。`index.ts` が一元 catch し、
+  `{ content:[{type:text, text:JSON({error})}], isError:true }` に整形。
+- ユーザ起因の誤りは**行動可能なメッセージ**にする。代表例：
+  - 日本語 × フォント未指定 → 「`fontPath` に .ttf/.otf を指定、または `PDF_WRITER_FONT` を設定」
+  - `.ttc` 指定 → 「単一フェイスを抽出してください（fonttools 例つき）」
+  - フォント未検出／埋め込み失敗 → 具体的なパスと原因を提示
+- 標準フォント×非Latin1は、pdf-lib の低レベル例外に頼らず、renderer 冒頭の
+  `assertRenderable` で**事前に**検査して明快に弾く。
+
+---
+
+## 9. テスト戦略
+
+| テスト | 対象 | フォント依存 |
+|--------|------|:---:|
+| `validation.test.ts` | 入力検査の正常/異常系 | 不要 |
+| `layout.test.ts` | `wrapText`（折返し/CJK/長語分割）・`hasNonLatin1` | 不要（標準フォント） |
+| `generate.test.ts` | 3ツールの生成・ページ数・ガード（日本語×無フォント等） | 一部（skipIf） |
+| `extract.test.ts` | 抽出可能性の回帰（標準=hex復号一致、埋込=ToUnicodeに日→65E5） | 一部（skipIf） |
+
+- 日本語フォント依存テストは `TEST_FONT_PATH` があるときのみ実行（`describe.skipIf`）。
+  CI にフォントが無くても標準フォント分は常に検証される。
+- 抽出テストは **外部ツール非依存**（Node の `zlib` でストリーム展開して検証）。
+
+```bash
+npm test                                    # 標準フォント分
+TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
+```
+
+---
+
+## 10. 既知の制約
+
+| 制約 | 内容 | 影響 |
+|------|------|------|
+| インライン装飾 | 太字/斜体は字面のみ（書体反映なし） | 単一フォント運用のため |
+| `.ttc` 非対応 | 単一フェイス抽出が必要 | Node 単体で分解困難 |
+| サブセット名接頭辞 | pdf-lib は `ABCDEF+` を付けない | 一部ツールが誤認。表示/抽出は無影響、PDF/A 厳密対応時の課題 |
+| poppler 警告 | `Embedded font file may be invalid` | 無害（表示/抽出/qpdf 健全）。`subset:false` でも解消せず肥大 |
+
+---
+
+## 11. 設計判断記録（ADR ダイジェスト）
+
+| # | 判断 | 理由 | 却下案 |
+|---|------|------|--------|
+| ADR-1 | コアに **pdf-lib** を採用 | 依存が軽く Node/ESM 純正、既存 pdf 系と親和 | pdfkit（生成専用だが将来の編集で不利）、puppeteer（Chromium 依存で重い） |
+| ADR-2 | フォントは **単一 .ttf/.otf + subset** | サイズ最小・日本語対応 | フルフォント埋め込み（16MB 肥大） |
+| ADR-3 | **.ttc は非対応**（検知して弾く） | pdf-lib が subset 不可、Node 単体分解が困難 | 実行時分解（Python 依存を持ち込むことになる） |
+| ADR-4 | ToUnicode の自前付与は**しない** | pdf-lib が既に正しく出力（実測確認） | 独自 CMap 注入（不要かつ二重化リスク） |
+| ADR-5 | レイアウトは **自前の薄い層** | Markdown/表の自動組版に必要 | 外部組版ライブラリ（重い・過剰） |
+| ADR-6 | 生成フローを **builder に共通化** | 3ツールで doc→font→engine→render→save が同一 | 各ハンドラで重複実装 |
+
+---
+
+## 12. 拡張設計・ロードマップ
+
+将来 writer は「生成」に「編集」を加えた二面性を持つ。
+
+```mermaid
+graph LR
+  U[既存PDF] --> R[pdf-reader-mcp<br/>構造把握]
+  R --> E[edit系<br/>merge/split/rotate<br/>watermark/page番号/form記入]
+  R -.構造情報.-> E
+  subgraph writer
+    C[create系<br/>text/md/table ※MVP]
+    E
+  end
+  C --> V[pdf-verify-mcp]
+  E --> V
+```
+
+**優先順位**
+
+1. **タグ付き PDF / PDF/UA**（アクセシビリティの本格対応。StructTreeRoot・マーク付きコンテンツ。抽出可否とは別レイヤ）
+2. `.ttc` フェイス自動抽出（Node 単体で完結）
+3. 見出し/本文のフォント分け（太字フェイス埋め込み）
+4. 画像埋め込み・ヘッダー/フッター・ページ番号
+5. 編集系（結合・分割・回転・透かし）— reader の後段
+6. PDF/A 変換（サブセット命名の正規化を含む・外部ツール連携）
+
+**命名指針**
+
+- create 系: `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`（現行）
+- edit 系: `merge_pdfs` / `split_pdf` / `rotate_pages` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `delete_pages` / `reorder_pages`
+
+edit 系は「reader が返す構造情報（ページ数・フォームフィールド一覧等）を入力に取る」設計とし、
+reader との連携を自然にする。
+
+---
+
+## 付録 A: フォント埋め込み実測データ
+
+| ケース | 結果 |
+|--------|------|
+| `.ttc` を直接 embed（subset:true） | 失敗（`createSubset is not a function`） |
+| `.ttc` を直接 embed（subset:false） | 失敗（`layout is not a function`） |
+| 単一 `.otf`（16.5MB）を subset:true | 成功、出力 **約 57KB**、日英混在 OK |
+| ToUnicode（pikepdf 検査） | 存在。`<0001> <65E5>`（日）等の正しい逆引き |
+| `pdffonts` | `uni yes`（ToUnicode 認識）、`emb yes` |
+| `qpdf --check` | 構造エラーなし |
+
+## 付録 B: 参考
+
+- pdf-lib: https://pdf-lib.js.org/
+- fontkit: https://github.com/foliojs/fontkit
+- Noto Sans JP（SIL OFL）: https://fonts.google.com/noto/specimen/Noto+Sans+JP
+- MCP 仕様: https://modelcontextprotocol.io/
