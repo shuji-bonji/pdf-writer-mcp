@@ -38,17 +38,25 @@ graph LR
 - **出力先の柔軟性**: ファイル保存 / base64 返却の両対応
 - **堅牢な入力検査**: `asserts` によるバリデーションで不正値を早期に弾く
 
-## インストール / ビルド
-
-```bash
-npm install
-npm run build      # dist/ に出力
-npm test           # vitest
-```
-
 ## MCP クライアント設定
 
-`claude_desktop_config.json`（例）:
+`claude_desktop_config.json`（例、npm 公開版を npx で起動）:
+
+```json
+{
+  "mcpServers": {
+    "pdf-writer": {
+      "command": "npx",
+      "args": ["-y", "@shuji-bonji/pdf-writer-mcp"],
+      "env": {
+        "PDF_WRITER_FONT": "/absolute/path/to/NotoSansJP-Regular.otf"
+      }
+    }
+  }
+}
+```
+
+ローカルのソースから起動する場合:
 
 ```json
 {
@@ -65,6 +73,15 @@ npm test           # vitest
 ```
 
 `PDF_WRITER_FONT` を設定しておくと、各ツールで `fontPath` を省略しても日本語が出せます。
+
+## 開発
+
+```bash
+npm install
+npm run build      # dist/ に出力
+npm test           # vitest
+npm run typecheck  # tsc --noEmit
+```
 
 ## フォントについて（重要）
 
