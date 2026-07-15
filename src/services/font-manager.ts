@@ -1,17 +1,38 @@
 /**
  * Font Manager
  * カスタムフォント（.ttf/.otf）の埋め込みと、標準フォントへのフォールバックを担う。
- * .ttc（TrueTypeCollection）は pdf-lib がサブセット化できないため検知して弾く。
+ *
+ * サブセット戦略（v0.3.0 で変更・ADR-2 改訂）:
+ *   pdf-lib の `embedFont(subset: true)`（= fontkit のサブセッタ）は、Noto Sans JP のような
+ *   CJK フォントでグリフを取りこぼし、**描画が豆腐化する**（poppler: "Embedded font file may be
+ *   invalid" → "Couldn't create a font" / Acrobat: 一部の文字が空白）。ToUnicode は正しいため
+ *   テキスト抽出だけは通り、破損に気づきにくい。
+ *   そこで harfbuzz（subset-font）で**事前にサブセット**し、pdf-lib には subset:false で
+ *   「すでに小さいフォント」を埋め込ませる。実測（本文 35 文字）:
+ *     fontkit subset:true = 24KB（破損） / subset:false = 3.9MB（正常） / harfbuzz = 14.5KB（正常）
+ *
+ * .ttc（TrueTypeCollection）は非対応のため検知して弾く。
  */
 
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import subsetFont from 'subset-font';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
 import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+
+/** 埋め込み前のフォント情報（グリフ照会に使う） */
+export interface FontSource {
+  /** 元のフォントバイト列。標準フォントの場合は undefined */
+  bytes?: Uint8Array;
+  name: string;
+  isStandard: boolean;
+  /** コードポイントのグリフ有無（埋め込みフォントのみ） */
+  hasGlyph?: (codePoint: number) => boolean;
+}
 
 export interface LoadedFont {
   font: PDFFont;
@@ -33,16 +54,15 @@ function magic4(bytes: Uint8Array): string {
 }
 
 /**
- * フォントを読み込んで doc に埋め込む。
+ * フォントファイルを開き、グリフ照会用の情報を返す（まだ doc には埋め込まない）。
  * @param fontPath 明示指定のフォントパス（優先）。未指定なら環境変数 → 標準フォント。
  */
-export async function loadFont(doc: PDFDocument, fontPath?: string): Promise<LoadedFont> {
+export async function openFont(fontPath?: string): Promise<FontSource> {
   const resolvedPath = fontPath ?? process.env[ENV_KEYS.DEFAULT_FONT];
 
   if (!resolvedPath) {
-    const font = await doc.embedFont(StandardFonts.Helvetica);
     logger.info(CTX, 'No fontPath given; using StandardFonts.Helvetica (ASCII only)');
-    return { font, name: 'Helvetica', isStandard: true };
+    return { name: 'Helvetica', isStandard: true };
   }
 
   let bytes: Uint8Array;
@@ -59,32 +79,65 @@ export async function loadFont(doc: PDFDocument, fontPath?: string): Promise<Loa
   if (magic4(bytes) === FONT_MAGIC.TTC) {
     throw new Error(
       `Font file is a TrueTypeCollection (.ttc): ${resolvedPath}. ` +
-        `pdf-lib cannot subset .ttc directly. Extract a single face to .otf/.ttf first ` +
+        `Extract a single face to .otf/.ttf first ` +
         `(e.g. Python fonttools: TTCollection(path).fonts[i].save('out.otf')).`
     );
   }
 
-  doc.registerFontkit(fontkit);
-  let font: PDFFont;
-  try {
-    font = await doc.embedFont(bytes, { subset: true });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to embed font ${resolvedPath}: ${msg}`);
-  }
-
-  // グリフ有無の照会用に fontkit でもパースする（失敗しても埋め込み自体は続行）
-  let hasGlyph: LoadedFont['hasGlyph'];
+  // グリフ有無の照会用にパースする（失敗しても埋め込み自体は続行）
+  let hasGlyph: FontSource['hasGlyph'];
   try {
     const fk = fontkit.create(Buffer.from(bytes));
     hasGlyph = (cp: number) => fk.hasGlyphForCodePoint(cp);
   } catch {
-    logger.warn(CTX, 'fontkit parse for glyph-coverage check failed; missing-glyph detection disabled');
+    logger.warn(CTX, 'Glyph-coverage check unavailable (fontkit parse failed)');
   }
 
-  const name = basename(resolvedPath);
-  logger.info(CTX, `Embedded custom font: ${name}`);
-  return { font, name, isStandard: false, hasGlyph };
+  return { bytes, name: basename(resolvedPath), isStandard: false, hasGlyph };
+}
+
+/**
+ * 実際に描画するテキストに合わせてフォントをサブセットし、doc に埋め込む。
+ * @param texts 描画予定の全テキスト（グリフ欠落ポリシー適用後のもの）
+ */
+export async function embedFontFor(
+  doc: PDFDocument,
+  source: FontSource,
+  texts: string[]
+): Promise<LoadedFont> {
+  if (source.isStandard || !source.bytes) {
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    return { font, name: source.name, isStandard: true };
+  }
+
+  doc.registerFontkit(fontkit);
+
+  // harfbuzz で使用グリフのみに絞る。失敗時は元フォントをそのまま埋め込む（正しさ優先・肥大は許容）
+  let toEmbed: Uint8Array = source.bytes;
+  const used = texts.join('') || ' ';
+  try {
+    toEmbed = await subsetFont(Buffer.from(source.bytes), used, { targetFormat: 'sfnt' });
+    logger.info(
+      CTX,
+      `Subset ${source.name} with harfbuzz: ${source.bytes.length} -> ${toEmbed.length} bytes`
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(CTX, `harfbuzz subsetting failed (${msg}); embedding the full font instead`);
+  }
+
+  let font: PDFFont;
+  try {
+    // subset:false — サブセットは済んでいる。pdf-lib(fontkit) の再サブセットは
+    // グリフ破損を招くため使わない（上部コメント参照）
+    font = await doc.embedFont(toEmbed, { subset: false });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to embed font ${source.name}: ${msg}`);
+  }
+
+  logger.info(CTX, `Embedded custom font: ${source.name}`);
+  return { font, name: source.name, isStandard: false, hasGlyph: source.hasGlyph };
 }
 
 /** 〓（下駄記号）: 日本語組版でのグリフ欠落の慣習的代替 */
@@ -99,10 +152,10 @@ const GETA = 0x3013;
  */
 export function applyMissingGlyphPolicy(
   texts: string[],
-  loaded: LoadedFont,
+  source: Pick<FontSource, 'hasGlyph' | 'name'>,
   policy: MissingGlyphPolicy = 'error'
 ): { texts: string[]; warnings: string[] } {
-  const hasGlyph = loaded.hasGlyph;
+  const hasGlyph = source.hasGlyph;
   // 標準フォントは assertRenderable（Latin-1 検査）側で扱うため対象外
   if (!hasGlyph) return { texts, warnings: [] };
 
@@ -117,13 +170,15 @@ export function applyMissingGlyphPolicy(
 
   const list = [...missing]
     .slice(0, 10)
-    .map((ch) => `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`)
+    .map(
+      (ch) => `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`
+    )
     .join(', ');
   const suffix = missing.size > 10 ? ` and ${missing.size - 10} more` : '';
 
   if (policy === 'error') {
     throw new Error(
-      `The font "${loaded.name}" has no glyph for: ${list}${suffix}. ` +
+      `The font "${source.name}" has no glyph for: ${list}${suffix}. ` +
         'These characters would render as blank boxes. ' +
         'Remove/replace them, use a font that covers them, ' +
         'or set onMissingGlyph to "replace" (substitutes 〓) or "ignore".'
