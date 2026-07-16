@@ -3,18 +3,19 @@
 | 項目 | 内容 |
 |------|------|
 | 作成日 | 2026-07-16 |
-| 最終更新 | 2026-07-16（v0.3.1 時点） |
-| 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 11 = **14 ツール**・**138 passed**・typecheck / biome OK。v0.6.0 は 5 ツール揃ってからタグ付け予定 |
+| 最終更新 | 2026-07-17（v0.6.0 時点） |
+| 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 14 = **17 ツール**・テスト 15 ファイル（約 149 ケース）・typecheck / biome OK。**v0.6.0 リリース済み**（2026-07-16） |
 
 ## 現状サマリ
 
-- ✅ create 系: `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`
-- ✅ 編集系 Tier A 第1波: `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages`
+- ✅ create 系（Tier 0）: `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`（`tagged: true` で PDF/UA-1）
+- ✅ 編集系 Tier A: `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages` / `add_bookmarks` / `add_annotation`
+- ✅ 編集系 Tier B: `attach_file` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `flatten_form`
 - ✅ 日本語フォント埋め込み（**harfbuzz 事前サブセット + subset:false**。ADR-7 / ADR-8）
 - ✅ グリフ欠落ポリシー（`onMissingGlyph`: error / replace / ignore）
 - ✅ 署名ガード（`/ByteRange` 検知 → 既定エラー）
-- ✅ vitest 8 ファイル（validation / layout / generate / extract / **render** / glyph / editor / page-spec）
+- ✅ vitest 15 ファイル（validation / layout / generate / extract / **render** / glyph / editor / page-spec / outline-annotation / tagged / struct-append / attachment / watermark / page-number / form）
 - ✅ CI（typecheck + test、日本語フォント取得込み）・npm Trusted Publisher 公開
 
 ## A. 運用系
@@ -86,8 +87,10 @@
       「入力が準拠していれば出力も準拠」に留まっている（＝壊さないが直しもしない）。
 
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）
-- [ ] **B-7. Tier C** — `edit_text` / `ensure_tagged` / `incremental_save`（署名保持）。pdf-engine-core と合流
-- [ ] **B-6. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
+- [ ] **B-7. Tier C** — `edit_text` / `ensure_tagged` / `incremental_save`（署名保持）。pdf-engine-core と合流。
+      **着手前に署名付与の所在（pdf-signature-mcp 別出し案。specs/05 §7-3）を決着させること**
+- [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
+      ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
 
 ## C. 既知の制約との対応
 
@@ -95,7 +98,7 @@
 |------|-----------|
 | インライン装飾が字面のみ | B-3 |
 | `.ttc` 非対応 | B-2 |
-| サブセット名接頭辞なし | B-6 |
+| サブセット名接頭辞なし | B-8 |
 | 署名済み PDF の編集で署名が無効化 | B-7（`incremental_save`）。暫定は署名ガードで防御済み |
 | poppler の `Mismatch between font type` 警告 | 無害。対応不要 |
 
@@ -108,19 +111,62 @@
   - **veraPDF 委譲が実環境で稼働確認済み**（106 規則）。native の 6 指摘は veraPDF の指摘と矛盾せず、
     ネイティブ規則の妥当性が裏付けられた。同時に native では届かない 4 項目も判明（B-1 の表の太字）
 - [ ] **M-2. reader の `validate_tagged` / `validate_metadata` の deprecation 予告** — verify へ移管済みのため description で誘導 → 次メジャーで削除
-- [ ] **M-6. specs/05 に Tier 0（create 系）を追記** — 実装済み MVP が上位仕様の Tier 体系に存在しない
+- [x] **M-6. specs/05 に Tier 0（create 系）を追記**（2026-07-17）— 実装済み MVP を上位仕様の Tier 体系に位置づけた。DESIGN.md §1.2 / §12 も Tier 対応表に改訂済み
+- [ ] **M-7. 出力パイプライン Skill（pdf-publish）の実装** — trust skill（受入監査）の対になる
+      「write → reader 読み戻し → verify 品質ゲート」の編成 Skill。仕様は
+      `Document-Note/mcps/PDFfamily/specs/07-pdf-publish-skill.md`（2026-07-17 起草）。
+      前提: E-2（構造化エラー）があると分岐が堅牢になるが、初版は無くても開始可能
+
+## E. コード衛生・family 整合（2026-07-17 追加。詳細は PDFfamily `specs/06-family-implementation-standards.md`）
+
+> family 横断レビュー（2026-07-17）で判明した、reader / verify との実装パターンのズレと
+> writer 固有のリスク。出力パイプライン Skill（specs/07）が要求する契約でもあるため、
+> Tier C など機能系の大物より**先に**片付ける。優先度順。
+
+- [ ] **E-1. パス検査の強化** — writer は family で唯一「任意パスへ書き込む」サーバなのに、
+      検査が reader / verify より緩い。
+      - `inputPath` / `outputPath` / `fontPath` / `attachmentPath` に**絶対パスを強制**
+        （相対パスは MCP クライアントの cwd に依存して挙動不定。reader の `validatePdfPath` と同基準）
+      - `..` を含むパスの拒否（トラバーサル防御）
+      - **入力 PDF のサイズ上限**を新設（verify の `MAX_FILE_SIZE` = 50MB 相当。
+        `ATTACHMENT_MAX_BYTES` はあるのに入力 PDF 側が無い。merge は 50 ファイル × 無制限で膨張しうる）
+- [ ] **E-2. 構造化エラーへの移行** — 現状は `{error: message}` の文字列のみ。
+      reader v0.6.0 と同じ `familyCode` / `next_actions` / `retryable` / `hint` 形式に揃える。
+      出力パイプライン Skill が「署名ガード → `allowBreakingSignatures` を提案」等の分岐に使う。
+      例: `SIGNED_PDF`（retryable: フラグ付きで再試行可）/ `FONT_REQUIRED` / `MISSING_GLYPH` /
+      `ENCRYPTED_PDF` / `DOC_NOT_FOUND`
+- [ ] **E-3. stdout ガードの導入** — reader / verify は import 前に `console.log/warn` を
+      stderr へ差し替えるガードを持つ。writer は pdfjs 非依存でリスクは低いが、
+      `marked` / `subset-font`(wasm) を抱えるため family の掟として 1 ファイル追加する
+- [ ] **E-4. tool annotations の付与** — `readOnlyHint` / `destructiveHint` が皆無。
+      family で唯一破壊的操作を持つサーバとして、`delete_pages` / `flatten_form` / `reorder_pages` 等に
+      `destructiveHint: true`、全ツールに適切なヒントを付与する（E-5 と同時実施が自然）
+- [ ] **E-5. McpServer + zod への移行** — 現在は低レベル `Server` + 手書き asserts で、
+      `definitions.ts`（553 行の JSON Schema）と `validation.ts`（502 行）が**同じ制約を二重管理**
+      （fontSize の範囲検査だけで 3 箇所に重複）。zod スキーマに一元化し、
+      reader / verify と同じ `registerTool` パターンに揃える。**外部仕様は不変**（ツール名・入出力とも）
+- [ ] **E-6. 決定論的出力オプション** — `finalizePdf` が CreationDate / ModificationDate に
+      `new Date()` を焼き込むため同一入力でもバイト列が毎回変わる。学習データ工場（read-write-verify
+      ループ）での差分検証・キャッシュ・再現テストのため、日時を固定できるオプション
+      （例: `SOURCE_DATE_EPOCH` 環境変数 or `deterministic: true`）を追加する
 
 ## 依存関係
 
 ```mermaid
 graph LR
-  B5a[B-5a Tier A 第1波<br/>✅ v0.2.0] --> B5b[B-5b Tier A 第2波<br/>しおり・注釈]
-  B5b --> B5c[B-5c Tier B<br/>フォーム・透かし・添付]
-  M1[M-1 verify に PDF/UA 判定] --> B1[B-1 タグ付き生成]
-  B5c --> B7[B-7 Tier C]
+  B5a[B-5a Tier A 第1波<br/>✅ v0.2.0] --> B5b[B-5b Tier A 第2波<br/>✅ v0.4.0]
+  B5b --> B5c[B-5c Tier B<br/>✅ v0.6.0]
+  M1[M-1 verify に PDF/UA 判定<br/>✅] --> B1[B-1 タグ付き生成<br/>✅ v0.5.0]
+  E2[E-2 構造化エラー] -.堅牢化.-> M7[M-7 出力パイプライン Skill]
+  E1[E-1 パス検査] --> E5[E-5 McpServer + zod 移行]
+  E4[E-4 annotations] --> E5
+  B5c --> M7
+  B1 --> M7
+  B5c --> B7[B-7 Tier C<br/>※署名付与の所在を先に決着]
   B1 --> B7
-  B7 --> B6[B-6 PDF/A]
+  B7 --> B8[B-8 PDF/A]
   B2[B-2 .ttc 自動抽出] --> B3[B-3 フォント分け]
   B1 -.検証連携.-> V[pdf-verify-mcp]
-  B5b -.構造情報入力.-> R[pdf-reader-mcp]
+  M7 -.読み戻し.-> R[pdf-reader-mcp]
+  M7 -.品質ゲート.-> V
 ```

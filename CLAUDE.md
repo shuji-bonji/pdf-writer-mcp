@@ -134,8 +134,9 @@ TEST_FONT_PATH=/path/NotoSansJP-Regular.otf npm test  # 全 90 件
 
 1. `package.json` の version を上げる
 2. `CHANGELOG.md` に追記（英語）
-3. コミット → push
-4. `git tag vX.Y.Z && git push origin vX.Y.Z` → `publish.yml` が Trusted Publisher (OIDC) で公開
+3. `docs/DESIGN.md` ヘッダのバージョン行を同期する（放置すると family 側文書が旧版数を参照する）
+4. コミット → push
+5. `git tag vX.Y.Z && git push origin vX.Y.Z` → `publish.yml` が Trusted Publisher (OIDC) で公開
 
 タグと `package.json` の version が一致しないと publish workflow が停止する。
 
