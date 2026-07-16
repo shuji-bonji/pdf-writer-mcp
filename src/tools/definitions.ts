@@ -337,6 +337,57 @@ export const tools = [
     },
   },
   {
+    name: 'stamp_page_numbers',
+    description:
+      '各ページにページ番号を刻む。タグ付き PDF では Artifact として囲むため PDF/UA 準拠を維持する。' +
+      '日本語を含む書式を使う場合は fontPath か環境変数 PDF_WRITER_FONT が必要。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        format: {
+          type: 'string',
+          description:
+            '書式。{n}=現在ページ、{total}=総ページ数。既定 "{n}"。' +
+            '例: "- {n} -" / "{n} / {total}" / "{n} ページ"。{n} を必ず含めること。',
+        },
+        position: {
+          type: 'string',
+          enum: [
+            'bottom-left',
+            'bottom-center',
+            'bottom-right',
+            'top-left',
+            'top-center',
+            'top-right',
+          ],
+          description: '配置。既定 bottom-center。ページの回転(/Rotate)を考慮した見た目の位置。',
+        },
+        margin: { type: 'number', description: '端からの余白(pt)。既定 24。範囲 0〜300。' },
+        fontSize: { type: 'number', description: 'フォントサイズ(pt)。既定 9。範囲 4〜96。' },
+        color: { type: 'string', description: '#rrggbb。既定 #666666。' },
+        fontPath: {
+          type: 'string',
+          description:
+            '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+            '日本語を含む書式には必須。',
+        },
+        pages: {
+          type: 'string',
+          description:
+            '番号を刻むページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。' +
+            '表紙を除くなら "2-" のように指定する。',
+        },
+        startAt: {
+          type: 'number',
+          description: '最初に刻む番号。既定 1。表紙を除いて 1 から始めたい場合などに使う。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath'],
+    },
+  },
+  {
     name: 'attach_file',
     description:
       'PDF にファイルを埋め込む(添付する)。/Names /EmbeddedFiles と catalog /AF に登録し、' +

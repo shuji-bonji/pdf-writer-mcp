@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-16（v0.3.1 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 10 = **13 ツール**・**126 passed**・typecheck / biome OK・npm 公開済み |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 11 = **14 ツール**・**138 passed**・typecheck / biome OK。v0.6.0 は 5 ツール揃ってからタグ付け予定 |
 
 ## 現状サマリ
 
@@ -39,8 +39,12 @@
     PDF/A-3（ISO 19005-3）§6.8 準拠の形。`relationship` 省略時は Unspecified になるため警告する。
     MIME は拡張子から推定、同名は拒否（名前ツリーのキーは一意）、タグ付き PDF に添付しても veraPDF ua1 は COMPLIANT。
     pdf-lib の `attach()` が catalog /AF・/UF・/Params まで書くことを実測で確認済み（自前実装は不要だった）
-  - [ ] `add_watermark` — タグ付き PDF では Artifact にすること（B-1 の基盤が使える）
-  - [ ] `stamp_page_numbers` — 同上（Artifact）
+  - [ ] `add_watermark` — タグ付き PDF では Artifact にすること（`markArtifactOnPage` が使える）
+  - [x] `stamp_page_numbers`（2026-07-16）— `{n}`/`{total}` 書式・6 箇所の配置・`pages`/`startAt`（表紙除外）。
+    **タグ付き PDF では Artifact 化**して veraPDF ua1 の COMPLIANT を維持（7.1-3）。
+    ページ回転（/Rotate）を補正。**編集系で初めてフォントを扱う**ツールで、create 系と同じ font-manager を通す
+    （harfbuzz サブセット・グリフ検査がそのまま効く）。
+    副産物: `parsePageSpec` が開端指定（1 ページ文書への `"2-"`）を「範囲外」でなく「逆順」と誤報していたのを修正
   - [ ] `fill_form` / `flatten_form` — AcroForm。タグ付きでは Widget 注釈の扱いに注意（7.18.1-1 の例外）
 - [x] **B-1. タグ付き PDF / PDF/UA-1**（v0.5.0・2026-07-16）
   - **受け入れ基準を達成**: veraPDF `--flavour ua1` で **106/106 規則・違反 0（COMPLIANT）**。text / markdown / table の 3 ツールすべて

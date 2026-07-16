@@ -43,6 +43,26 @@ export const LIMITS = {
   ATTACHMENT_MAX_BYTES: 100 * 1024 * 1024,
 } as const;
 
+/** stamp_page_numbers の配置 */
+export const STAMP_POSITIONS = [
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+  'top-left',
+  'top-center',
+  'top-right',
+] as const;
+
+/** stamp_page_numbers の既定値 */
+export const STAMP_DEFAULTS = {
+  format: '{n}',
+  position: 'bottom-center',
+  margin: 24,
+  fontSize: 9,
+  color: '#666666',
+  startAt: 1,
+} as const;
+
 /** attach_file が受け付ける AFRelationship（PDF/A-3 §6.8） */
 export const ATTACHMENT_RELATIONSHIPS = [
   'Source',

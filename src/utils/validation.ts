@@ -11,6 +11,7 @@ import {
   PAGE_SIZES,
   type PageSizeName,
   ROTATION_ANGLES,
+  STAMP_POSITIONS,
 } from '../constants.js';
 import type {
   AddAnnotationArgs,
@@ -28,6 +29,7 @@ import type {
   RotatePagesArgs,
   SetMetadataArgs,
   SplitPdfArgs,
+  StampPageNumbersArgs,
 } from '../types/index.js';
 
 export function validateNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -320,6 +322,54 @@ export function validateAttachFileArgs(args: unknown): asserts args is AttachFil
     throw new Error(
       `relationship must be one of ${ATTACHMENT_RELATIONSHIPS.join(', ')}, got ${String(a.relationship)}`,
     );
+  }
+}
+
+export function validateStampPageNumbersArgs(args: unknown): asserts args is StampPageNumbersArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+
+  if (a.format !== undefined) {
+    validateNonEmptyString(a.format, 'format');
+    if (!(a.format as string).includes('{n}')) {
+      throw new Error('format must contain "{n}" (the page number placeholder)');
+    }
+  }
+  if (
+    a.position !== undefined &&
+    !STAMP_POSITIONS.includes(a.position as (typeof STAMP_POSITIONS)[number])
+  ) {
+    throw new Error(
+      `position must be one of ${STAMP_POSITIONS.join(', ')}, got ${String(a.position)}`,
+    );
+  }
+  if (a.margin !== undefined) {
+    if (typeof a.margin !== 'number' || !Number.isFinite(a.margin)) {
+      throw new Error('margin must be a number');
+    }
+    if (a.margin < LIMITS.MARGIN_MIN || a.margin > LIMITS.MARGIN_MAX) {
+      throw new Error(
+        `margin must be between ${LIMITS.MARGIN_MIN} and ${LIMITS.MARGIN_MAX}, got ${a.margin}`,
+      );
+    }
+  }
+  if (a.fontSize !== undefined) {
+    if (typeof a.fontSize !== 'number' || !Number.isFinite(a.fontSize)) {
+      throw new Error('fontSize must be a number');
+    }
+    if (a.fontSize < LIMITS.FONT_SIZE_MIN || a.fontSize > LIMITS.FONT_SIZE_MAX) {
+      throw new Error(
+        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${a.fontSize}`,
+      );
+    }
+  }
+  if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
+  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
+  if (a.startAt !== undefined) {
+    if (typeof a.startAt !== 'number' || !Number.isInteger(a.startAt)) {
+      throw new Error('startAt must be an integer');
+    }
   }
 }
 

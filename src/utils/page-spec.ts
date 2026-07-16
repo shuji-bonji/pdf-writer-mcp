@@ -46,10 +46,13 @@ export function parsePageSpec(spec: string, pageCount: number, fieldName = 'page
         throw new Error(`${fieldName} contains an invalid chunk "${chunk}"`);
       }
       from = m[2] === '' ? 1 : Number(m[2]);
+      // 開端（"8-"）は最終ページまで。ただし範囲判定は from 単体でも行う（下記）
       to = m[3] === '' ? pageCount : Number(m[3]);
     }
 
-    if (from < 1 || to > pageCount) {
+    // 開端指定では to が pageCount に潰れるため、from が範囲外でも from > to になり
+    // 「逆順」と誤報してしまう。範囲の判定を先に、from と to の両方で行う。
+    if (from < 1 || from > pageCount || to > pageCount) {
       throw new Error(
         `${fieldName} chunk "${chunk}" is out of range (document has ${pageCount} page(s))`,
       );

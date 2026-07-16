@@ -50,6 +50,7 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
 | `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
 | `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape for bundling machine-readable data with a document |
+| `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 

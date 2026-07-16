@@ -198,6 +198,45 @@ export interface AddAnnotationArgs extends CommonEditOptions {
   alt?: string;
 }
 
+/** スタンプの配置（ページの回転を考慮した「見た目の」位置） */
+export type StampPosition =
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right'
+  | 'top-left'
+  | 'top-center'
+  | 'top-right';
+
+export interface StampPageNumbersArgs extends CommonEditOptions {
+  inputPath: string;
+  /**
+   * 書式。`{n}` が現在ページ、`{total}` が総ページ数に展開される。
+   * 既定 `{n}`。例: `- {n} -` / `{n} / {total}` / `Page {n} of {total}`
+   */
+  format?: string;
+  /** 配置。既定 bottom-center */
+  position?: StampPosition;
+  /** 端からの余白（pt）。既定 24 */
+  margin?: number;
+  /** フォントサイズ（pt）。既定 9 */
+  fontSize?: number;
+  /** #rrggbb。既定 #666666 */
+  color?: string;
+  /** 埋め込むフォント。省略時は PDF_WRITER_FONT → 標準フォント */
+  fontPath?: string;
+  /** 番号を振るページ指定（"1,3-5,8-"）。省略時は全ページ */
+  pages?: string;
+  /** 最初に振る番号。既定 1（表紙を 0 扱いにする等に使う） */
+  startAt?: number;
+}
+
+export interface StampResult extends EditResult {
+  /** 番号を刻んだページ数 */
+  stamped: number;
+  /** タグ付き PDF で Artifact として囲んだか */
+  artifact: boolean;
+}
+
 /**
  * 埋め込みファイルと本文の関係（PDF/A-3 §6.8 / ISO 32000-2 Table 46）。
  * PDF/A-3 では指定が必須。

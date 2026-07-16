@@ -17,6 +17,8 @@
  */
 
 import {
+  beginMarkedContent,
+  endMarkedContent,
   PDFArray,
   PDFDict,
   type PDFDocument,
@@ -195,6 +197,23 @@ export function appendAnnotationToStructTree(
   page.node.set(PDFName.of('Tabs'), PDFName.of('S'));
 
   return { tagged: true, structParent: key };
+}
+
+/**
+ * 既存ページへの描画を Artifact として囲む（PDF/UA-1 7.1-3）。
+ *
+ * ページ番号・透かしのように「本文の意味を持たない」描画は、タグ付き PDF では
+ * Artifact にしないと「タグ付けされていないコンテンツ」として準拠が壊れる。
+ * タグ無し文書では素のまま描く（構造木を作り始めない）。
+ */
+export function markArtifactOnPage(doc: PDFDocument, page: PDFPage, draw: () => void): void {
+  if (!isTagged(doc)) {
+    draw();
+    return;
+  }
+  page.pushOperators(beginMarkedContent(PDFName.of('Artifact')));
+  draw();
+  page.pushOperators(endMarkedContent());
 }
 
 /** 辞書オブジェクトの間接参照を逆引きする（既存要素の /P を正しく指すため） */

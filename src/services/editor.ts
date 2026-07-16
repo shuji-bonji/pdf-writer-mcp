@@ -16,7 +16,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { degrees, PDFDocument } from 'pdf-lib';
-import { LIMITS } from '../constants.js';
+import { LIMITS, STAMP_DEFAULTS } from '../constants.js';
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
@@ -26,14 +26,19 @@ import type {
   EditResult,
   SetMetadataArgs,
   SplitResult,
+  StampPageNumbersArgs,
+  StampResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
-import { addAnnotation as addAnnotationDict } from './annotation.js';
+import { addAnnotation as addAnnotationDict, parseHexColor } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
+import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
-import { appendAnnotationToStructTree } from './struct-append.js';
+import { formatPageNumber, stampPage } from './page-number.js';
+import { assertRenderable } from './renderers/text.js';
+import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
 export function containsSignature(bytes: Uint8Array): boolean {
@@ -274,6 +279,55 @@ export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResul
     attachment: attached,
     attachments: listEmbeddedFiles(doc).map((f) => f.name),
   };
+}
+
+export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<StampResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const total = doc.getPageCount();
+
+  const format = args.format ?? STAMP_DEFAULTS.format;
+  const position = args.position ?? STAMP_DEFAULTS.position;
+  const margin = args.margin ?? STAMP_DEFAULTS.margin;
+  const fontSize = args.fontSize ?? STAMP_DEFAULTS.fontSize;
+  const startAt = args.startAt ?? STAMP_DEFAULTS.startAt;
+  const color = parseHexColor(args.color ?? STAMP_DEFAULTS.color);
+
+  const targets = args.pages
+    ? parsePageSpec(args.pages, total)
+    : Array.from({ length: total }, (_, i) => i + 1);
+
+  // 刻むテキストを先に確定させる。フォントのサブセットは「実際に描く文字」に依存するため
+  // （ADR-7/8）、番号を振り終えてから埋め込む必要がある。
+  const stamps = targets.map((pageNo, i) => ({
+    page: doc.getPage(pageNo - 1),
+    text: formatPageNumber(format, startAt + i, total),
+  }));
+
+  const source = await openFont(args.fontPath);
+  const texts = stamps.map((s) => s.text);
+  for (const t of texts) assertRenderable(t, source);
+  const applied = applyMissingGlyphPolicy(texts, source, 'error');
+  const loaded = await embedFontFor(doc, source, applied.texts);
+
+  const tagged = isTagged(doc);
+  for (const [i, stamp] of stamps.entries()) {
+    stampPage(stamp.page, applied.texts[i], {
+      font: loaded.font,
+      fontSize,
+      color,
+      position,
+      margin,
+      // タグ付き PDF ではページ番号を Artifact にする（PDF/UA 7.1-3）
+      markArtifact: tagged ? (page, draw) => markArtifactOnPage(doc, page, draw) : undefined,
+    });
+  }
+
+  logger.info(
+    'Editor',
+    `Stamped ${stamps.length} page(s)${tagged ? ' as artifacts (tagged PDF)' : ''}`,
+  );
+  const saved = await saveEdited(doc, args);
+  return { ...saved, stamped: stamps.length, artifact: tagged };
 }
 
 export async function splitPdf(

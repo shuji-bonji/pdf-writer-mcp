@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`stamp_page_numbers`** — stamp page numbers onto an existing PDF (Tier B).
+  - `format` expands `{n}` and `{total}` (`{n} / {total}`, `- {n} -`, `{n} ページ`).
+  - `position` (six corners), `margin`, `fontSize`, `color`, `pages`, `startAt` —
+    `pages: "2-"` with `startAt: 1` numbers everything but the cover from 1.
+  - **Stamps become artifacts on tagged PDFs** (PDF/UA-1 7.1-3). Page numbers
+    carry no meaning for a screen reader, and content that is neither tagged nor
+    marked as an artifact breaks conformance. Verified: veraPDF `ua1` 106/106.
+  - Rotated pages (`/Rotate`) are compensated for, so "bottom-right" lands where
+    the reader sees the bottom right.
+  - The first editing tool that needs a font: it goes through the same
+    font-manager as the create tools, so harfbuzz subsetting (ADR-7/8) and the
+    missing-glyph check apply. Japanese formats need `fontPath` or
+    `PDF_WRITER_FONT`.
+
+### Fixed
+
+- `parsePageSpec` reported an open-ended chunk past the end (`"2-"` on a 1-page
+  document) as *reversed* rather than *out of range* — the open end collapses to
+  `pageCount`, which made `from > to` trigger first.
+
 ## [0.6.0] - 2026-07-16
 
 ### Added

@@ -33,6 +33,16 @@ describe('parsePageSpec', () => {
     expect(() => parsePageSpec('5-99', 10)).toThrow(/out of range/);
   });
 
+  it('reports an open-ended chunk past the end as out of range, not reversed', () => {
+    // 回帰: "2-" は to が pageCount に潰れるため from > to になり、
+    // 1 ページの文書で「reversed」と誤報していた（実際は範囲外）
+    expect(() => parsePageSpec('2-', 1)).toThrow(/out of range/);
+    expect(() => parsePageSpec('11-', 10)).toThrow(/out of range/);
+    // 端は有効
+    expect(parsePageSpec('1-', 1)).toEqual([1]);
+    expect(parsePageSpec('10-', 10)).toEqual([10]);
+  });
+
   it('rejects reversed ranges', () => {
     expect(() => parsePageSpec('5-2', 10)).toThrow(/reversed/);
   });

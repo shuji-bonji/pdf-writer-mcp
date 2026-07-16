@@ -19,12 +19,19 @@ import {
   rotatePages,
   setMetadata,
   splitPdf,
+  stampPageNumbers,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
 import { renderTable } from '../services/renderers/table.js';
 import { renderText } from '../services/renderers/text.js';
-import type { AttachResult, CreateResult, EditResult, SplitResult } from '../types/index.js';
+import type {
+  AttachResult,
+  CreateResult,
+  EditResult,
+  SplitResult,
+  StampResult,
+} from '../types/index.js';
 import {
   validateAddAnnotationArgs,
   validateAddBookmarksArgs,
@@ -39,6 +46,7 @@ import {
   validateRotatePagesArgs,
   validateSetMetadataArgs,
   validateSplitPdfArgs,
+  validateStampPageNumbersArgs,
 } from '../utils/validation.js';
 
 export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> {
@@ -130,6 +138,11 @@ export async function handleAttachFile(args: unknown): Promise<AttachResult> {
   return attachFileToPdf(args);
 }
 
+export async function handleStampPageNumbers(args: unknown): Promise<StampResult> {
+  validateStampPageNumbersArgs(args);
+  return stampPageNumbers(args);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -148,4 +161,5 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   add_bookmarks: handleAddBookmarks,
   add_annotation: handleAddAnnotation,
   attach_file: handleAttachFile,
+  stamp_page_numbers: handleStampPageNumbers,
 };
