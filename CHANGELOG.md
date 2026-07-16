@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-07-16
+
+### Added
+
+- **Editing tools (Tier A, wave 2)**:
+  - `add_bookmarks` — set the document outline. Nestable via `children` (up to 8
+    levels, 2000 entries). Replaces any existing outline. Titles are written as
+    UTF-16BE so CJK round-trips correctly. Open items carry a positive `/Count`,
+    collapsed items a negative one, per ISO 32000-1 §12.3.3.
+  - `add_annotation` — add a `text` (sticky note), `highlight`, or `square`
+    annotation. Coordinates use PDF space (origin bottom-left, points). Colors
+    are `#rrggbb`; `contents` and `author` accept CJK.
+
+  pdf-lib exposes no outline or annotation API, so both are built from the
+  low-level object model (`services/outline.ts`, `services/annotation.ts`).
+
 ## [0.3.1] - 2026-07-16
 
 ### Fixed

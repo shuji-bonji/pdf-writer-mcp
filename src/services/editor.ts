@@ -18,6 +18,8 @@ import { resolve, basename, extname, join } from 'node:path';
 import { PDFDocument, degrees } from 'pdf-lib';
 import { LIMITS } from '../constants.js';
 import type {
+  AddAnnotationArgs,
+  AddBookmarksArgs,
   CommonEditOptions,
   EditResult,
   SetMetadataArgs,
@@ -25,6 +27,8 @@ import type {
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
+import { addAnnotation as addAnnotationDict } from './annotation.js';
+import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
@@ -203,6 +207,23 @@ export async function rotatePages(
     page.setRotation(degrees((((current + rotation) % 360) + 360) % 360));
   }
   return saveEdited(doc, opts);
+}
+
+export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> {
+  const total = countBookmarks(args.bookmarks);
+  if (total > LIMITS.BOOKMARK_MAX_TOTAL) {
+    throw new Error(`too many bookmarks (${total}, max ${LIMITS.BOOKMARK_MAX_TOTAL})`);
+  }
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const added = setBookmarks(doc, args.bookmarks);
+  logger.info('Editor', `Set ${added} bookmark(s)`);
+  return saveEdited(doc, args);
+}
+
+export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  addAnnotationDict(doc, args);
+  return saveEdited(doc, args);
 }
 
 export async function splitPdf(

@@ -236,6 +236,87 @@ export const tools = [
     },
   },
   {
+    name: 'add_bookmarks',
+    description:
+      'PDF にしおり(アウトライン)を設定する。既存のしおりは置換される。children で入れ子にできる。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        bookmarks: {
+          type: 'array',
+          description:
+            'しおりの配列。各要素は { title, page, open?, children? }。' +
+            'page は 1 始まり。children で階層化でき、最大 8 階層・合計 2000 件まで。',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: '表示名。' },
+              page: { type: 'number', description: '移動先ページ(1 始まり)。' },
+              open: {
+                type: 'boolean',
+                description: '子項目を展開した状態で表示するか。既定 true。',
+              },
+              children: {
+                type: 'array',
+                description: '子しおりの配列(同じ形)。',
+                items: { type: 'object' },
+              },
+            },
+            required: ['title', 'page'],
+          },
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'bookmarks'],
+    },
+  },
+  {
+    name: 'add_annotation',
+    description:
+      'ページに注釈を 1 つ追加する。付箋(text) / ハイライト(highlight) / 矩形(square) に対応。' +
+      '座標は PDF 座標系(左下原点・pt)で指定する。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        page: { type: 'number', description: '対象ページ(1 始まり)。' },
+        type: {
+          type: 'string',
+          enum: ['text', 'highlight', 'square'],
+          description: 'text=付箋アイコン / highlight=ハイライト / square=矩形。',
+        },
+        rect: {
+          type: 'object',
+          description: '注釈の矩形。PDF 座標系(左下原点・pt)。x1<x2 かつ y1<y2 であること。',
+          properties: {
+            x1: { type: 'number' },
+            y1: { type: 'number' },
+            x2: { type: 'number' },
+            y2: { type: 'number' },
+          },
+          required: ['x1', 'y1', 'x2', 'y2'],
+        },
+        contents: { type: 'string', description: '注釈の本文(日本語可)。' },
+        author: { type: 'string', description: '作成者名。' },
+        color: {
+          type: 'string',
+          description:
+            '#rrggbb 形式。既定は type ごと(text=#ffd400 / highlight=#ffff00 / square=#ff0000)。',
+        },
+        interiorColor: { type: 'string', description: 'square の塗り色(#rrggbb)。' },
+        icon: {
+          type: 'string',
+          enum: ['Note', 'Comment', 'Key', 'Help', 'NewParagraph', 'Paragraph', 'Insert'],
+          description: 'text のアイコン。既定 Note。',
+        },
+        open: { type: 'boolean', description: 'text を開いた状態にするか。既定 false。' },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'page', 'type', 'rect'],
+    },
+  },
+  {
     name: 'rotate_pages',
     description: 'ページを時計回りに回転する(90/180/270 度)。pages 省略時は全ページ。',
     inputSchema: {

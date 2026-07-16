@@ -134,6 +134,54 @@ export interface SplitPdfArgs extends CommonEditOptions {
 }
 
 /**
+ * しおり（1 項目）。children で入れ子にできる
+ */
+export interface BookmarkInput {
+  /** 表示名 */
+  title: string;
+  /** 移動先ページ（1 始まり） */
+  page: number;
+  /** 子項目を開いた状態で表示するか。既定 true */
+  open?: boolean;
+  children?: BookmarkInput[];
+}
+
+export interface AddBookmarksArgs extends CommonEditOptions {
+  inputPath: string;
+  bookmarks: BookmarkInput[];
+}
+
+/** 注釈の矩形（PDF 座標系・左下原点・pt） */
+export interface AnnotationRect {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export type AnnotationType = 'text' | 'highlight' | 'square';
+
+export interface AddAnnotationArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 対象ページ（1 始まり） */
+  page: number;
+  type: AnnotationType;
+  rect: AnnotationRect;
+  /** 注釈の本文 */
+  contents?: string;
+  /** 作成者（/T） */
+  author?: string;
+  /** #rrggbb。既定は type ごと（text=#ffd400 / highlight=#ffff00 / square=#ff0000） */
+  color?: string;
+  /** square の塗り色 */
+  interiorColor?: string;
+  /** text のアイコン名。既定 Note */
+  icon?: 'Note' | 'Comment' | 'Key' | 'Help' | 'NewParagraph' | 'Paragraph' | 'Insert';
+  /** text を開いた状態にするか。既定 false */
+  open?: boolean;
+}
+
+/**
  * 編集結果
  */
 export interface EditResult {

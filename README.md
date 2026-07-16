@@ -33,6 +33,8 @@ Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize`
 | `delete_pages` | Remove pages (deleting every page is rejected) |
 | `reorder_pages` | Reorder by an explicit permutation of all pages |
 | `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
+| `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
+| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
@@ -125,7 +127,7 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 ## Roadmap
 
 - [x] Editing Tier A wave 1 — metadata and page operations (v0.2.0)
-- [ ] Editing Tier A wave 2 — bookmarks and annotations
+- [x] Editing Tier A wave 2 — bookmarks and annotations (v0.4.0)
 - [ ] Editing Tier B — form filling/flattening, watermarks, attachments, page-number stamping
 - [ ] Tagged PDF / PDF/UA (structure tags for screen readers)
 - [ ] Automatic face extraction from `.ttc`

@@ -33,6 +33,8 @@
 | `delete_pages` | ページ削除（全ページの削除はエラー） |
 | `reorder_pages` | 全ページの順列による並べ替え |
 | `rotate_pages` | 時計回りに回転（90/180/270）。既存の回転に加算 |
+| `add_bookmarks` | しおり（アウトライン）の設定。`children` で入れ子にでき、既存のしおりは置換 |
+| `add_annotation` | 付箋（`text`）/ ハイライト（`highlight`）/ 矩形（`square`）の注釈を追加 |
 
 共通オプション: `outputPath` / `returnBase64` / `allowBreakingSignatures`。
 
@@ -125,7 +127,7 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 ## ロードマップ
 
 - [x] 編集系 Tier A 第1波 — メタデータ・ページ操作（v0.2.0）
-- [ ] 編集系 Tier A 第2波 — しおり・注釈
+- [x] 編集系 Tier A 第2波 — しおり・注釈（v0.4.0）
 - [ ] 編集系 Tier B — フォーム記入 / フラット化、透かし、添付ファイル、ページ番号スタンプ
 - [ ] タグ付き PDF / PDF/UA（スクリーンリーダ向けの構造タグ）
 - [ ] `.ttc` からのフェイス自動抽出

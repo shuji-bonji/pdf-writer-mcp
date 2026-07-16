@@ -19,6 +19,8 @@ import {
   validateDeletePagesArgs,
   validateReorderPagesArgs,
   validateRotatePagesArgs,
+  validateAddBookmarksArgs,
+  validateAddAnnotationArgs,
 } from '../utils/validation.js';
 import { buildPdf } from '../services/builder.js';
 import { renderText } from '../services/renderers/text.js';
@@ -32,6 +34,8 @@ import {
   deletePages,
   reorderPages,
   rotatePages,
+  addBookmarks,
+  addAnnotation,
 } from '../services/editor.js';
 
 export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> {
@@ -110,6 +114,16 @@ export async function handleRotatePages(args: unknown): Promise<EditResult> {
   return rotatePages(args.inputPath, args.rotation, args.pages, args);
 }
 
+export async function handleAddBookmarks(args: unknown): Promise<EditResult> {
+  validateAddBookmarksArgs(args);
+  return addBookmarks(args);
+}
+
+export async function handleAddAnnotation(args: unknown): Promise<EditResult> {
+  validateAddAnnotationArgs(args);
+  return addAnnotation(args);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -125,4 +139,6 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   delete_pages: handleDeletePages,
   reorder_pages: handleReorderPages,
   rotate_pages: handleRotatePages,
+  add_bookmarks: handleAddBookmarks,
+  add_annotation: handleAddAnnotation,
 };

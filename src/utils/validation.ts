@@ -3,7 +3,14 @@
  * asserts 型述語で narrowing しつつ検査。閾値は constants.ts に集約。
  */
 
-import { LIMITS, PAGE_SIZES, ROTATION_ANGLES, type PageSizeName } from '../constants.js';
+import {
+  ANNOTATION_ICONS,
+  ANNOTATION_TYPES,
+  LIMITS,
+  PAGE_SIZES,
+  ROTATION_ANGLES,
+  type PageSizeName,
+} from '../constants.js';
 import type {
   CreateTextArgs,
   CreateMarkdownArgs,
@@ -17,6 +24,8 @@ import type {
   ReorderPagesArgs,
   RotatePagesArgs,
   SplitPdfArgs,
+  AddBookmarksArgs,
+  AddAnnotationArgs,
 } from '../types/index.js';
 
 export function validateNonEmptyString(
@@ -197,6 +206,72 @@ export function validateRotatePagesArgs(args: unknown): asserts args is RotatePa
   }
   if (a.pages !== undefined) {
     validateNonEmptyString(a.pages, 'pages');
+  }
+}
+
+function validateBookmarkTree(items: unknown, path: string): void {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(`${path} must be a non-empty array of bookmark objects`);
+  }
+  for (const [i, raw] of items.entries()) {
+    const where = `${path}[${i}]`;
+    if (typeof raw !== 'object' || raw === null) {
+      throw new Error(`${where} must be an object`);
+    }
+    const b = raw as Record<string, unknown>;
+    validateNonEmptyString(b.title, `${where}.title`);
+    if (typeof b.page !== 'number' || !Number.isInteger(b.page) || b.page < 1) {
+      throw new Error(`${where}.page must be a positive integer (1-based)`);
+    }
+    if (b.open !== undefined && typeof b.open !== 'boolean') {
+      throw new Error(`${where}.open must be a boolean`);
+    }
+    if (b.children !== undefined) {
+      validateBookmarkTree(b.children, `${where}.children`);
+    }
+  }
+}
+
+export function validateAddBookmarksArgs(args: unknown): asserts args is AddBookmarksArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateBookmarkTree(a.bookmarks, 'bookmarks');
+}
+
+export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnnotationArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+
+  if (typeof a.page !== 'number' || !Number.isInteger(a.page) || a.page < 1) {
+    throw new Error('page must be a positive integer (1-based)');
+  }
+  if (!ANNOTATION_TYPES.includes(a.type as (typeof ANNOTATION_TYPES)[number])) {
+    throw new Error(`type must be one of ${ANNOTATION_TYPES.join(', ')}, got ${String(a.type)}`);
+  }
+
+  if (typeof a.rect !== 'object' || a.rect === null) {
+    throw new Error('rect must be an object with x1, y1, x2, y2 (PDF points, origin bottom-left)');
+  }
+  const r = a.rect as Record<string, unknown>;
+  for (const k of ['x1', 'y1', 'x2', 'y2'] as const) {
+    if (typeof r[k] !== 'number' || !Number.isFinite(r[k])) {
+      throw new Error(`rect.${k} must be a finite number`);
+    }
+  }
+  if ((r.x1 as number) >= (r.x2 as number) || (r.y1 as number) >= (r.y2 as number)) {
+    throw new Error('rect must satisfy x1 < x2 and y1 < y2');
+  }
+
+  for (const f of ['contents', 'author', 'color', 'interiorColor'] as const) {
+    if (a[f] !== undefined && typeof a[f] !== 'string') {
+      throw new Error(`${f} must be a string`);
+    }
+  }
+  if (a.icon !== undefined && !ANNOTATION_ICONS.includes(a.icon as (typeof ANNOTATION_ICONS)[number])) {
+    throw new Error(`icon must be one of ${ANNOTATION_ICONS.join(', ')}, got ${String(a.icon)}`);
+  }
+  if (a.open !== undefined && typeof a.open !== 'boolean') {
+    throw new Error('open must be a boolean');
   }
 }
 

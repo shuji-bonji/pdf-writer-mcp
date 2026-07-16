@@ -36,7 +36,24 @@ export const LIMITS = {
   MERGE_MAX_INPUTS: 50,
   /** split の最大分割数。暴走防止 */
   SPLIT_MAX_PARTS: 200,
+  /** しおりの最大総数・最大ネスト深さ */
+  BOOKMARK_MAX_TOTAL: 2_000,
+  BOOKMARK_MAX_DEPTH: 8,
 } as const;
+
+/** add_annotation が受け付ける注釈種別 */
+export const ANNOTATION_TYPES = ['text', 'highlight', 'square'] as const;
+
+/** text 注釈のアイコン名（ISO 32000-1 Table 172 の一般的な値） */
+export const ANNOTATION_ICONS = [
+  'Note',
+  'Comment',
+  'Key',
+  'Help',
+  'NewParagraph',
+  'Paragraph',
+  'Insert',
+] as const;
 
 /** rotate_pages が受け付ける回転角（時計回り・度） */
 export const ROTATION_ANGLES = [90, 180, 270] as const;
