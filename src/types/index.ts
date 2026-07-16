@@ -190,6 +190,12 @@ export interface AddAnnotationArgs extends CommonEditOptions {
   icon?: 'Note' | 'Comment' | 'Key' | 'Help' | 'NewParagraph' | 'Paragraph' | 'Insert';
   /** text を開いた状態にするか。既定 false */
   open?: boolean;
+  /**
+   * 支援技術向けの代替テキスト。
+   * タグ付き PDF では注釈が Annot 構造要素に内包される（PDF/UA 7.18.1-1）ため、
+   * その要素の /Alt になる。タグ無し文書では無視される。
+   */
+  alt?: string;
 }
 
 /**
@@ -200,6 +206,8 @@ export interface EditResult {
   base64?: string;
   pageCount: number;
   bytes: number;
+  /** 注意すべき事象の報告（タグ付き PDF への注釈で alt 未指定、等） */
+  warnings?: string[];
 }
 
 /**

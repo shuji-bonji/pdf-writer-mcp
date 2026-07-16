@@ -150,6 +150,9 @@ pdf-writer-mcp/
 │   │   └── handlers.ts              # ハンドラ＋ディスパッチ Map
 │   ├── services/
 │   │   ├── builder.ts               # 生成フロー共通化
+│   │   ├── struct-tree.ts           # タグ付き PDF: 構造木を「ゼロから構築」（create 系）
+│   │   ├── struct-append.ts         # タグ付き PDF: 既存構造木へ「追記」（編集系）
+│   │   ├── xmp.ts                   # XMP 生成（pdfuaid 宣言・拡張スキーマ・dc:title）
 │   │   ├── editor.ts                # 編集系（Tier A: メタデータ・ページ操作・署名ガード）
 │   │   ├── font-manager.ts          # 埋め込み・.ttc 検知・フォールバック
 │   │   ├── layout.ts                # 折返し・改ページ・描画
@@ -504,6 +507,7 @@ TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
 | ADR-5 | レイアウトは **自前の薄い層** | Markdown/表の自動組版に必要 | 外部組版ライブラリ（重い・過剰） |
 | ADR-6 | 生成フローを **builder に共通化** | 3ツールで doc→font→engine→render→save が同一 | 各ハンドラで重複実装 |
 | ADR-7 | **fontkit のサブセッタを使わない**（v0.3.0） | Noto Sans JP で glyph が失われ、poppler/Chrome/Firefox/Acrobat すべてで豆腐・空白になることを実測。ToUnicode は正しいため抽出テストでは検知できず、`render.test.ts` で担保する | pdf-lib `embedFont(subset:true)`（破損）、`subset:false` 単体（3.9MB） |
+| ADR-9 | 構造木を **「構築（struct-tree）」と「追記（struct-append）」に分離**（v0.5.1） | create 系はゼロから作れるが、編集系は既存の StructTreeRoot / ParentTree を読んで**続きの番号**で追記する必要がある。両者は入力も不変条件も違うため、無理に共通化しない。追記側は Tier C の `ensure_tagged` の足がかりになる | 単一クラスに両モードを持たせる（分岐が増え、ParentTree の不変条件が曖昧になる） |
 | ADR-8 | harfbuzz サブセット時に **`noLayoutClosure: true`** を指定（v0.3.1） | pdf-lib(subset:false) は CID を `font.layout()` の結果から、ToUnicode を cmap 由来のベースグリフから作る。GSUB 置換が起きると両者がずれ、抽出が壊れる（§7.1 参照）。置換候補をサブセットに含めなければ置換自体が起きない。副次効果でサイズも縮小（9.1KB→4.5KB） | ToUnicode の後段パッチ（pdf-lib 内部への侵襲）、GSUB テーブルの手動除去（sfnt 再構築が必要） |
 
 ---

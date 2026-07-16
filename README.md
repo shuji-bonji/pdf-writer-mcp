@@ -48,7 +48,7 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `reorder_pages` | Reorder by an explicit permutation of all pages |
 | `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
-| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page |
+| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
@@ -63,7 +63,7 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
   "mcpServers": {
     "pdf-writer": {
       "command": "npx",
-      "args": ["-y", "@shuji-bonji/pdf-writer-mcp"],
+      "args": ["-y", "@shuji-bonji/pdf-writer-mcp@latest"],
       "env": {
         "PDF_WRITER_FONT": "/absolute/path/to/NotoSansJP-Regular.otf"
       }
@@ -73,6 +73,8 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
 ```
 
 `PDF_WRITER_FONT` lets every tool omit `fontPath` and still render CJK text.
+
+> **Use `@latest` (or pin a version).** `npx -y <pkg>` without a version keeps running whatever it cached the first time — `-y` only skips the install prompt, it does not check for updates. A bare specifier will happily run a months-old release. `@latest` makes npx check the registry on each start; pin `@0.5.0` instead if you want reproducibility. To clear a stale cache: `rm -rf ~/.npm/_npx`.
 
 ## Fonts
 
@@ -143,8 +145,9 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Editing Tier A wave 1 — metadata and page operations (v0.2.0)
 - [x] Editing Tier A wave 2 — bookmarks and annotations (v0.4.0)
 - [x] Tagged PDF / PDF/UA-1 — verified by veraPDF (v0.5.0)
+- [x] Annotations nested in `Annot` tags on tagged output (v0.5.1)
 - [ ] Editing Tier B — form filling/flattening, watermarks, attachments, page-number stamping
-- [ ] Images with alt text (`Figure` + `/Alt`), annotations nested in `Annot` tags for tagged output
+- [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`
 - [ ] Separate faces for headings and body (bold face embedding)
 - [ ] Image embedding, headers/footers

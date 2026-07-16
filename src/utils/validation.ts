@@ -287,7 +287,7 @@ export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnn
     throw new Error('rect must satisfy x1 < x2 and y1 < y2');
   }
 
-  for (const f of ['contents', 'author', 'color', 'interiorColor'] as const) {
+  for (const f of ['contents', 'author', 'color', 'interiorColor', 'alt'] as const) {
     if (a[f] !== undefined && typeof a[f] !== 'string') {
       throw new Error(`${f} must be a string`);
     }

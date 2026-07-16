@@ -17,6 +17,8 @@ import {
   PDFHexString,
   PDFName,
   PDFNumber,
+  type PDFPage,
+  type PDFRef,
   PDFString,
   type RGB,
   rgb,
@@ -39,8 +41,17 @@ function colorArray(doc: PDFDocument, color: RGB): PDFArray {
   return doc.context.obj([color.red, color.green, color.blue]) as PDFArray;
 }
 
-/** 注釈をページに追加する。@returns 追加後のそのページの注釈数 */
-export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): number {
+export interface AddedAnnotation {
+  /** 追加後のそのページの注釈数 */
+  count: number;
+  /** 追加した注釈への参照（構造木へ結び付けるのに使う） */
+  ref: PDFRef;
+  /** 対象ページ */
+  page: PDFPage;
+}
+
+/** 注釈をページに追加する */
+export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedAnnotation {
   const pages = doc.getPages();
   const pageIndex = args.page - 1;
   if (pageIndex < 0 || pageIndex >= pages.length) {
@@ -94,9 +105,10 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): number
     annots = context.obj([]) as PDFArray;
     page.node.set(PDFName.of('Annots'), annots);
   }
-  (annots as PDFArray).push(context.register(dict));
+  const ref = context.register(dict);
+  (annots as PDFArray).push(ref);
 
-  return (annots as PDFArray).size();
+  return { count: (annots as PDFArray).size(), ref, page };
 }
 
 function defaultColor(type: AddAnnotationArgs['type']): string {

@@ -313,6 +313,12 @@ export const tools = [
         },
         contents: { type: 'string', description: '注釈の本文(日本語可)。' },
         author: { type: 'string', description: '作成者名。' },
+        alt: {
+          type: 'string',
+          description:
+            '支援技術向けの代替テキスト。タグ付き PDF では注釈が Annot 構造要素に内包される' +
+            '(PDF/UA 7.18.1-1)ため、その要素の /Alt になる。タグ無し文書では無視される。',
+        },
         color: {
           type: 'string',
           description:

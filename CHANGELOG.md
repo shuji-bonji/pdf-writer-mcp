@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-07-16
+
+### Added
+
+- **`add_annotation` keeps tagged PDFs conformant.** When the target document is
+  tagged, the annotation is now nested in an `Annot` structure element and the
+  page gets `/Tabs /S` — PDF/UA-1 7.18.1-1 and 7.18.3-1. Verified: adding an
+  annotation to a tagged document still passes veraPDF `--flavour ua1` (106/106).
+
+  This closes the gap 0.4.0 left behind: `add_annotation` shipped before tagging
+  existed, and veraPDF flagged it once 0.5.0 made tagged output possible.
+
+- **`alt` option on `add_annotation`** — the alternate text for the `Annot`
+  element. Omitting it on a tagged document produces a `warnings` entry rather
+  than silently emitting an annotation assistive technology cannot describe.
+
+### Notes
+
+`services/struct-append.ts` is a new counterpart to `struct-tree.ts`: the latter
+*builds* a tree from scratch (create tools), the former *appends* to an existing
+one (edit tools). Appending means reading `/ParentTreeNextKey`, inserting into
+the number tree while keeping keys ascending, and writing `/StructParent` back
+onto the annotation — the mechanics a future `ensure_tagged` (Tier C) will need.
+
+Untagged documents are left untouched: no structure tree is invented just because
+an annotation was added.
+
 ## [0.5.0] - 2026-07-16
 
 ### Added

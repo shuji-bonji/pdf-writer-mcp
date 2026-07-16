@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-16（v0.3.1 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 9 = **12 ツール**・**109 passed**・typecheck / biome OK・npm 公開済み |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 9 = **12 ツール**・**116 passed**・typecheck / biome OK・npm 公開済み |
 
 ## 現状サマリ
 
@@ -45,7 +45,14 @@
   - **副産物のバグ修正**: 箇条書きの `•` が .notdef（豆腐）だった（v0.3.0 の回帰）。
     サブセットは入力テキスト基準だが、レンダラは入力に無い文字を足すため漏れていた。
     veraPDF の 7.21.8-1 が発見。抽出は正常だったため既存テストでは検知不能だった
-  - 残課題（別タスク化）: 画像の Figure + /Alt、タグ付き出力での注釈の Annot タグ内包（7.18.1-1）
+  - 残課題（別タスク化）: 画像の Figure + /Alt（→ B-4）
+- [x] **B-1b. タグ付き出力での注釈の Annot タグ内包**（v0.5.1・2026-07-16）
+  - PDF/UA 7.18.1-1（Annot タグ内包）/ 7.18.3-1（/Tabs = /S）に対応。
+    タグ付き PDF に注釈を追加しても **veraPDF ua1 で 106/106 COMPLIANT を維持**
+  - `services/struct-append.ts` を新設（既存構造木への**追記**担当。struct-tree.ts はゼロから**構築**担当）。
+    ParentTreeNextKey の読取・番号ツリーへの昇順挿入・/StructParent の書き戻しを実装 → **Tier C の ensure_tagged の足がかり**
+  - `add_annotation` に `alt` を追加。タグ付き文書で未指定なら warnings で報告
+  - タグ無し文書には構造木を作らない（注釈のためだけにタグ付けを始めない）
 - [ ] **B-2. `.ttc` フェイス自動抽出** — Node 単体で完結（現状は検知してエラー）
 - [ ] **B-3. 見出し / 本文のフォント分け** — 太字フェイス埋め込み。制約「インライン装飾は字面のみ」の解消
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）

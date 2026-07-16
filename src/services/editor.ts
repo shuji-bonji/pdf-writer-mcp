@@ -30,6 +30,7 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict } from './annotation.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
+import { appendAnnotationToStructTree } from './struct-append.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
 export function containsSignature(bytes: Uint8Array): boolean {
@@ -222,8 +223,22 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
 
 export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
   const { doc } = await loadForEdit(args.inputPath, args);
-  addAnnotationDict(doc, args);
-  return saveEdited(doc, args);
+  const added = addAnnotationDict(doc, args);
+
+  // タグ付き PDF なら構造木にも結び付ける（PDF/UA 7.18.1-1 / 7.18.3-1）。
+  // タグ無し文書では何もしない — 注釈のためだけに構造木を作り始めない。
+  const warnings: string[] = [];
+  const linked = appendAnnotationToStructTree(doc, added.page, added.ref, args.alt);
+  if (linked.tagged && !args.alt) {
+    warnings.push(
+      'The document is tagged and the annotation was nested in an Annot structure element. ' +
+        'Pass "alt" to give assistive technology a description of it.',
+    );
+  }
+
+  const result = await saveEdited(doc, args);
+  if (warnings.length > 0) result.warnings = warnings;
+  return result;
 }
 
 export async function splitPdf(
