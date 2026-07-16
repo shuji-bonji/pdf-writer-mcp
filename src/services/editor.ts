@@ -80,6 +80,14 @@ async function loadForEdit(
     throw new Error(`Cannot read PDF file: ${absPath}`);
   }
 
+  // 入力サイズ上限（E-1）: pdf-lib は全体をメモリに載せるため verify と同水準で防御
+  if (bytes.byteLength > LIMITS.INPUT_PDF_MAX_BYTES) {
+    throw new Error(
+      `"${absPath}" is too large (${Math.round(bytes.byteLength / 1024 / 1024)}MB, ` +
+        `max ${LIMITS.INPUT_PDF_MAX_BYTES / 1024 / 1024}MB)`,
+    );
+  }
+
   if (containsSignature(bytes) && !opts.allowBreakingSignatures) {
     throw new Error(
       `"${absPath}" appears to be digitally signed (/ByteRange found). ` +

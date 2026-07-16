@@ -41,6 +41,11 @@ export const LIMITS = {
   BOOKMARK_MAX_DEPTH: 8,
   /** 埋め込みファイルの最大サイズ（バイト）。PDF 全体がメモリに載るため上限を設ける */
   ATTACHMENT_MAX_BYTES: 100 * 1024 * 1024,
+  /**
+   * 入力 PDF の最大サイズ（バイト）。pdf-lib は全体をメモリに載せるため、
+   * verify（MAX_FILE_SIZE = 100MB）と同水準の上限を設ける。
+   */
+  INPUT_PDF_MAX_BYTES: 100 * 1024 * 1024,
 } as const;
 
 /** stamp_page_numbers の配置 */

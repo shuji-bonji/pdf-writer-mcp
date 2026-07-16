@@ -3,6 +3,7 @@
  * asserts 型述語で narrowing しつつ検査。閾値は constants.ts に集約。
  */
 
+import { isAbsolute } from 'node:path';
 import {
   ANNOTATION_ICONS,
   ANNOTATION_TYPES,
@@ -41,6 +42,25 @@ export function validateNonEmptyString(value: unknown, fieldName: string): asser
   }
   if (value.length === 0) {
     throw new Error(`${fieldName} must not be empty`);
+  }
+}
+
+/**
+ * ファイルパスの検査（E-1）。
+ * writer は family で唯一「任意パスへ書き込む」サーバなので、
+ * 絶対パスを強制し ".." セグメントを拒否する。
+ * 解決結果ではなく指定文字列そのものを検査する（"/a/../b" のような
+ * 意図の読めない指定を、正規化して通すのではなく明示的に拒否する）。
+ */
+export function validatePath(value: unknown, fieldName: string): asserts value is string {
+  validateNonEmptyString(value, fieldName);
+  if (!isAbsolute(value)) {
+    throw new Error(
+      `${fieldName} must be an absolute path (e.g. "/path/to/file.pdf"), got "${value}"`,
+    );
+  }
+  if (value.split(/[/\\]+/).includes('..')) {
+    throw new Error(`${fieldName} must not contain ".." segments, got "${value}"`);
   }
 }
 
@@ -87,11 +107,11 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
   }
 
   if (opts.fontPath !== undefined) {
-    validateNonEmptyString(opts.fontPath, 'fontPath');
+    validatePath(opts.fontPath, 'fontPath');
   }
 
   if (opts.outputPath !== undefined) {
-    validateNonEmptyString(opts.outputPath, 'outputPath');
+    validatePath(opts.outputPath, 'outputPath');
   }
 
   if (opts.onMissingGlyph !== undefined) {
@@ -151,7 +171,7 @@ function asEditArgs(args: unknown): Record<string, unknown> {
   const a = args as Record<string, unknown>;
   const opts = a as CommonEditOptions;
   if (opts.outputPath !== undefined) {
-    validateNonEmptyString(opts.outputPath, 'outputPath');
+    validatePath(opts.outputPath, 'outputPath');
   }
   if (
     opts.allowBreakingSignatures !== undefined &&
@@ -164,7 +184,7 @@ function asEditArgs(args: unknown): Record<string, unknown> {
 
 export function validateSetMetadataArgs(args: unknown): asserts args is SetMetadataArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   for (const f of ['title', 'author', 'subject', 'creator'] as const) {
     if (a[f] !== undefined && typeof a[f] !== 'string') {
       throw new Error(`${f} must be a string`);
@@ -190,11 +210,11 @@ export function validateSetMetadataArgs(args: unknown): asserts args is SetMetad
 
 export function validateMergePdfsArgs(args: unknown): asserts args is MergePdfsArgs {
   const a = asEditArgs(args);
-  if (
-    !Array.isArray(a.inputPaths) ||
-    a.inputPaths.some((p) => typeof p !== 'string' || p.length === 0)
-  ) {
-    throw new Error('inputPaths must be an array of non-empty strings');
+  if (!Array.isArray(a.inputPaths)) {
+    throw new Error('inputPaths must be an array of absolute paths');
+  }
+  for (const [i, p] of a.inputPaths.entries()) {
+    validatePath(p, `inputPaths[${i}]`);
   }
   if (a.inputPaths.length < 2) {
     throw new Error('inputPaths must contain at least 2 files to merge');
@@ -206,19 +226,19 @@ export function validateMergePdfsArgs(args: unknown): asserts args is MergePdfsA
 
 export function validateExtractPagesArgs(args: unknown): asserts args is ExtractPagesArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   validateNonEmptyString(a.pages, 'pages');
 }
 
 export function validateDeletePagesArgs(args: unknown): asserts args is DeletePagesArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   validateNonEmptyString(a.pages, 'pages');
 }
 
 export function validateReorderPagesArgs(args: unknown): asserts args is ReorderPagesArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   if (
     !Array.isArray(a.order) ||
     a.order.length === 0 ||
@@ -230,7 +250,7 @@ export function validateReorderPagesArgs(args: unknown): asserts args is Reorder
 
 export function validateRotatePagesArgs(args: unknown): asserts args is RotatePagesArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   if (!ROTATION_ANGLES.includes(a.rotation as (typeof ROTATION_ANGLES)[number])) {
     throw new Error(
       `rotation must be one of ${ROTATION_ANGLES.join(', ')}, got ${String(a.rotation)}`,
@@ -266,13 +286,13 @@ function validateBookmarkTree(items: unknown, path: string): void {
 
 export function validateAddBookmarksArgs(args: unknown): asserts args is AddBookmarksArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   validateBookmarkTree(a.bookmarks, 'bookmarks');
 }
 
 export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnnotationArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
 
   if (typeof a.page !== 'number' || !Number.isInteger(a.page) || a.page < 1) {
     throw new Error('page must be a positive integer (1-based)');
@@ -312,8 +332,8 @@ export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnn
 
 export function validateAttachFileArgs(args: unknown): asserts args is AttachFileArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
-  validateNonEmptyString(a.attachmentPath, 'attachmentPath');
+  validatePath(a.inputPath, 'inputPath');
+  validatePath(a.attachmentPath, 'attachmentPath');
 
   for (const f of ['name', 'description', 'mimeType'] as const) {
     if (a[f] !== undefined) validateNonEmptyString(a[f], f);
@@ -330,7 +350,7 @@ export function validateAttachFileArgs(args: unknown): asserts args is AttachFil
 
 export function validateStampPageNumbersArgs(args: unknown): asserts args is StampPageNumbersArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
 
   if (a.format !== undefined) {
     validateNonEmptyString(a.format, 'format');
@@ -367,7 +387,7 @@ export function validateStampPageNumbersArgs(args: unknown): asserts args is Sta
     }
   }
   if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
-  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
   if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
   if (a.startAt !== undefined) {
     if (typeof a.startAt !== 'number' || !Number.isInteger(a.startAt)) {
@@ -378,7 +398,7 @@ export function validateStampPageNumbersArgs(args: unknown): asserts args is Sta
 
 export function validateAddWatermarkArgs(args: unknown): asserts args is AddWatermarkArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   validateNonEmptyString(a.text, 'text');
 
   if (a.fontSize !== undefined) {
@@ -408,13 +428,13 @@ export function validateAddWatermarkArgs(args: unknown): asserts args is AddWate
     throw new Error('behind must be a boolean');
   }
   if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
-  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
   if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
 }
 
 export function validateFillFormArgs(args: unknown): asserts args is FillFormArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
+  validatePath(a.inputPath, 'inputPath');
   if (typeof a.fields !== 'object' || a.fields === null || Array.isArray(a.fields)) {
     throw new Error('fields must be an object mapping field names to values');
   }
@@ -436,7 +456,7 @@ export function validateFillFormArgs(args: unknown): asserts args is FillFormArg
       );
     }
   }
-  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
   if (a.flatten !== undefined && typeof a.flatten !== 'boolean') {
     throw new Error('flatten must be a boolean');
   }
@@ -447,8 +467,8 @@ export function validateFillFormArgs(args: unknown): asserts args is FillFormArg
 
 export function validateFlattenFormArgs(args: unknown): asserts args is FlattenFormArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
-  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  validatePath(a.inputPath, 'inputPath');
+  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
   if (a.allowBreakingTags !== undefined && typeof a.allowBreakingTags !== 'boolean') {
     throw new Error('allowBreakingTags must be a boolean');
   }
@@ -456,8 +476,8 @@ export function validateFlattenFormArgs(args: unknown): asserts args is FlattenF
 
 export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArgs {
   const a = asEditArgs(args);
-  validateNonEmptyString(a.inputPath, 'inputPath');
-  validateNonEmptyString(a.outputDir, 'outputDir');
+  validatePath(a.inputPath, 'inputPath');
+  validatePath(a.outputDir, 'outputDir');
   if (
     !Array.isArray(a.ranges) ||
     a.ranges.length === 0 ||

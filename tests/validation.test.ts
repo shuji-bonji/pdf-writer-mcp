@@ -4,7 +4,9 @@ import {
   validateCreateMarkdownArgs,
   validateCreateTableArgs,
   validateCreateTextArgs,
+  validateMergePdfsArgs,
   validatePageSize,
+  validatePath,
 } from '../src/utils/validation.js';
 
 describe('validateCreateTextArgs', () => {
@@ -52,6 +54,35 @@ describe('validatePageSize', () => {
 
   it.each(['B5', 'a4', '', 4, null])('rejects %p', (v) => {
     expect(() => validatePageSize(v)).toThrow();
+  });
+});
+
+describe('validatePath (E-1)', () => {
+  it('accepts an absolute path', () => {
+    expect(() => validatePath('/tmp/out.pdf', 'outputPath')).not.toThrow();
+  });
+
+  it.each(['relative/out.pdf', './out.pdf', 'out.pdf'])('rejects relative path: %p', (p) => {
+    expect(() => validatePath(p, 'outputPath')).toThrow(/absolute/);
+  });
+
+  it.each(['/tmp/../etc/passwd', '/a/b/../c.pdf', '/..'])('rejects ".." segment: %p', (p) => {
+    expect(() => validatePath(p, 'inputPath')).toThrow(/\.\./);
+  });
+
+  it.each(['', 42, null, undefined])('rejects non-string / empty: %p', (v) => {
+    expect(() => validatePath(v, 'inputPath')).toThrow();
+  });
+
+  it('applies to common create options (outputPath / fontPath)', () => {
+    expect(() => validateCommonOptions({ outputPath: 'rel.pdf' })).toThrow(/absolute/);
+    expect(() => validateCommonOptions({ fontPath: '../font.otf' })).toThrow();
+  });
+
+  it('applies to each mergePdfs input', () => {
+    expect(() => validateMergePdfsArgs({ inputPaths: ['/a.pdf', 'b.pdf'] })).toThrow(
+      /inputPaths\[1\]/,
+    );
   });
 });
 
