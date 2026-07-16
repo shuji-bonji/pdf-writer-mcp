@@ -29,14 +29,17 @@ import {
   type PDFField,
   type PDFFont,
   type PDFForm,
+  PDFHexString,
   PDFName,
   PDFOptionList,
+  type PDFPage,
   PDFRadioGroup,
   PDFRef,
   PDFSignature,
   PDFStream,
   PDFTextField,
 } from 'pdf-lib';
+import { appendWidgetToStructTree } from './struct-append.js';
 
 /** フィールドに設定できる値 */
 export type FieldValue = string | number | boolean | string[];
@@ -103,7 +106,7 @@ export function listFields(doc: PDFDocument): FormFieldInfo[] {
 }
 
 /** 「見つからないフィールド名」を、実在する名前つきで伝えるためのエラー */
-function unknownFieldError(name: string, form: PDFForm): Error {
+export function unknownFieldError(name: string, form: PDFForm): Error {
   const available = form
     .getFields()
     .map((f) => `${f.getName()} (${kindOf(f)})`)
@@ -298,4 +301,126 @@ export function cleanUpAfterFlatten(doc: PDFDocument): number {
  */
 export function refreshAppearances(form: PDFForm, font: PDFFont): void {
   form.updateFieldAppearances(font);
+}
+
+// ---------------------------------------------------------------------------
+// tag_form_fields（PDF/UA-1 7.18.4-1 / 7.18.3-1 / 7.18.1-3）
+// ---------------------------------------------------------------------------
+
+/** フィールド 1 件が持つ Widget 注釈の情報 */
+interface WidgetInfo {
+  fieldName: string;
+  widgetRef: PDFRef;
+  /** Widget が載っているページ。/Annots から見つからなければ undefined（孤児） */
+  page: PDFPage | undefined;
+  /** 既に /StructParent を持つ（＝構造木に結ばれている）か */
+  hasStructParent: boolean;
+}
+
+/**
+ * 終端フィールドの Widget 注釈を列挙する。
+ *
+ * pdf-lib のフィールドは 2 形態ある:
+ *   - `addToPage` で作られたもの: Widget は /Kids 配下の別オブジェクト
+ *   - フィールド辞書自身が Widget を兼ねる「マージ形」: /Kids が無い
+ * どちらも扱えるよう、/Kids があればその参照を、無ければフィールド自身の参照を使う。
+ */
+function enumerateWidgets(doc: PDFDocument): WidgetInfo[] {
+  const out: WidgetInfo[] = [];
+  const pages = doc.getPages();
+
+  // ページ /Annots に参照を持つページを逆引きする
+  const pageOf = (ref: PDFRef): PDFPage | undefined => {
+    for (const page of pages) {
+      const annots = page.node.lookup(PDFName.of('Annots'));
+      if (!(annots instanceof PDFArray)) continue;
+      for (let i = 0; i < annots.size(); i++) {
+        const v = annots.get(i);
+        if (v instanceof PDFRef && v.toString() === ref.toString()) return page;
+      }
+    }
+    return undefined;
+  };
+
+  const widgetInfo = (fieldName: string, ref: PDFRef): WidgetInfo => {
+    const dict = doc.context.lookup(ref);
+    const hasStructParent =
+      dict instanceof PDFDict && dict.get(PDFName.of('StructParent')) !== undefined;
+    return { fieldName, widgetRef: ref, page: pageOf(ref), hasStructParent };
+  };
+
+  for (const field of doc.getForm().getFields()) {
+    const kids = field.acroField.dict.lookup(PDFName.of('Kids'));
+    if (kids instanceof PDFArray) {
+      for (let i = 0; i < kids.size(); i++) {
+        const kid = kids.get(i);
+        if (kid instanceof PDFRef) out.push(widgetInfo(field.getName(), kid));
+      }
+    } else {
+      // マージ形: フィールド辞書自身が Widget
+      out.push(widgetInfo(field.getName(), field.ref));
+    }
+  }
+  return out;
+}
+
+export interface TagWidgetsOutcome {
+  /** 新たに Form 構造要素へ内包した Widget 数 */
+  tagged: number;
+  /** 既に構造木に結ばれていて何もしなかった Widget 数 */
+  skipped: number;
+  /** どのページの /Annots にも見つからなかった Widget のフィールド名 */
+  orphaned: string[];
+  /** /TU をフィールド名で代用したフィールド名（labels 未指定・既存 /TU 無し） */
+  unlabeled: string[];
+}
+
+/**
+ * タグ付き PDF のフォームを PDF/UA-1 準拠へ修復する本体。
+ *
+ *   - 7.18.4-1: 各 Widget を `Form` 構造要素に内包する（OBJR + /StructParent + ParentTree）
+ *   - 7.18.3-1: Widget のあるページに /Tabs /S を立てる（appendWidgetToStructTree が行う）
+ *   - 7.18.1-3: フィールドに /TU（代替名）を付与する。labels に無く既存 /TU も無い
+ *     フィールドはフィールド名で代用し、unlabeled として報告する
+ *
+ * 冪等: 既に /StructParent を持つ Widget はスキップするため、二度実行しても
+ * 構造要素が重複しない。呼び出し側で isTagged を確認してから呼ぶこと。
+ */
+export function tagWidgets(doc: PDFDocument, labels: Record<string, string>): TagWidgetsOutcome {
+  const form = doc.getForm();
+
+  // labels の名前は実在するフィールドでなければならない（誤記の黙殺を防ぐ）
+  for (const name of Object.keys(labels)) {
+    if (!form.getFieldMaybe(name)) throw unknownFieldError(name, form);
+  }
+
+  // 7.18.1-3: /TU（代替フィールド名）
+  const unlabeled: string[] = [];
+  for (const field of form.getFields()) {
+    const name = field.getName();
+    const dict = field.acroField.dict;
+    const label = labels[name];
+    if (label !== undefined) {
+      dict.set(PDFName.of('TU'), PDFHexString.fromText(label));
+    } else if (dict.get(PDFName.of('TU')) === undefined) {
+      dict.set(PDFName.of('TU'), PDFHexString.fromText(name));
+      unlabeled.push(name);
+    }
+  }
+
+  // 7.18.4-1 / 7.18.3-1: Widget を Form 構造要素へ
+  const outcome: TagWidgetsOutcome = { tagged: 0, skipped: 0, orphaned: [], unlabeled };
+  for (const w of enumerateWidgets(doc)) {
+    if (w.hasStructParent) {
+      outcome.skipped++;
+      continue;
+    }
+    if (!w.page) {
+      outcome.orphaned.push(w.fieldName);
+      continue;
+    }
+    const appended = appendWidgetToStructTree(doc, w.page, w.widgetRef);
+    if (appended.tagged) outcome.tagged++;
+  }
+  return outcome;
 }

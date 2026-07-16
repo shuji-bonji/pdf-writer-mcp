@@ -69,6 +69,14 @@ export async function buildPdf(
         'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
       );
     }
+    if (source.isStandard) {
+      // veraPDF 実測（2026-07-17）: 標準フォントは 7.21.4.1-1（フォント埋め込み）で必ず違反になる
+      warnings.push(
+        'The standard font (Helvetica) is not embedded, but PDF/UA-1 (7.21.4.1) requires all ' +
+          'fonts to be embedded — this tagged PDF will NOT pass conformance validation. ' +
+          'Pass "fontPath" (or set PDF_WRITER_FONT) to embed a font.',
+      );
+    }
     lang = opts.lang;
     if (!lang) {
       const inferred = inferLang(applied.texts.join('\n'));

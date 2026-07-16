@@ -55,6 +55,7 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
 | `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
 | `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
+| `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1: nest widgets in `Form` structure elements (7.18.4-1), set `/Tabs S` (7.18.3-1), add `/TU` alternate names (7.18.1-3). Pass `labels` with human-readable names; idempotent, so safe to re-run |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
@@ -180,6 +181,7 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Annotations nested in `Annot` tags on tagged output (v0.5.1)
 - [x] Editing Tier B — file attachments, form filling/flattening, watermarks, page-number stamping (v0.6.0)
 - [x] Code hygiene / family alignment — McpServer + Zod, structured errors, absolute-path enforcement, stdout guard, tool annotations, deterministic output (v0.7.0)
+- [x] `tag_form_fields` — PDF/UA repair for forms in tagged PDFs, verified COMPLIANT by veraPDF (v0.8.0)
 - [ ] Publish-pipeline skill (write → read back with pdf-reader → gate with pdf-verify)
 - [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`

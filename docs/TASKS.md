@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 14 = **17 ツール**・テスト 18 ファイル・typecheck / biome OK。**v0.7.0 リリース済み**（2026-07-17。E-1〜E-6 一括対応: McpServer + Zod・構造化エラー・パス検査・stdout ガード・annotations・決定論的出力） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 19 ファイル（240 ケース）・typecheck / biome OK。**v0.8.0**（2026-07-17。`tag_form_fields` 追加、タグ付き×標準フォントの警告） |
 
 ## 現状サマリ
 
@@ -77,15 +77,15 @@
   - タグ無し文書には構造木を作らない（注釈のためだけにタグ付けを始めない）
 - [ ] **B-2. `.ttc` フェイス自動抽出** — Node 単体で完結（現状は検知してエラー）
 - [ ] **B-3. 見出し / 本文のフォント分け** — 太字フェイス埋め込み。制約「インライン装飾は字面のみ」の解消
-- [ ] **B-6. `tag_form_fields`（タグ付きフォームの修復）** — `fill_form` の実装中に veraPDF で判明した機会。
-      タグ付き PDF に AcroForm があるだけでは PDF/UA-1 に通らず、次の 3 つが要る:
-      - `7.18.4-1` Widget を **Form** 構造要素に入れる（OBJR で参照）
+- [x] **B-6. `tag_form_fields`（タグ付きフォームの修復）**（v0.8.0・2026-07-17）
+      - `7.18.4-1` Widget を **Form** 構造要素に内包（`struct-append.ts` の機構を `Annot`/`Form` に一般化）
       - `7.18.3-1` ページ辞書に `/Tabs S`
-      - `7.18.1-3` フィールドに `/TU`、または内包する構造要素に `/Alt`
-
-      機構は注釈のときの `appendAnnotationToStructTree`（struct-append.ts）とほぼ同じで、
-      タグ名を `Annot` から `Form` に変えて `/TU` を足せばよい。現状 `fill_form` は構造木に触らないため、
-      「入力が準拠していれば出力も準拠」に留まっている（＝壊さないが直しもしない）。
+      - `7.18.1-3` フィールドに `/TU`（`labels` で人間可読名を指定。未指定はフィールド名で代用し警告）
+      - 冪等（/StructParent 持ちはスキップ）。pdf-lib の /Kids 形とマージ形の両 Widget に対応。
+        タグ無し文書は拒否（ゼロからのタグ付けは create 系 tagged / Tier C ensure_tagged の領分）
+      - **veraPDF 実測**: 修復前は 7.18.1-3/7.18.3-1/7.18.4-1 のみ違反 → 修復後 **COMPLIANT (106/106)**
+      - 副産物: `tagged: true` × 標準フォントは 7.21.4.1-1 で必ず違反になることが判明 →
+        create 系に警告を追加（フォント埋め込みが PDF/UA の必要条件）
 
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）
 - [ ] **B-7. Tier C** — `edit_text` / `ensure_tagged` / `incremental_save`（署名保持）。pdf-engine-core と合流。

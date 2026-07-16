@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-07-17
+
+### Added
+
+- **`tag_form_fields`** — repair the form inside an already-tagged PDF so it
+  conforms to PDF/UA-1 (B-6). A tagged PDF that merely *contains* an AcroForm
+  fails validation; this tool retrofits the three requirements:
+
+  - **7.18.4-1**: every Widget annotation is nested in a `Form` structure
+    element (`OBJR` + `/StructParent` + ParentTree registration — the same
+    machinery `add_annotation` uses for `Annot` elements, now generalised in
+    `struct-append.ts`).
+  - **7.18.3-1**: pages carrying widgets get `/Tabs /S`.
+  - **7.18.1-3**: every field gets a `/TU` (alternate name). Pass `labels`
+    with human-readable names (`{"user.name": "氏名"}`); fields without a
+    label fall back to the field name and are reported via `warnings`,
+    because screen readers announce `/TU` and "user.name" reads poorly.
+
+  Idempotent: widgets that already have `/StructParent` are skipped, so
+  running it twice never duplicates structure elements. Untagged documents
+  are rejected (`INVALID_ARGUMENT`) — creating a structure tree from scratch
+  is the create tools' job (`tagged: true`) or future Tier C `ensure_tagged`.
+  Handles both widget forms pdf-lib produces (`/Kids` children) and merged
+  field/widget dictionaries from other producers.
+
+  **Measured with veraPDF** (`--flavour ua1`): a tagged PDF with an untagged
+  form fails exactly 7.18.1-3 / 7.18.3-1 / 7.18.4-1; after `tag_form_fields`
+  it is **COMPLIANT (106/106)**.
+
+- **Warning for `tagged: true` with the standard font** — found while
+  verifying the above: Helvetica is never embedded, so a tagged PDF built
+  without `fontPath` always fails PDF/UA-1 7.21.4.1-1. The create tools now
+  warn that the output will not validate and point at `fontPath` /
+  `PDF_WRITER_FONT`.
+
 ## [0.7.0] - 2026-07-17
 
 コードレビュー（2026-07-17）と TASKS.md E 系（コード衛生・family 整合）への

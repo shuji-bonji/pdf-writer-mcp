@@ -21,6 +21,7 @@ import {
   flattenForm,
   setMetadata,
   stampPageNumbers,
+  tagFormFields,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
 import {
@@ -41,6 +42,7 @@ import type {
   FormResult,
   SplitResult,
   StampResult,
+  TagFormFieldsResult,
   WatermarkResult,
 } from '../types/index.js';
 import {
@@ -62,6 +64,7 @@ import {
   SetMetadataSchema,
   SplitPdfSchema,
   StampPageNumbersSchema,
+  TagFormFieldsSchema,
 } from '../utils/validation.js';
 
 export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> {
@@ -174,6 +177,11 @@ export async function handleFlattenForm(args: unknown): Promise<FormResult> {
   return flattenForm(a);
 }
 
+export async function handleTagFormFields(args: unknown): Promise<TagFormFieldsResult> {
+  const a = parseArgs(TagFormFieldsSchema, args);
+  return tagFormFields(a);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -196,4 +204,5 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   add_watermark: handleAddWatermark,
   fill_form: handleFillForm,
   flatten_form: handleFlattenForm,
+  tag_form_fields: handleTagFormFields,
 };

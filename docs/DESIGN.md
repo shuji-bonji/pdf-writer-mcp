@@ -4,10 +4,10 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.7.0（+ コード衛生・family 整合 = TASKS.md E-1〜E-6 一括対応） |
+| バージョン | 0.8.0（+ tag_form_fields = タグ付きフォームの PDF/UA 修復） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
-| ステータス | create 系 3（PDF/UA 対応）+ 編集系 14 = **17 ツール**実装済み。McpServer + Zod・構造化エラー・stdout ガード・決定論的出力対応 |
+| ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。McpServer + Zod・構造化エラー・stdout ガード・決定論的出力対応 |
 
 > **本書のバージョン行は `package.json` と同期させること。** リリース手順（CLAUDE.md）に
 > 「DESIGN.md ヘッダの更新」を含める。v0.3.1→v0.6.0 の間、本書が未更新のまま放置され、
@@ -204,7 +204,7 @@ pdf-writer-mcp/
 │       ├── page-spec.ts             # "1,3-5,8-" ページ指定パーサ
 │       ├── stdout-guard.ts          # console.log/warn を stderr へ差し替え（side-effect first）
 │       └── validation.ts            # Zod スキーマ（shape + フルスキーマ + パス/サイズ検査）
-├── tests/                           # 18 ファイル（§9 参照）
+├── tests/                           # 19 ファイル（§9 参照）
 ├── docs/DESIGN.md                   # 本書
 ├── package.json / tsconfig.json / vitest.config.ts / .gitignore
 └── README.md / LICENSE
@@ -318,7 +318,7 @@ sequenceDiagram
 
 ### 6.1 編集系ツール
 
-> 本節はフローの説明として Tier A 第1波の表を残す。**全 17 ツールの一覧と説明は README を正とする**
+> 本節はフローの説明として Tier A 第1波の表を残す。**全 18 ツールの一覧と説明は README を正とする**
 > （しおり・注釈・Tier B 5 ツールを含む。二重管理を避けるため本書では列挙しない）。
 
 共通オプション: `outputPath` / `returnBase64` / `allowBreakingSignatures`。
@@ -562,7 +562,8 @@ MCP の stdio（JSON-RPC）を汚染しないための最重要規約。
 | `outline-annotation.test.ts` | しおり・注釈 | 一部（skipIf） |
 | `tagged.test.ts` / `struct-append.test.ts` | 構造木の構築 / 追記（PDF/UA） | 一部（skipIf） |
 | `attachment.test.ts` / `watermark.test.ts` / `page-number.test.ts` / `form.test.ts` | Tier B 各ツール（Artifact 化・宙吊り参照の掃除を含む） | 一部（skipIf） |
-| `registry.test.ts` | **外部仕様のスナップショット固定**（InMemoryTransport で 17 ツールの名前・必須フィールド・annotations を検証。E-5 移行の非破壊性を担保） | 不要 |
+| `registry.test.ts` | **外部仕様のスナップショット固定**（InMemoryTransport で 18 ツールの名前・必須フィールド・annotations を検証。E-5 移行の非破壊性を担保） | 不要 |
+| `form-tagging.test.ts` | `tag_form_fields`（Form 内包・OBJR・/Tabs・/TU・冪等性・タグ無し拒否） | 不要 |
 | `errors.test.ts` | 構造化エラー（code / next_actions / retryable の整形） | 不要 |
 | `deterministic.test.ts` | SOURCE_DATE_EPOCH による同一入力 → 同一バイト列 | 一部（skipIf） |
 
@@ -634,6 +635,7 @@ graph LR
 | **Tier 0**（create 系。M-6 で specs/05 に追記） | 新規生成 + タグ付き PDF / PDF/UA-1 生成 | `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`（`tagged: true`） | ✅ v0.1.0 / v0.5.0 |
 | **Tier A** | メタデータ・ページ操作・しおり・注釈 | `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages` / `add_bookmarks` / `add_annotation` | ✅ v0.2.0 / v0.4.0 |
 | **Tier B** | フォーム・透かし・添付・ページ番号 | `attach_file` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `flatten_form` | ✅ v0.6.0 |
+| **Tier B+**（PDF/UA 修復） | タグ付きフォームの修復 | `tag_form_fields`（7.18.4-1 / 7.18.3-1 / 7.18.1-3。veraPDF 106/106 実測） | ✅ v0.8.0 |
 | **Tier C** | 本文編集・タグ木保守・増分更新 | `edit_text` / `ensure_tagged` / `incremental_save` | 未着手（pdf-engine-core と合流） |
 
 **残りの優先順位**
@@ -642,10 +644,11 @@ graph LR
    （E-1〜E-6: パス検査・構造化エラー・stdout ガード・annotations・McpServer + Zod・決定論的出力）
 2. **出力パイプライン Skill（pdf-publish）の実装**（TASKS.md M-7 / PDFfamily specs/07）—
    前提だった E-2（構造化エラー）が揃ったため、コード分岐ベースで着手可能
-3. `tag_form_fields`（タグ付きフォームの修復。TASKS.md B-6）、画像の Figure + /Alt
+3. ~~tag_form_fields~~ **v0.8.0 で完了**。残: 画像の Figure + /Alt（B-4 と一体）
 4. `.ttc` フェイス自動抽出、見出し/本文のフォント分け、画像・ヘッダー/フッター
 5. Tier C（`edit_text` / `ensure_tagged` / `incremental_save`）= pdf-engine-core と合流。
-   着手前に**署名付与の所在（pdf-signature-mcp 別出し案）を決着**させる（specs/05 §7-3）
+   着手前に**署名付与の所在（pdf-signature-mcp 別出し案）を決着**させる（specs/05 §7-3）。
+   `tag_form_fields` と `struct-append.ts` の一般化（Annot/Form）が ensure_tagged の足がかり
 6. PDF/A 変換（サブセット命名の正規化を含む・外部ツール連携）
 
 **受け入れ基準**（2026-07-17 改訂）

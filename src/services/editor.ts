@@ -35,6 +35,8 @@ import type {
   SetMetadataArgs,
   StampPageNumbersArgs,
   StampResult,
+  TagFormFieldsArgs,
+  TagFormFieldsResult,
   WatermarkResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
@@ -49,6 +51,7 @@ import {
   listFields,
   readOnlyWarnings,
   refreshAppearances,
+  tagWidgets,
 } from './form.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
@@ -383,6 +386,79 @@ function flattenAndWarn(
     logger.info('Editor', `Pruned ${pruned} dangling reference(s) left by pdf-lib's flatten()`);
   }
   return true;
+}
+
+/**
+ * タグ付き PDF のフォームを PDF/UA-1 準拠へ修復する（B-6）。
+ *
+ * fill_form は「入力が準拠していれば出力も準拠」（構造木に触らない）だが、
+ * タグ付き PDF に AcroForm が**あるだけ**では PDF/UA-1 に通らない。本ツールが
+ * 7.18.4-1（Widget を Form 構造要素に内包）/ 7.18.3-1（/Tabs S）/
+ * 7.18.1-3（フィールドに /TU）を後付けで満たす。
+ *
+ * タグ無し文書は対象外（フォームのためだけに構造木を作り始めない —
+ * ゼロからのタグ付けは create 系の tagged: true、既存文書の完全なタグ付けは
+ * Tier C の ensure_tagged の領分）。
+ */
+export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFieldsResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+
+  if (!isTagged(doc)) {
+    throw new PdfWriterError(
+      `"${args.inputPath}" is not a tagged PDF, so there is no structure tree to repair. ` +
+        'tag_form_fields fixes forms inside already-tagged PDFs (PDF/UA-1 7.18.4).',
+      'INVALID_ARGUMENT',
+      {
+        hint:
+          'To produce a tagged PDF from scratch, use the create tools with "tagged": true. ' +
+          'Full tagging of an existing untagged PDF (ensure_tagged) is a future Tier C feature.',
+      },
+    );
+  }
+
+  const form = doc.getForm();
+  if (form.hasXFA()) {
+    throw new PdfWriterError(
+      'This PDF uses XFA forms, which pdf-writer-mcp does not support.',
+      'UNSUPPORTED_PDF_FEATURE',
+    );
+  }
+  if (form.getFields().length === 0) {
+    throw invalidArg(`"${args.inputPath}" has no AcroForm fields to tag.`);
+  }
+
+  const outcome = tagWidgets(doc, args.labels ?? {});
+
+  const warnings: string[] = [];
+  if (outcome.unlabeled.length > 0) {
+    warnings.push(
+      `No label given for ${outcome.unlabeled.length} field(s); the field name was used as /TU ` +
+        `(${outcome.unlabeled.join(', ')}). Pass "labels" with human-readable names — ` +
+        'screen readers announce /TU, and "user.name" reads poorly.',
+    );
+  }
+  if (outcome.orphaned.length > 0) {
+    warnings.push(
+      `${outcome.orphaned.length} widget(s) were not found in any page's /Annots and were left ` +
+        `untouched (${outcome.orphaned.join(', ')}).`,
+    );
+  }
+
+  logger.info(
+    'Editor',
+    `Tagged ${outcome.tagged} widget(s) into Form structure elements` +
+      (outcome.skipped > 0 ? `, ${outcome.skipped} already tagged` : ''),
+  );
+
+  // 値は変えないので pdf-lib の外観再生成（Helvetica）を走らせない
+  const saved = await saveEdited(doc, args, { updateFieldAppearances: false });
+  return {
+    ...saved,
+    taggedWidgets: outcome.tagged,
+    skippedWidgets: outcome.skipped,
+    fields: listFields(doc),
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
 }
 
 export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {

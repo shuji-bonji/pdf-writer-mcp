@@ -284,6 +284,12 @@ export interface FlattenFormArgs extends CommonEditOptions {
   allowBreakingTags?: boolean;
 }
 
+export interface TagFormFieldsArgs extends CommonEditOptions {
+  inputPath: string;
+  /** フィールド名 → 人間可読な代替名（/TU）。省略したフィールドはフィールド名で代用し警告する */
+  labels?: Record<string, string>;
+}
+
 /** フォーム 1 フィールドの情報 */
 export interface FormFieldSummary {
   name: string;
@@ -300,6 +306,15 @@ export interface FormResult extends EditResult {
   /** フラット化したか */
   flattened: boolean;
   /** 処理後のフィールド一覧（フラット化後は空） */
+  fields: FormFieldSummary[];
+}
+
+export interface TagFormFieldsResult extends EditResult {
+  /** 新たに Form 構造要素へ内包した Widget 数 */
+  taggedWidgets: number;
+  /** 既に構造木に結ばれていてスキップした Widget 数 */
+  skippedWidgets: number;
+  /** 処理後のフィールド一覧 */
   fields: FormFieldSummary[];
 }
 

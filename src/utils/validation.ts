@@ -398,6 +398,20 @@ export const flattenFormShape = {
   ...commonEditShape,
 } as const;
 
+export const tagFormFieldsShape = {
+  inputPath,
+  labels: z
+    .record(z.string(), z.string().min(1))
+    .optional()
+    .describe(
+      'フィールド名 → 人間可読な代替名(/TU)。スクリーンリーダが読み上げる名前で、' +
+        '例: {"user.name": "氏名", "agree": "利用規約に同意する"}。' +
+        '省略したフィールドはフィールド名を /TU に代用し、warnings で報告する。' +
+        '存在しないフィールド名を指定するとエラーに全フィールド名が列挙される。',
+    ),
+  ...commonEditShape,
+} as const;
+
 export const attachFileShape = {
   inputPath,
   attachmentPath: zPath.describe('埋め込むファイルの絶対パス。'),
@@ -453,6 +467,7 @@ export const StampPageNumbersSchema = z.object(stampPageNumbersShape);
 export const AddWatermarkSchema = z.object(addWatermarkShape);
 export const FillFormSchema = z.object(fillFormShape);
 export const FlattenFormSchema = z.object(flattenFormShape);
+export const TagFormFieldsSchema = z.object(tagFormFieldsShape);
 export const AttachFileSchema = z.object(attachFileShape);
 
 /**

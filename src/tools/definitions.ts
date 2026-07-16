@@ -30,6 +30,7 @@ import {
   setMetadataShape,
   splitPdfShape,
   stampPageNumbersShape,
+  tagFormFieldsShape,
 } from '../utils/validation.js';
 
 export interface ToolAnnotations {
@@ -186,6 +187,18 @@ export const tools: ToolDefinition[] = [
       '(allowBreakingTags: true で強行可)。',
     shape: flattenFormShape,
     annotations: { ...base, destructiveHint: true },
+  },
+  {
+    name: 'tag_form_fields',
+    title: 'Tag Form Fields (PDF/UA repair)',
+    description:
+      'タグ付き PDF のフォームを PDF/UA-1 準拠へ修復する。Widget 注釈を Form 構造要素に内包し' +
+      '(7.18.4-1)、対象ページに /Tabs S を立て(7.18.3-1)、フィールドに代替名 /TU を付与する' +
+      '(7.18.1-3)。labels でスクリーンリーダ向けの人間可読な名前を渡すこと。' +
+      '既に構造木に結ばれた Widget はスキップするため何度実行しても安全。' +
+      'タグ無し文書は対象外(create 系の tagged: true でゼロから作るか、将来の ensure_tagged を待つ)。',
+    shape: tagFormFieldsShape,
+    annotations: base,
   },
   {
     name: 'attach_file',

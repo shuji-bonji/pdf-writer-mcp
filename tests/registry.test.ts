@@ -25,6 +25,7 @@ const EXPECTED_TOOLS: Record<string, string[]> = {
   add_watermark: ['inputPath', 'text'],
   fill_form: ['inputPath', 'fields'],
   flatten_form: ['inputPath'],
+  tag_form_fields: ['inputPath'],
   attach_file: ['inputPath', 'attachmentPath'],
   rotate_pages: ['inputPath', 'rotation'],
 };
@@ -42,7 +43,7 @@ beforeAll(async () => {
 });
 
 describe('tool registry (external spec)', () => {
-  it('exposes exactly the 17 expected tools', () => {
+  it('exposes exactly the 18 expected tools', () => {
     expect(listed.map((t) => t.name).sort()).toEqual(Object.keys(EXPECTED_TOOLS).sort());
   });
 

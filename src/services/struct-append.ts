@@ -7,6 +7,7 @@
  *
  * PDF/UA-1 の該当要件:
  *   - 7.18.1-1: Widget / PrinterMark / Link 以外の注釈は Annot タグに内包する
+ *   - 7.18.4-1: Widget 注釈（フォームフィールド）は Form タグに内包する
  *   - 7.18.3-1: 注釈のあるページは /Tabs を /S にする
  *
  * ParentTree（§14.7.4.4）は「キー昇順の番号ツリー」であり、追記には
@@ -128,15 +129,41 @@ export interface AppendAnnotResult {
 }
 
 /**
- * 既存のタグ付き PDF に注釈を構造木へ結び付ける。
- *
+ * 既存のタグ付き PDF に注釈を構造木へ結び付ける（PDF/UA 7.18.1-1）。
  * `Annot` 要素を Document 直下に足し、その /K に OBJR（注釈への参照）を置く。
- * タグ無し文書では何もしない（false を返す）ので、呼び出し側で判断できる。
  */
 export function appendAnnotationToStructTree(
   doc: PDFDocument,
   page: PDFPage,
   annotRef: PDFRef,
+  alt?: string,
+): AppendAnnotResult {
+  return appendObjRefToStructTree(doc, page, annotRef, 'Annot', alt);
+}
+
+/**
+ * 既存のタグ付き PDF に Widget 注釈（フォームフィールド）を構造木へ結び付ける
+ * （PDF/UA 7.18.4-1）。`Form` 要素を Document 直下に足し、/K に OBJR を置く。
+ */
+export function appendWidgetToStructTree(
+  doc: PDFDocument,
+  page: PDFPage,
+  widgetRef: PDFRef,
+  alt?: string,
+): AppendAnnotResult {
+  return appendObjRefToStructTree(doc, page, widgetRef, 'Form', alt);
+}
+
+/**
+ * 共通実装。指定タグの構造要素を Document 直下に足し、OBJR で対象を参照し、
+ * ParentTree / /StructParent / /Tabs を整える。
+ * タグ無し文書では何もしない（false を返す）ので、呼び出し側で判断できる。
+ */
+function appendObjRefToStructTree(
+  doc: PDFDocument,
+  page: PDFPage,
+  annotRef: PDFRef,
+  tag: 'Annot' | 'Form',
   alt?: string,
 ): AppendAnnotResult {
   if (!isTagged(doc)) return { tagged: false };
@@ -157,7 +184,7 @@ export function appendAnnotationToStructTree(
   const elemRef = context.nextRef();
   const elem = context.obj({}) as PDFDict;
   elem.set(PDFName.of('Type'), PDFName.of('StructElem'));
-  elem.set(PDFName.of('S'), PDFName.of('Annot'));
+  elem.set(PDFName.of('S'), PDFName.of(tag));
   elem.set(PDFName.of('P'), parentRef);
   elem.set(PDFName.of('Pg'), page.ref);
   if (alt) elem.set(PDFName.of('Alt'), PDFHexString.fromText(alt));
