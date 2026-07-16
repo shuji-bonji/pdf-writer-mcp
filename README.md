@@ -12,6 +12,8 @@ Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji
 
 ## Tools
 
+> **All file paths must be absolute** (since v0.7.0). Relative paths and paths containing `..` are rejected — a relative path would resolve against the MCP host's working directory, which is not the directory you think it is. This applies to `inputPath`, `inputPaths`, `outputPath`, `outputDir`, `fontPath` and `attachmentPath`. Input PDFs larger than 100 MB are also rejected.
+
 ### Creation
 
 | Tool | Purpose |
@@ -118,6 +120,31 @@ Characters absent from the font (e.g. ✔ U+2714, which Noto Sans JP does not in
 
 Editing tools return the same shape without `font`; `split_pdf` returns `{ files: [...], count }`.
 
+## Errors (v0.7.0)
+
+Errors are structured, following the same contract as `pdf-reader-mcp`: a stable `code` for programs, plus `next_actions` an LLM agent can act on. Writer-specific guards are all expressed as *retryable with an explicit flag*:
+
+```jsonc
+{
+  "error": "\"/in/signed.pdf\" appears to be digitally signed (/ByteRange found). …",
+  "code": "SIGNED_PDF",
+  "retryable": true,
+  "next_actions": [
+    {
+      "action": "retry_with_allowBreakingSignatures",
+      "reason": "Only if invalidating the signature is acceptable…",
+      "example": { "allowBreakingSignatures": true }
+    }
+  ]
+}
+```
+
+Codes: `INVALID_ARGUMENT`, `DOC_NOT_FOUND`, `FONT_NOT_FOUND`, `INVALID_PDF`, `ENCRYPTED_PDF`, `UNSUPPORTED_PDF_FEATURE` (XFA), `FILE_TOO_LARGE`, `INTERNAL_ERROR`, and the writer guards `SIGNED_PDF` (`allowBreakingSignatures`), `TAGGED_PDF` (`allowBreakingTags`), `FONT_REQUIRED` (`fontPath`), `MISSING_GLYPH` (`onMissingGlyph`).
+
+## Deterministic output (v0.7.0)
+
+Set the `SOURCE_DATE_EPOCH` environment variable (UNIX seconds, per the [reproducible-builds.org](https://reproducible-builds.org/docs/source-date-epoch/) convention) to pin `CreationDate`, `ModificationDate` and XMP timestamps. The same input then yields byte-identical output — useful for diffing, caching, and reproducible tests. Invalid values raise an error rather than being ignored.
+
 ## Text extraction
 
 Generated PDFs are selectable, copyable, searchable, and screen-reader accessible: pdf-lib emits a ToUnicode CMap even for embedded subset fonts. This is covered by regression tests (`extract.test.ts`, `render.test.ts`).
@@ -151,8 +178,9 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Editing Tier A wave 2 — bookmarks and annotations (v0.4.0)
 - [x] Tagged PDF / PDF/UA-1 — verified by veraPDF (v0.5.0)
 - [x] Annotations nested in `Annot` tags on tagged output (v0.5.1)
-- [x] Editing Tier B — file attachments (v0.6.0)
-- [ ] Editing Tier B — form filling/flattening, watermarks, page-number stamping
+- [x] Editing Tier B — file attachments, form filling/flattening, watermarks, page-number stamping (v0.6.0)
+- [x] Code hygiene / family alignment — McpServer + Zod, structured errors, absolute-path enforcement, stdout guard, tool annotations, deterministic output (v0.7.0)
+- [ ] Publish-pipeline skill (write → read back with pdf-reader → gate with pdf-verify)
 - [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`
 - [ ] Separate faces for headings and body (bold face embedding)

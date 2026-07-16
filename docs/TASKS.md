@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 14 = **17 ツール**・テスト 15 ファイル（約 149 ケース）・typecheck / biome OK。**v0.6.0 リリース済み**（2026-07-16） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 14 = **17 ツール**・テスト 18 ファイル・typecheck / biome OK。**v0.7.0 リリース済み**（2026-07-17。E-1〜E-6 一括対応: McpServer + Zod・構造化エラー・パス検査・stdout ガード・annotations・決定論的出力） |
 
 ## 現状サマリ
 
@@ -15,7 +15,8 @@
 - ✅ 日本語フォント埋め込み（**harfbuzz 事前サブセット + subset:false**。ADR-7 / ADR-8）
 - ✅ グリフ欠落ポリシー（`onMissingGlyph`: error / replace / ignore）
 - ✅ 署名ガード（`/ByteRange` 検知 → 既定エラー）
-- ✅ vitest 15 ファイル（validation / layout / generate / extract / **render** / glyph / editor / page-spec / outline-annotation / tagged / struct-append / attachment / watermark / page-number / form）
+- ✅ vitest 18 ファイル（validation / layout / generate / extract / **render** / glyph / editor / page-spec / outline-annotation / tagged / struct-append / attachment / watermark / page-number / form / **registry** / errors / deterministic）
+- ✅ コード衛生・family 整合 E-1〜E-6（v0.7.0）: McpServer + Zod・構造化エラー・パス検査・stdout ガード・annotations・決定論的出力
 - ✅ CI（typecheck + test、日本語フォント取得込み）・npm Trusted Publisher 公開
 
 ## A. 運用系
