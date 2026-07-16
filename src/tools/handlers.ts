@@ -11,6 +11,7 @@ import { buildPdf } from '../services/builder.js';
 import {
   addAnnotation,
   addBookmarks,
+  addWatermark,
   attachFileToPdf,
   deletePages,
   extractPages,
@@ -31,10 +32,12 @@ import type {
   EditResult,
   SplitResult,
   StampResult,
+  WatermarkResult,
 } from '../types/index.js';
 import {
   validateAddAnnotationArgs,
   validateAddBookmarksArgs,
+  validateAddWatermarkArgs,
   validateAttachFileArgs,
   validateCreateMarkdownArgs,
   validateCreateTableArgs,
@@ -143,6 +146,11 @@ export async function handleStampPageNumbers(args: unknown): Promise<StampResult
   return stampPageNumbers(args);
 }
 
+export async function handleAddWatermark(args: unknown): Promise<WatermarkResult> {
+  validateAddWatermarkArgs(args);
+  return addWatermark(args);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -162,4 +170,5 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   add_annotation: handleAddAnnotation,
   attach_file: handleAttachFile,
   stamp_page_numbers: handleStampPageNumbers,
+  add_watermark: handleAddWatermark,
 };

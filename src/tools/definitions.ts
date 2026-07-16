@@ -388,6 +388,47 @@ export const tools = [
     },
   },
   {
+    name: 'add_watermark',
+    description:
+      '各ページの中央に斜めの透かし文字を重ねる("社外秘" / "DRAFT" / "COPY" 等)。' +
+      '既定では本文の背面に薄く敷く。タグ付き PDF では Artifact として囲むため PDF/UA 準拠を維持する。' +
+      '日本語の透かしには fontPath か環境変数 PDF_WRITER_FONT が必要。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        text: { type: 'string', description: '透かし文字。例: "社外秘" / "DRAFT" / "COPY"。' },
+        fontSize: { type: 'number', description: 'フォントサイズ(pt)。既定 60。範囲 4〜96。' },
+        color: { type: 'string', description: '#rrggbb。既定 #808080(灰)。' },
+        opacity: {
+          type: 'number',
+          description: '不透明度 0(透明)〜1(不透明)。既定 0.15。本文を読める程度に薄くする。',
+        },
+        angle: {
+          type: 'number',
+          description: '反時計回りの角度(度)。既定 45。0 で水平。',
+        },
+        behind: {
+          type: 'boolean',
+          description:
+            '本文の背面に敷くか。既定 true。false にすると本文の上に重なる(改ざん防止の主張を強めたい場合)。',
+        },
+        fontPath: {
+          type: 'string',
+          description:
+            '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+            '日本語の透かしには必須。',
+        },
+        pages: {
+          type: 'string',
+          description: '対象ページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'text'],
+    },
+  },
+  {
     name: 'attach_file',
     description:
       'PDF にファイルを埋め込む(添付する)。/Names /EmbeddedFiles と catalog /AF に登録し、' +

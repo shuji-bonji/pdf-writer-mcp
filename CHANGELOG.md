@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **`stamp_page_numbers`** — stamp page numbers onto an existing PDF (Tier B).
+- **`add_watermark`** — overlay a diagonal watermark ("社外秘" / "DRAFT" / "COPY") on each page (Tier B).
+  Drawn behind the body content by default; `behind: false` puts it on top. On tagged PDFs the watermark is
+  wrapped as an `/Artifact`, so PDF/UA-1 conformance holds (verified 106/106 with veraPDF).
   - `format` expands `{n}` and `{total}` (`{n} / {total}`, `- {n} -`, `{n} ページ`).
   - `position` (six corners), `margin`, `fontSize`, `color`, `pages`, `startAt` —
     `pages: "2-"` with `startAt: 1` numbers everything but the cover from 1.

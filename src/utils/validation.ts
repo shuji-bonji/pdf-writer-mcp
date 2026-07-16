@@ -16,6 +16,7 @@ import {
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
+  AddWatermarkArgs,
   AttachFileArgs,
   CommonCreateOptions,
   CommonEditOptions,
@@ -371,6 +372,42 @@ export function validateStampPageNumbersArgs(args: unknown): asserts args is Sta
       throw new Error('startAt must be an integer');
     }
   }
+}
+
+export function validateAddWatermarkArgs(args: unknown): asserts args is AddWatermarkArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateNonEmptyString(a.text, 'text');
+
+  if (a.fontSize !== undefined) {
+    if (typeof a.fontSize !== 'number' || !Number.isFinite(a.fontSize)) {
+      throw new Error('fontSize must be a number');
+    }
+    if (a.fontSize < LIMITS.FONT_SIZE_MIN || a.fontSize > LIMITS.FONT_SIZE_MAX) {
+      throw new Error(
+        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${a.fontSize}`,
+      );
+    }
+  }
+  if (a.opacity !== undefined) {
+    if (typeof a.opacity !== 'number' || !Number.isFinite(a.opacity)) {
+      throw new Error('opacity must be a number');
+    }
+    if (a.opacity < 0 || a.opacity > 1) {
+      throw new Error(`opacity must be between 0 and 1, got ${a.opacity}`);
+    }
+  }
+  if (a.angle !== undefined) {
+    if (typeof a.angle !== 'number' || !Number.isFinite(a.angle)) {
+      throw new Error('angle must be a number (degrees)');
+    }
+  }
+  if (a.behind !== undefined && typeof a.behind !== 'boolean') {
+    throw new Error('behind must be a boolean');
+  }
+  if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
+  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
 }
 
 export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArgs {

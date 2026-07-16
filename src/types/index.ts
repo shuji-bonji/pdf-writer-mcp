@@ -237,6 +237,33 @@ export interface StampResult extends EditResult {
   artifact: boolean;
 }
 
+export interface AddWatermarkArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 透かし文字（日本語可。フォント指定が必要） */
+  text: string;
+  /** フォントサイズ（pt）。既定 60 */
+  fontSize?: number;
+  /** #rrggbb。既定 #808080 */
+  color?: string;
+  /** 不透明度 0〜1。既定 0.15 */
+  opacity?: number;
+  /** 反時計回りの角度（度）。既定 45 */
+  angle?: number;
+  /** 本文の背面に敷くか。既定 true */
+  behind?: boolean;
+  /** 埋め込むフォント。省略時は PDF_WRITER_FONT → 標準フォント */
+  fontPath?: string;
+  /** 対象ページ（"1,3-5,8-"）。省略時は全ページ */
+  pages?: string;
+}
+
+export interface WatermarkResult extends EditResult {
+  /** 透かしを入れたページ数 */
+  watermarked: number;
+  /** タグ付き PDF で Artifact として囲んだか */
+  artifact: boolean;
+}
+
 /**
  * 埋め込みファイルと本文の関係（PDF/A-3 §6.8 / ISO 32000-2 Table 46）。
  * PDF/A-3 では指定が必須。

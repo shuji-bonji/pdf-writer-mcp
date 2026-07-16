@@ -16,10 +16,11 @@
 import { readFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { degrees, PDFDocument } from 'pdf-lib';
-import { LIMITS, STAMP_DEFAULTS } from '../constants.js';
+import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
+  AddWatermarkArgs,
   AttachFileArgs,
   AttachResult,
   CommonEditOptions,
@@ -28,6 +29,7 @@ import type {
   SplitResult,
   StampPageNumbersArgs,
   StampResult,
+  WatermarkResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
@@ -39,6 +41,7 @@ import { saveEdited } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
 import { assertRenderable } from './renderers/text.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
+import { watermarkPage } from './watermark.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
 export function containsSignature(bytes: Uint8Array): boolean {
@@ -328,6 +331,48 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
   );
   const saved = await saveEdited(doc, args);
   return { ...saved, stamped: stamps.length, artifact: tagged };
+}
+
+export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const total = doc.getPageCount();
+
+  const fontSize = args.fontSize ?? WATERMARK_DEFAULTS.fontSize;
+  const opacity = args.opacity ?? WATERMARK_DEFAULTS.opacity;
+  const angle = args.angle ?? WATERMARK_DEFAULTS.angle;
+  const behind = args.behind ?? WATERMARK_DEFAULTS.behind;
+  const color = parseHexColor(args.color ?? WATERMARK_DEFAULTS.color);
+
+  const targets = args.pages
+    ? parsePageSpec(args.pages, total)
+    : Array.from({ length: total }, (_, i) => i + 1);
+
+  // 透かし文字も create 系と同じ font-manager を通す（harfbuzz サブセット・グリフ検査）
+  const source = await openFont(args.fontPath);
+  assertRenderable(args.text, source);
+  const applied = applyMissingGlyphPolicy([args.text], source, 'error');
+  const loaded = await embedFontFor(doc, source, applied.texts);
+
+  const tagged = isTagged(doc);
+  for (const pageNo of targets) {
+    watermarkPage(doc.getPage(pageNo - 1), applied.texts[0], {
+      font: loaded.font,
+      fontSize,
+      color,
+      opacity,
+      angle,
+      behind,
+      // タグ付き PDF では透かしを Artifact にする（PDF/UA 7.1-3）
+      markArtifact: tagged ? (page, draw) => markArtifactOnPage(doc, page, draw) : undefined,
+    });
+  }
+
+  logger.info(
+    'Editor',
+    `Watermarked ${targets.length} page(s)${behind ? ' behind content' : ''}${tagged ? ' as artifacts' : ''}`,
+  );
+  const saved = await saveEdited(doc, args);
+  return { ...saved, watermarked: targets.length, artifact: tagged };
 }
 
 export async function splitPdf(

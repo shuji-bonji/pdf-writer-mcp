@@ -63,6 +63,15 @@ export const STAMP_DEFAULTS = {
   startAt: 1,
 } as const;
 
+/** add_watermark の既定値 */
+export const WATERMARK_DEFAULTS = {
+  fontSize: 60,
+  color: '#808080',
+  opacity: 0.15,
+  angle: 45,
+  behind: true,
+} as const;
+
 /** attach_file が受け付ける AFRelationship（PDF/A-3 §6.8） */
 export const ATTACHMENT_RELATIONSHIPS = [
   'Source',
