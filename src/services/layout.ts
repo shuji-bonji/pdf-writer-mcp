@@ -4,13 +4,7 @@
  * 座標は「上端(top)基準」で管理し、見出し・本文・表でサイズが変わっても一貫して積み上げる。
  */
 
-import {
-  type PDFDocument,
-  type PDFPage,
-  type PDFFont,
-  rgb,
-  type RGB,
-} from 'pdf-lib';
+import { type PDFDocument, type PDFFont, type PDFPage, type RGB, rgb } from 'pdf-lib';
 
 /** ベースライン近似係数（グリフ上端からベースラインまで ≒ size * この値） */
 const ASCENT_RATIO = 0.8;
@@ -41,7 +35,8 @@ export interface DrawTextOptions {
  */
 export function hasNonLatin1(text: string): boolean {
   for (const ch of text) {
-    if (ch.codePointAt(0)! > 0xff) return true;
+    const cp = ch.codePointAt(0);
+    if (cp !== undefined && cp > 0xff) return true;
   }
   return false;
 }
@@ -79,12 +74,7 @@ function splitTokens(line: string): string[] {
 }
 
 /** 1 トークンが maxWidth を超える場合に文字単位で強制分割 */
-function breakLongToken(
-  token: string,
-  font: PDFFont,
-  size: number,
-  maxWidth: number
-): string[] {
+function breakLongToken(token: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const parts: string[] = [];
   let cur = '';
   for (const ch of token) {
@@ -104,12 +94,7 @@ function breakLongToken(
  * テキストを maxWidth に収まる行配列に折り返す。
  * 明示的な \n は改行として尊重し、空行も保持する。
  */
-export function wrapText(
-  text: string,
-  font: PDFFont,
-  size: number,
-  maxWidth: number
-): string[] {
+export function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const out: string[] = [];
   for (const rawLine of text.split('\n')) {
     if (rawLine.trim() === '') {
@@ -221,7 +206,9 @@ export class LayoutEngine {
   }
 
   /** 水平線 */
-  drawRule(options: { color?: RGB; thickness?: number; spaceBefore?: number; spaceAfter?: number } = {}): void {
+  drawRule(
+    options: { color?: RGB; thickness?: number; spaceBefore?: number; spaceAfter?: number } = {},
+  ): void {
     const thickness = options.thickness ?? 0.75;
     const color = options.color ?? rgb(0.75, 0.75, 0.75);
     const spaceBefore = options.spaceBefore ?? 4;

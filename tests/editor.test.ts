@@ -3,27 +3,31 @@
  * フィクスチャは pdf-lib で都度生成する（フォント非依存・外部ツール非依存）。
  */
 
-import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PDFDocument } from 'pdf-lib';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { containsSignature } from '../src/services/editor.js';
 import {
-  handleSetMetadata,
-  handleMergePdfs,
-  handleSplitPdf,
-  handleExtractPages,
   handleDeletePages,
+  handleExtractPages,
+  handleMergePdfs,
   handleReorderPages,
   handleRotatePages,
+  handleSetMetadata,
+  handleSplitPdf,
 } from '../src/tools/handlers.js';
-import { containsSignature } from '../src/services/editor.js';
 import type { EditResult, SplitResult } from '../src/types/index.js';
 
 let dir: string;
 
 /** ページ幅 100+n で n 番目（1 始まり）を識別できる PDF を作る */
-async function makeFixture(name: string, pages: number, meta?: { title?: string }): Promise<string> {
+async function makeFixture(
+  name: string,
+  pages: number,
+  meta?: { title?: string },
+): Promise<string> {
   const doc = await PDFDocument.create();
   for (let n = 1; n <= pages; n++) {
     doc.addPage([100 + n, 200]);
@@ -131,7 +135,7 @@ describe('delete_pages', () => {
   it('rejects deleting every page', async () => {
     const input = await makeFixture('delete-all.pdf', 3);
     await expect(handleDeletePages({ inputPath: input, pages: '1-3' })).rejects.toThrow(
-      /empty PDF/
+      /empty PDF/,
     );
   });
 });
@@ -150,13 +154,13 @@ describe('reorder_pages', () => {
   it('rejects non-permutations', async () => {
     const input = await makeFixture('reorder-bad.pdf', 3);
     await expect(handleReorderPages({ inputPath: input, order: [1, 2] })).rejects.toThrow(
-      /exactly once/
+      /exactly once/,
     );
     await expect(handleReorderPages({ inputPath: input, order: [1, 1, 2] })).rejects.toThrow(
-      /more than once/
+      /more than once/,
     );
     await expect(handleReorderPages({ inputPath: input, order: [1, 2, 9] })).rejects.toThrow(
-      /invalid page number/
+      /invalid page number/,
     );
   });
 });
@@ -188,7 +192,7 @@ describe('rotate_pages', () => {
 
   it('rejects invalid rotation angles', async () => {
     await expect(handleRotatePages({ inputPath: '/tmp/x.pdf', rotation: 45 })).rejects.toThrow(
-      /rotation must be one of/
+      /rotation must be one of/,
     );
   });
 });
@@ -211,11 +215,11 @@ describe('signature guard', () => {
     const path = join(dir, 'signed-ish.pdf');
     await writeFile(
       path,
-      Buffer.concat([Buffer.from(bytes), Buffer.from('\n%/ByteRange [0 1 2 3]\n')])
+      Buffer.concat([Buffer.from(bytes), Buffer.from('\n%/ByteRange [0 1 2 3]\n')]),
     );
 
     await expect(handleRotatePages({ inputPath: path, rotation: 90 })).rejects.toThrow(
-      /digitally signed/
+      /digitally signed/,
     );
 
     const result = (await handleRotatePages({

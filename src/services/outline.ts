@@ -10,7 +10,15 @@
  * ルートの /Count は「可視な子孫の総数」。
  */
 
-import { PDFDocument, PDFDict, PDFName, PDFNumber, PDFArray, PDFHexString, PDFRef } from 'pdf-lib';
+import {
+  type PDFArray,
+  type PDFDict,
+  type PDFDocument,
+  PDFHexString,
+  PDFName,
+  PDFNumber,
+  type PDFRef,
+} from 'pdf-lib';
 import { LIMITS } from '../constants.js';
 import type { BookmarkInput } from '../types/index.js';
 
@@ -46,7 +54,7 @@ export function setBookmarks(doc: PDFDocument, bookmarks: BookmarkInput[]): numb
       const pageIndex = item.page - 1;
       if (pageIndex < 0 || pageIndex >= pages.length) {
         throw new Error(
-          `bookmark "${item.title}" points to page ${item.page}, but the document has ${pages.length} page(s)`
+          `bookmark "${item.title}" points to page ${item.page}, but the document has ${pages.length} page(s)`,
         );
       }
       total++;
@@ -76,7 +84,10 @@ export function setBookmarks(doc: PDFDocument, bookmarks: BookmarkInput[]): numb
         dict.set(PDFName.of('First'), children[0].ref);
         dict.set(PDFName.of('Last'), children[children.length - 1].ref);
         // 開: 正の子孫数 / 閉: 負の子孫数
-        dict.set(PDFName.of('Count'), PDFNumber.of(node.open ? node.descendants : -node.descendants));
+        dict.set(
+          PDFName.of('Count'),
+          PDFNumber.of(node.open ? node.descendants : -node.descendants),
+        );
       }
 
       nodes.push(node);

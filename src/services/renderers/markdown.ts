@@ -6,10 +6,10 @@
 
 import { marked } from 'marked';
 import { rgb } from 'pdf-lib';
-import { LayoutEngine, wrapText } from '../layout.js';
-import type { LoadedFont } from '../font-manager.js';
-import { assertRenderable } from './text.js';
 import { DEFAULTS } from '../../config.js';
+import type { LoadedFont } from '../font-manager.js';
+import { type LayoutEngine, wrapText } from '../layout.js';
+import { assertRenderable } from './text.js';
 
 const HEADING_SIZE: Record<number, number> = { 1: 20, 2: 16, 3: 13, 4: 12, 5: 11, 6: 11 };
 const BLOCK_GAP = 6;
@@ -71,8 +71,7 @@ export function renderMarkdown(engine: LayoutEngine, markdown: string, loaded: L
   const tokens = marked.lexer(markdown);
 
   for (const token of tokens) {
-    // marked のトークン型は緩いため境界で any を許容
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: marked のトークン型は緩いため境界で any を許容
     const t = token as any;
     switch (t.type) {
       case 'heading': {
@@ -115,9 +114,7 @@ export function renderMarkdown(engine: LayoutEngine, markdown: string, loaded: L
       }
       case 'table': {
         const headers = (t.header as { text: string }[]).map((c) => stripInline(c.text));
-        const rows = (t.rows as { text: string }[][]).map((r) =>
-          r.map((c) => stripInline(c.text))
-        );
+        const rows = (t.rows as { text: string }[][]).map((r) => r.map((c) => stripInline(c.text)));
         // 遅延 import を避けるため関数を直接呼ぶ
         renderTableInline(engine, headers, rows);
         engine.moveDown(BLOCK_GAP);

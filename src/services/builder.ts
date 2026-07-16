@@ -8,10 +8,15 @@
  */
 
 import { PDFDocument, rgb } from 'pdf-lib';
-import { PAGE_SIZES, type PageSizeName } from '../constants.js';
 import { DEFAULTS } from '../config.js';
+import { PAGE_SIZES, type PageSizeName } from '../constants.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
-import { applyMissingGlyphPolicy, embedFontFor, openFont, type LoadedFont } from './font-manager.js';
+import {
+  applyMissingGlyphPolicy,
+  embedFontFor,
+  type LoadedFont,
+  openFont,
+} from './font-manager.js';
 import { LayoutEngine } from './layout.js';
 import { finalizePdf } from './output.js';
 import { assertRenderable } from './renderers/text.js';
@@ -25,7 +30,7 @@ export type RenderFn = (engine: LayoutEngine, loaded: LoadedFont, texts: string[
 export async function buildPdf(
   opts: CommonCreateOptions,
   inputTexts: string[],
-  render: RenderFn
+  render: RenderFn,
 ): Promise<CreateResult> {
   const doc = await PDFDocument.create();
   const source = await openFont(opts.fontPath);

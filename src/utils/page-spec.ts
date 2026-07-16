@@ -32,7 +32,7 @@ export function parsePageSpec(spec: string, pageCount: number, fieldName = 'page
     const m = CHUNK_RE.exec(chunk);
     if (!m) {
       throw new Error(
-        `${fieldName} contains an invalid chunk "${chunk}" (expected forms: "3", "2-5", "6-", "-3")`
+        `${fieldName} contains an invalid chunk "${chunk}" (expected forms: "3", "2-5", "6-", "-3")`,
       );
     }
 
@@ -51,7 +51,7 @@ export function parsePageSpec(spec: string, pageCount: number, fieldName = 'page
 
     if (from < 1 || to > pageCount) {
       throw new Error(
-        `${fieldName} chunk "${chunk}" is out of range (document has ${pageCount} page(s))`
+        `${fieldName} chunk "${chunk}" is out of range (document has ${pageCount} page(s))`,
       );
     }
     if (from > to) {

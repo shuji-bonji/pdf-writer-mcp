@@ -16,8 +16,8 @@
 
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { type PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
 import subsetFont from 'subset-font';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
@@ -80,7 +80,7 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
     throw new Error(
       `Font file is a TrueTypeCollection (.ttc): ${resolvedPath}. ` +
         `Extract a single face to .otf/.ttf first ` +
-        `(e.g. Python fonttools: TTCollection(path).fonts[i].save('out.otf')).`
+        `(e.g. Python fonttools: TTCollection(path).fonts[i].save('out.otf')).`,
     );
   }
 
@@ -103,7 +103,7 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
 export async function embedFontFor(
   doc: PDFDocument,
   source: FontSource,
-  texts: string[]
+  texts: string[],
 ): Promise<LoadedFont> {
   if (source.isStandard || !source.bytes) {
     const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -128,7 +128,7 @@ export async function embedFontFor(
     });
     logger.info(
       CTX,
-      `Subset ${source.name} with harfbuzz: ${source.bytes.length} -> ${toEmbed.length} bytes`
+      `Subset ${source.name} with harfbuzz: ${source.bytes.length} -> ${toEmbed.length} bytes`,
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -162,7 +162,7 @@ const GETA = 0x3013;
 export function applyMissingGlyphPolicy(
   texts: string[],
   source: Pick<FontSource, 'hasGlyph' | 'name'>,
-  policy: MissingGlyphPolicy = 'error'
+  policy: MissingGlyphPolicy = 'error',
 ): { texts: string[]; warnings: string[] } {
   const hasGlyph = source.hasGlyph;
   // 標準フォントは assertRenderable（Latin-1 検査）側で扱うため対象外
@@ -180,7 +180,8 @@ export function applyMissingGlyphPolicy(
   const list = [...missing]
     .slice(0, 10)
     .map(
-      (ch) => `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`
+      (ch) =>
+        `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`,
     )
     .join(', ');
   const suffix = missing.size > 10 ? ` and ${missing.size - 10} more` : '';
@@ -190,7 +191,7 @@ export function applyMissingGlyphPolicy(
       `The font "${source.name}" has no glyph for: ${list}${suffix}. ` +
         'These characters would render as blank boxes. ' +
         'Remove/replace them, use a font that covers them, ' +
-        'or set onMissingGlyph to "replace" (substitutes 〓) or "ignore".'
+        'or set onMissingGlyph to "replace" (substitutes 〓) or "ignore".',
     );
   }
 
@@ -206,7 +207,7 @@ export function applyMissingGlyphPolicy(
   // replace
   const replacement = hasGlyph(GETA) ? '〓' : '?';
   const replaced = texts.map((text) =>
-    [...text].map((ch) => (missing.has(ch) ? replacement : ch)).join('')
+    [...text].map((ch) => (missing.has(ch) ? replacement : ch)).join(''),
   );
   return {
     texts: replaced,

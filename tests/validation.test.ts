@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateCreateTextArgs,
+  validateCommonOptions,
   validateCreateMarkdownArgs,
   validateCreateTableArgs,
-  validateCommonOptions,
+  validateCreateTextArgs,
   validatePageSize,
 } from '../src/utils/validation.js';
 
@@ -14,7 +14,7 @@ describe('validateCreateTextArgs', () => {
 
   it('accepts valid common options', () => {
     expect(() =>
-      validateCreateTextArgs({ text: 'hi', fontSize: 12, margin: 40, pageSize: 'A4' })
+      validateCreateTextArgs({ text: 'hi', fontSize: 12, margin: 40, pageSize: 'A4' }),
     ).not.toThrow();
   });
 
@@ -67,7 +67,7 @@ describe('validateCreateMarkdownArgs', () => {
 describe('validateCreateTableArgs', () => {
   it('accepts valid table', () => {
     expect(() =>
-      validateCreateTableArgs({ headers: ['a', 'b'], rows: [['1', '2']] })
+      validateCreateTableArgs({ headers: ['a', 'b'], rows: [['1', '2']] }),
     ).not.toThrow();
   });
 

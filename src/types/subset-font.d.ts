@@ -22,6 +22,6 @@ declare module 'subset-font' {
   export default function subsetFont(
     font: Buffer,
     text: string,
-    options?: SubsetFontOptions
+    options?: SubsetFontOptions,
   ): Promise<Buffer>;
 }

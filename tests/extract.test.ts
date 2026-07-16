@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import zlib from 'node:zlib';
+import { describe, expect, it } from 'vitest';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 
 /**
@@ -35,13 +35,11 @@ function decodeStreams(pdf: Buffer): string {
  */
 function extractShownText(decoded: string): string {
   const out: string[] = [];
-  const re = /<([0-9A-Fa-f]+)>\s*Tj/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(decoded)) !== null) {
+  for (const m of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
     const hex = m[1];
     let s = '';
     for (let i = 0; i + 1 < hex.length; i += 2) {
-      s += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
+      s += String.fromCharCode(Number.parseInt(hex.slice(i, i + 2), 16));
     }
     out.push(s);
   }
@@ -51,7 +49,7 @@ function extractShownText(decoded: string): string {
 describe('extractability (standard font)', () => {
   it('shown text decodes back to the original ASCII (copy/searchable)', async () => {
     const res = await handleCreateTextPdf({ text: 'Hello Searchable World' });
-    const buf = Buffer.from(res.base64!, 'base64');
+    const buf = Buffer.from(res.base64 as string, 'base64');
     const shown = extractShownText(decodeStreams(buf));
     expect(shown).toContain('Hello Searchable World');
   });
@@ -67,7 +65,7 @@ const fontPath = process.env.TEST_FONT_PATH;
 describe.skipIf(!fontPath)('extractability (embedded CJK font, ToUnicode)', () => {
   it('emits a ToUnicode CMap that maps a Japanese glyph to U+65E5 (日)', async () => {
     const res = await handleCreateTextPdf({ text: '\u65e5\u672c\u8a9e', fontPath });
-    const buf = Buffer.from(res.base64!, 'base64');
+    const buf = Buffer.from(res.base64 as string, 'base64');
     const decoded = decodeStreams(buf);
     expect(decoded).toContain('beginbfchar');
     expect(decoded.toUpperCase()).toContain('65E5');

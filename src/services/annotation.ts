@@ -11,15 +11,15 @@
  */
 
 import {
-  PDFDocument,
-  PDFDict,
+  PDFArray,
+  type PDFDict,
+  type PDFDocument,
+  PDFHexString,
   PDFName,
   PDFNumber,
-  PDFArray,
-  PDFHexString,
   PDFString,
-  rgb,
   type RGB,
+  rgb,
 } from 'pdf-lib';
 import type { AddAnnotationArgs, AnnotationRect } from '../types/index.js';
 

@@ -8,30 +8,27 @@ import {
   ANNOTATION_TYPES,
   LIMITS,
   PAGE_SIZES,
-  ROTATION_ANGLES,
   type PageSizeName,
+  ROTATION_ANGLES,
 } from '../constants.js';
 import type {
-  CreateTextArgs,
-  CreateMarkdownArgs,
-  CreateTableArgs,
+  AddAnnotationArgs,
+  AddBookmarksArgs,
   CommonCreateOptions,
   CommonEditOptions,
-  SetMetadataArgs,
-  MergePdfsArgs,
-  ExtractPagesArgs,
+  CreateMarkdownArgs,
+  CreateTableArgs,
+  CreateTextArgs,
   DeletePagesArgs,
+  ExtractPagesArgs,
+  MergePdfsArgs,
   ReorderPagesArgs,
   RotatePagesArgs,
+  SetMetadataArgs,
   SplitPdfArgs,
-  AddBookmarksArgs,
-  AddAnnotationArgs,
 } from '../types/index.js';
 
-export function validateNonEmptyString(
-  value: unknown,
-  fieldName: string
-): asserts value is string {
+export function validateNonEmptyString(value: unknown, fieldName: string): asserts value is string {
   if (typeof value !== 'string') {
     throw new Error(`${fieldName} must be a string, got ${typeof value}`);
   }
@@ -46,7 +43,7 @@ export function validateTextLength(value: unknown, fieldName: string): asserts v
   }
   if (value.length > LIMITS.TEXT_MAX_LENGTH) {
     throw new Error(
-      `${fieldName} is too long (${value.length} chars, max ${LIMITS.TEXT_MAX_LENGTH})`
+      `${fieldName} is too long (${value.length} chars, max ${LIMITS.TEXT_MAX_LENGTH})`,
     );
   }
 }
@@ -62,7 +59,7 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
     }
     if (opts.fontSize < LIMITS.FONT_SIZE_MIN || opts.fontSize > LIMITS.FONT_SIZE_MAX) {
       throw new Error(
-        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${opts.fontSize}`
+        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${opts.fontSize}`,
       );
     }
   }
@@ -73,7 +70,7 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
     }
     if (opts.margin < LIMITS.MARGIN_MIN || opts.margin > LIMITS.MARGIN_MAX) {
       throw new Error(
-        `margin must be between ${LIMITS.MARGIN_MIN} and ${LIMITS.MARGIN_MAX}, got ${opts.margin}`
+        `margin must be between ${LIMITS.MARGIN_MIN} and ${LIMITS.MARGIN_MAX}, got ${opts.margin}`,
       );
     }
   }
@@ -93,7 +90,7 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
   if (opts.onMissingGlyph !== undefined) {
     if (!['error', 'replace', 'ignore'].includes(opts.onMissingGlyph as string)) {
       throw new Error(
-        `onMissingGlyph must be one of error, replace, ignore, got ${String(opts.onMissingGlyph)}`
+        `onMissingGlyph must be one of error, replace, ignore, got ${String(opts.onMissingGlyph)}`,
       );
     }
   }
@@ -102,7 +99,7 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
 export function validatePageSize(value: unknown): asserts value is PageSizeName {
   if (typeof value !== 'string' || !(value in PAGE_SIZES)) {
     throw new Error(
-      `pageSize must be one of ${Object.keys(PAGE_SIZES).join(', ')}, got ${String(value)}`
+      `pageSize must be one of ${Object.keys(PAGE_SIZES).join(', ')}, got ${String(value)}`,
     );
   }
 }
@@ -135,7 +132,10 @@ function asEditArgs(args: unknown): Record<string, unknown> {
   if (opts.outputPath !== undefined) {
     validateNonEmptyString(opts.outputPath, 'outputPath');
   }
-  if (opts.allowBreakingSignatures !== undefined && typeof opts.allowBreakingSignatures !== 'boolean') {
+  if (
+    opts.allowBreakingSignatures !== undefined &&
+    typeof opts.allowBreakingSignatures !== 'boolean'
+  ) {
     throw new Error('allowBreakingSignatures must be a boolean');
   }
   return a;
@@ -161,13 +161,18 @@ export function validateSetMetadataArgs(args: unknown): asserts args is SetMetad
     a.keywords === undefined &&
     a.creator === undefined
   ) {
-    throw new Error('set_metadata requires at least one of: title, author, subject, keywords, creator');
+    throw new Error(
+      'set_metadata requires at least one of: title, author, subject, keywords, creator',
+    );
   }
 }
 
 export function validateMergePdfsArgs(args: unknown): asserts args is MergePdfsArgs {
   const a = asEditArgs(args);
-  if (!Array.isArray(a.inputPaths) || a.inputPaths.some((p) => typeof p !== 'string' || p.length === 0)) {
+  if (
+    !Array.isArray(a.inputPaths) ||
+    a.inputPaths.some((p) => typeof p !== 'string' || p.length === 0)
+  ) {
     throw new Error('inputPaths must be an array of non-empty strings');
   }
   if (a.inputPaths.length < 2) {
@@ -193,7 +198,11 @@ export function validateDeletePagesArgs(args: unknown): asserts args is DeletePa
 export function validateReorderPagesArgs(args: unknown): asserts args is ReorderPagesArgs {
   const a = asEditArgs(args);
   validateNonEmptyString(a.inputPath, 'inputPath');
-  if (!Array.isArray(a.order) || a.order.length === 0 || a.order.some((n) => typeof n !== 'number')) {
+  if (
+    !Array.isArray(a.order) ||
+    a.order.length === 0 ||
+    a.order.some((n) => typeof n !== 'number')
+  ) {
     throw new Error('order must be a non-empty array of page numbers (1-based)');
   }
 }
@@ -202,7 +211,9 @@ export function validateRotatePagesArgs(args: unknown): asserts args is RotatePa
   const a = asEditArgs(args);
   validateNonEmptyString(a.inputPath, 'inputPath');
   if (!ROTATION_ANGLES.includes(a.rotation as (typeof ROTATION_ANGLES)[number])) {
-    throw new Error(`rotation must be one of ${ROTATION_ANGLES.join(', ')}, got ${String(a.rotation)}`);
+    throw new Error(
+      `rotation must be one of ${ROTATION_ANGLES.join(', ')}, got ${String(a.rotation)}`,
+    );
   }
   if (a.pages !== undefined) {
     validateNonEmptyString(a.pages, 'pages');
@@ -267,7 +278,10 @@ export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnn
       throw new Error(`${f} must be a string`);
     }
   }
-  if (a.icon !== undefined && !ANNOTATION_ICONS.includes(a.icon as (typeof ANNOTATION_ICONS)[number])) {
+  if (
+    a.icon !== undefined &&
+    !ANNOTATION_ICONS.includes(a.icon as (typeof ANNOTATION_ICONS)[number])
+  ) {
     throw new Error(`icon must be one of ${ANNOTATION_ICONS.join(', ')}, got ${String(a.icon)}`);
   }
   if (a.open !== undefined && typeof a.open !== 'boolean') {
@@ -279,7 +293,11 @@ export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArg
   const a = asEditArgs(args);
   validateNonEmptyString(a.inputPath, 'inputPath');
   validateNonEmptyString(a.outputDir, 'outputDir');
-  if (!Array.isArray(a.ranges) || a.ranges.length === 0 || a.ranges.some((r) => typeof r !== 'string' || r.length === 0)) {
+  if (
+    !Array.isArray(a.ranges) ||
+    a.ranges.length === 0 ||
+    a.ranges.some((r) => typeof r !== 'string' || r.length === 0)
+  ) {
     throw new Error('ranges must be a non-empty array of page-spec strings (e.g. ["1-3", "4-"])');
   }
   if (a.prefix !== undefined) {

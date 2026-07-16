@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
-import { wrapText, hasNonLatin1 } from '../src/services/layout.js';
+import { PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { hasNonLatin1, wrapText } from '../src/services/layout.js';
 
 let font: PDFFont;
 
@@ -14,14 +14,14 @@ describe('hasNonLatin1', () => {
     'returns false for Latin-1 text: %s',
     (s) => {
       expect(hasNonLatin1(s)).toBe(false);
-    }
+    },
   );
 
   it.each(['\u65e5\u672c\u8a9e', 'mixed \u3042'])(
     'returns true when non-Latin1 present: %s',
     (s) => {
       expect(hasNonLatin1(s)).toBe(true);
-    }
+    },
   );
 });
 

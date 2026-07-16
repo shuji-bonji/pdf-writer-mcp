@@ -4,9 +4,9 @@
  */
 
 import { rgb } from 'pdf-lib';
-import { LayoutEngine, hasNonLatin1 } from '../layout.js';
-import type { FontSource, LoadedFont } from '../font-manager.js';
 import { DEFAULTS } from '../../config.js';
+import type { FontSource, LoadedFont } from '../font-manager.js';
+import { hasNonLatin1, type LayoutEngine } from '../layout.js';
 
 export function renderText(engine: LayoutEngine, text: string, loaded: LoadedFont): void {
   assertRenderable(text, loaded);
@@ -23,12 +23,15 @@ export function renderText(engine: LayoutEngine, text: string, loaded: LoadedFon
 }
 
 /** 標準フォントに日本語などを渡すと壊れるため、事前に分かりやすく弾く */
-export function assertRenderable(text: string, loaded: Pick<FontSource | LoadedFont, 'isStandard'>): void {
+export function assertRenderable(
+  text: string,
+  loaded: Pick<FontSource | LoadedFont, 'isStandard'>,
+): void {
   if (loaded.isStandard && hasNonLatin1(text)) {
     throw new Error(
       'The text contains non-Latin characters (e.g. Japanese) but no embeddable font was provided. ' +
         'Pass "fontPath" pointing to a .ttf/.otf font (e.g. Noto Sans JP), ' +
-        `or set the ${'PDF_WRITER_FONT'} environment variable.`
+        `or set the ${'PDF_WRITER_FONT'} environment variable.`,
     );
   }
 }

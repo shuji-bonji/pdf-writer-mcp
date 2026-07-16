@@ -3,11 +3,16 @@
  * PDF のメタデータ付与・保存・base64 化を共通化する。
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import type { PDFDocument } from 'pdf-lib';
 import { PACKAGE_INFO } from '../config.js';
-import type { CommonCreateOptions, CommonEditOptions, CreateResult, EditResult } from '../types/index.js';
+import type {
+  CommonCreateOptions,
+  CommonEditOptions,
+  CreateResult,
+  EditResult,
+} from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -42,7 +47,7 @@ export async function saveEdited(doc: PDFDocument, opts: CommonEditOptions): Pro
 export async function finalizePdf(
   doc: PDFDocument,
   opts: CommonCreateOptions,
-  fontName: string
+  fontName: string,
 ): Promise<CreateResult> {
   if (opts.title) doc.setTitle(opts.title);
   if (opts.author) doc.setAuthor(opts.author);

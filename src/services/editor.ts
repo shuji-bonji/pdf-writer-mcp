@@ -14,8 +14,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { resolve, basename, extname, join } from 'node:path';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { basename, extname, join, resolve } from 'node:path';
+import { degrees, PDFDocument } from 'pdf-lib';
 import { LIMITS } from '../constants.js';
 import type {
   AddAnnotationArgs,
@@ -47,7 +47,7 @@ export function containsSignature(bytes: Uint8Array): boolean {
 /** PDF を読み込み、署名ガードを通す */
 async function loadForEdit(
   filePath: string,
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<{ doc: PDFDocument; absPath: string }> {
   const absPath = resolve(filePath);
   let bytes: Uint8Array;
@@ -62,7 +62,7 @@ async function loadForEdit(
       `"${absPath}" appears to be digitally signed (/ByteRange found). ` +
         'Editing will invalidate existing signatures because pdf-lib rewrites the whole file. ' +
         'Pass "allowBreakingSignatures": true to proceed anyway. ' +
-        '(Signature-preserving incremental update is a future Tier C feature.)'
+        '(Signature-preserving incremental update is a future Tier C feature.)',
     );
   }
 
@@ -72,7 +72,7 @@ async function loadForEdit(
     doc = await PDFDocument.load(bytes, { updateMetadata: false });
   } catch (e) {
     throw new Error(
-      `Failed to parse PDF "${absPath}" (encrypted or corrupted?): ${e instanceof Error ? e.message : String(e)}`
+      `Failed to parse PDF "${absPath}" (encrypted or corrupted?): ${e instanceof Error ? e.message : String(e)}`,
     );
   }
   return { doc, absPath };
@@ -101,7 +101,7 @@ async function copyIntoNewDoc(src: PDFDocument, pages1: number[]): Promise<PDFDo
   const dst = await PDFDocument.create();
   const copied = await dst.copyPages(
     src,
-    pages1.map((n) => n - 1)
+    pages1.map((n) => n - 1),
   );
   for (const p of copied) dst.addPage(p);
   copyDocumentInfo(src, dst);
@@ -124,7 +124,7 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
 
 export async function mergePdfs(
   inputPaths: string[],
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<EditResult> {
   const dst = await PDFDocument.create();
   for (const p of inputPaths) {
@@ -142,7 +142,7 @@ export async function mergePdfs(
 export async function extractPages(
   inputPath: string,
   pages: string,
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<EditResult> {
   const { doc: src } = await loadForEdit(inputPath, opts);
   const pageNums = parsePageSpec(pages, src.getPageCount());
@@ -153,7 +153,7 @@ export async function extractPages(
 export async function deletePages(
   inputPath: string,
   pages: string,
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<EditResult> {
   const { doc: src } = await loadForEdit(inputPath, opts);
   const total = src.getPageCount();
@@ -170,7 +170,7 @@ export async function deletePages(
 export async function reorderPages(
   inputPath: string,
   order: number[],
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<EditResult> {
   const { doc: src } = await loadForEdit(inputPath, opts);
   const total = src.getPageCount();
@@ -195,7 +195,7 @@ export async function rotatePages(
   inputPath: string,
   rotation: number,
   pages: string | undefined,
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<EditResult> {
   const { doc } = await loadForEdit(inputPath, opts);
   const targets = pages
@@ -231,7 +231,7 @@ export async function splitPdf(
   ranges: string[],
   outputDir: string,
   prefix: string | undefined,
-  opts: CommonEditOptions
+  opts: CommonEditOptions,
 ): Promise<SplitResult> {
   if (ranges.length > LIMITS.SPLIT_MAX_PARTS) {
     throw new Error(`Too many split parts (${ranges.length}, max ${LIMITS.SPLIT_MAX_PARTS})`);

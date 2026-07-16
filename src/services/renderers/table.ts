@@ -5,7 +5,7 @@
  */
 
 import { rgb } from 'pdf-lib';
-import { LayoutEngine, wrapText } from '../layout.js';
+import { type LayoutEngine, wrapText } from '../layout.js';
 
 const PAD_X = 5;
 const PAD_Y = 4;
@@ -41,7 +41,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
 
   const drawRow = (cells: string[], isHeader: boolean): void => {
     const cellLines = colWidths.map((w, i) =>
-      wrapText(cells[i] ?? '', font, size, Math.max(4, w - PAD_X * 2))
+      wrapText(cells[i] ?? '', font, size, Math.max(4, w - PAD_X * 2)),
     );
     const rowLines = Math.max(1, ...cellLines.map((l) => l.length || 1));
     const rowHeight = rowLines * leading + PAD_Y * 2;

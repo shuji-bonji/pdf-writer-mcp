@@ -6,10 +6,17 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFDocument, PDFDict, PDFName, PDFArray, PDFNumber, PDFHexString } from 'pdf-lib';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { handleAddBookmarks, handleAddAnnotation } from '../src/tools/handlers.js';
+import {
+  type PDFArray,
+  PDFDict,
+  PDFDocument,
+  type PDFHexString,
+  PDFName,
+  type PDFNumber,
+} from 'pdf-lib';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseHexColor } from '../src/services/annotation.js';
+import { handleAddAnnotation, handleAddBookmarks } from '../src/tools/handlers.js';
 import type { EditResult } from '../src/types/index.js';
 
 let dir: string;
@@ -35,7 +42,7 @@ function outlineRoot(doc: PDFDocument): PDFDict {
 }
 
 /** アウトラインの兄弟チェーンを /First → /Next で辿る */
-function walkSiblings(doc: PDFDocument, parent: PDFDict): PDFDict[] {
+function walkSiblings(parent: PDFDict): PDFDict[] {
   const out: PDFDict[] = [];
   let cur = parent.lookup(PDFName.of('First'));
   while (cur instanceof PDFDict) {
@@ -69,7 +76,7 @@ describe('add_bookmarks', () => {
 
     const doc = await loadResult(result);
     const root = outlineRoot(doc);
-    const items = walkSiblings(doc, root);
+    const items = walkSiblings(root);
 
     expect(items).toHaveLength(2);
     expect(titleOf(items[0])).toBe('第1章 概要'); // 日本語が UTF-16BE で往復する
@@ -108,14 +115,14 @@ describe('add_bookmarks', () => {
 
     const doc = await loadResult(result);
     const root = outlineRoot(doc);
-    const [openParent, closedParent] = walkSiblings(doc, root);
+    const [openParent, closedParent] = walkSiblings(root);
 
     // 開いた親: 正の子孫数
     expect((openParent.lookup(PDFName.of('Count')) as PDFNumber).asNumber()).toBe(2);
     // 閉じた親: 負の子孫数（ISO 32000-1 §12.3.3）
     expect((closedParent.lookup(PDFName.of('Count')) as PDFNumber).asNumber()).toBe(-1);
 
-    const children = walkSiblings(doc, openParent);
+    const children = walkSiblings(openParent);
     expect(children.map(titleOf)).toEqual(['child 1', 'child 2']);
     // 子は親を指す
     expect(children[0].lookup(PDFName.of('Parent'))).toBe(openParent);
@@ -138,23 +145,23 @@ describe('add_bookmarks', () => {
     })) as EditResult;
 
     const doc = await loadResult(second);
-    const items = walkSiblings(doc, outlineRoot(doc));
+    const items = walkSiblings(outlineRoot(doc));
     expect(items.map(titleOf)).toEqual(['new']);
   });
 
   it('rejects out-of-range pages and malformed input', async () => {
     const input = await makeFixture('bm-bad.pdf', 2);
     await expect(
-      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 9 }] })
+      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 9 }] }),
     ).rejects.toThrow(/page 9.*2 page/);
     await expect(handleAddBookmarks({ inputPath: input, bookmarks: [] })).rejects.toThrow(
-      /non-empty array/
+      /non-empty array/,
     );
     await expect(
-      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: '', page: 1 }] })
+      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: '', page: 1 }] }),
     ).rejects.toThrow(/title/);
     await expect(
-      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 0 }] })
+      handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 0 }] }),
     ).rejects.toThrow(/positive integer/);
   });
 });
@@ -233,16 +240,21 @@ describe('add_annotation', () => {
   it('rejects invalid input', async () => {
     const input = await makeFixture('an-bad.pdf', 2);
     await expect(
-      handleAddAnnotation({ inputPath: input, page: 9, type: 'text', rect })
+      handleAddAnnotation({ inputPath: input, page: 9, type: 'text', rect }),
     ).rejects.toThrow(/out of range/);
     await expect(
-      handleAddAnnotation({ inputPath: input, page: 1, type: 'circle', rect })
+      handleAddAnnotation({ inputPath: input, page: 1, type: 'circle', rect }),
     ).rejects.toThrow(/type must be one of/);
     await expect(
-      handleAddAnnotation({ inputPath: input, page: 1, type: 'text', rect: { x1: 60, y1: 20, x2: 10, y2: 40 } })
+      handleAddAnnotation({
+        inputPath: input,
+        page: 1,
+        type: 'text',
+        rect: { x1: 60, y1: 20, x2: 10, y2: 40 },
+      }),
     ).rejects.toThrow(/x1 < x2/);
     await expect(
-      handleAddAnnotation({ inputPath: input, page: 1, type: 'text', rect, color: 'red' })
+      handleAddAnnotation({ inputPath: input, page: 1, type: 'text', rect, color: 'red' }),
     ).rejects.toThrow(/hex string/);
   });
 });

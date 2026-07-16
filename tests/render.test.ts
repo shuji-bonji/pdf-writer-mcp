@@ -11,7 +11,7 @@
 
 import { inflateSync } from 'node:zlib';
 import fontkit from '@pdf-lib/fontkit';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { CreateResult } from '../src/types/index.js';
 
@@ -21,11 +21,11 @@ const fontPath = process.env.TEST_FONT_PATH;
 function extractEmbeddedFont(pdf: Buffer): Buffer | undefined {
   // 各 stream を総当たりで inflate し、sfnt/CFF のシグネチャを持つものを拾う
   const marker = Buffer.from('stream');
-  let idx = 0;
-  while ((idx = pdf.indexOf(marker, idx)) !== -1) {
+  let idx = pdf.indexOf(marker);
+  while (idx !== -1) {
     // "endstream" の一部にマッチした場合は読み飛ばす
     if (pdf.subarray(idx - 3, idx).toString('latin1') === 'end') {
-      idx += marker.length;
+      idx = pdf.indexOf(marker, idx + marker.length);
       continue;
     }
     let start = idx + marker.length;
@@ -48,7 +48,7 @@ function extractEmbeddedFont(pdf: Buffer): Buffer | undefined {
     } catch {
       // 非圧縮 or 画像等 — 無視
     }
-    idx = end;
+    idx = pdf.indexOf(marker, end);
   }
   return undefined;
 }
@@ -56,7 +56,11 @@ function extractEmbeddedFont(pdf: Buffer): Buffer | undefined {
 describe.skipIf(!fontPath)('embedded font integrity (glyph outlines survive subsetting)', () => {
   it('keeps real outlines for every rendered character', async () => {
     const text = 'グリフ欠落ポリシーの確認。収録あり。実装されるはず。English します。';
-    const result = (await handleCreateTextPdf({ text, fontPath, returnBase64: true })) as CreateResult;
+    const result = (await handleCreateTextPdf({
+      text,
+      fontPath,
+      returnBase64: true,
+    })) as CreateResult;
     const pdf = Buffer.from(result.base64 as string, 'base64');
 
     const fontData = extractEmbeddedFont(pdf);
@@ -79,7 +83,9 @@ describe.skipIf(!fontPath)('embedded font integrity (glyph outlines survive subs
       if (!glyph || glyph.path.commands.length === 0) broken.push(ch);
     }
 
-    expect(broken, `characters lost their outlines after subsetting: ${broken.join('')}`).toEqual([]);
+    expect(broken, `characters lost their outlines after subsetting: ${broken.join('')}`).toEqual(
+      [],
+    );
   });
 
   it('writes CIDs that match the ToUnicode CMap (no GSUB substitution)', async () => {
@@ -88,7 +94,11 @@ describe.skipIf(!fontPath)('embedded font integrity (glyph outlines survive subs
     // 「ベースグリフ」からしか作られず、抽出が壊れる（例: 数字 0 が ô になる）。
     // ラテン文脈の数字（v0.3.0 / 123）が最も再現しやすい。
     const text = 'v0.3.0 描画検証 English 123';
-    const result = (await handleCreateTextPdf({ text, fontPath, returnBase64: true })) as CreateResult;
+    const result = (await handleCreateTextPdf({
+      text,
+      fontPath,
+      returnBase64: true,
+    })) as CreateResult;
     const fontData = extractEmbeddedFont(Buffer.from(result.base64 as string, 'base64'));
     expect(fontData).toBeDefined();
 
@@ -97,9 +107,10 @@ describe.skipIf(!fontPath)('embedded font integrity (glyph outlines survive subs
     // 同じグリフを指していること
     const laidOut = embedded.layout(text).glyphs.map((g) => g.id);
     const fromCmap = embedded.glyphsForString(text).map((g) => g.id);
-    expect(laidOut, 'layout() substituted glyphs; ToUnicode would not match the written CIDs').toEqual(
-      fromCmap
-    );
+    expect(
+      laidOut,
+      'layout() substituted glyphs; ToUnicode would not match the written CIDs',
+    ).toEqual(fromCmap);
   });
 
   it('subsets the font (output stays far smaller than the source font)', async () => {

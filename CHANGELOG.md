@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **biome adopted** for linting and formatting, matching the rest of the family
+  (same `biome.json`, same scripts). `npm run check` now runs in CI and in the
+  publish workflow. Existing sources were reformatted; the suite is clean.
+- The version is pinned to an exact `2.5.4` rather than a caret range. Biome's
+  formatting output changes between minor releases, so a range lets a local
+  `npm install` drift ahead of CI and produce spurious diffs.
+
+### Fixed
+
+- `handleCreateTablePdf` duplicated the Latin-1 check as a regex containing
+  control characters; it now reuses the existing `hasNonLatin1` helper.
+- `src/config.ts` imports `node:module` rather than the bare `module` specifier.
+
 ## [0.4.0] - 2026-07-16
 
 ### Added

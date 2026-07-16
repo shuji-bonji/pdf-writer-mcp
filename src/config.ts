@@ -3,7 +3,7 @@
  * バージョンは package.json から動的取得（config と package.json の不一致を防ぐ）
  */
 
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json') as {

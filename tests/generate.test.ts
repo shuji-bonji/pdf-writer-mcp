@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
+import { describe, expect, it } from 'vitest';
 import {
-  handleCreateTextPdf,
   handleCreateMarkdownPdf,
   handleCreateTablePdf,
+  handleCreateTextPdf,
 } from '../src/tools/handlers.js';
 
 async function pageCountOfBase64(b64: string): Promise<number> {
@@ -17,7 +17,7 @@ describe('handlers (standard font, ASCII)', () => {
     const res = await handleCreateTextPdf({ text: 'Hello World\n\nSecond paragraph.' });
     expect(res.base64).toBeTruthy();
     expect(res.pageCount).toBeGreaterThanOrEqual(1);
-    expect(await pageCountOfBase64(res.base64!)).toBe(res.pageCount);
+    expect(await pageCountOfBase64(res.base64 as string)).toBe(res.pageCount);
     expect(res.font).toBe('Helvetica');
   });
 
@@ -37,14 +37,12 @@ describe('handlers (standard font, ASCII)', () => {
 
 describe('handlers (guards)', () => {
   it('rejects Japanese text without a font', async () => {
-    await expect(handleCreateTextPdf({ text: '\u65e5\u672c\u8a9e' })).rejects.toThrow(
-      /non-Latin/
-    );
+    await expect(handleCreateTextPdf({ text: '\u65e5\u672c\u8a9e' })).rejects.toThrow(/non-Latin/);
   });
 
   it('rejects Japanese table without a font', async () => {
     await expect(
-      handleCreateTablePdf({ headers: ['\u6c0f\u540d'], rows: [['\u5c71\u7530']] })
+      handleCreateTablePdf({ headers: ['\u6c0f\u540d'], rows: [['\u5c71\u7530']] }),
     ).rejects.toThrow(/non-Latin/);
   });
 
