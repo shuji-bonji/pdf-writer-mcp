@@ -4,6 +4,9 @@
  * テキスト / Markdown / 表データから PDF を生成する。
  */
 
+// stdout ガードは他のあらゆる import より先（side-effect first）
+import './utils/stdout-guard.js';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
