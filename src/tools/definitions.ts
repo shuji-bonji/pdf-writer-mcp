@@ -337,6 +337,39 @@ export const tools = [
     },
   },
   {
+    name: 'attach_file',
+    description:
+      'PDF にファイルを埋め込む(添付する)。/Names /EmbeddedFiles と catalog /AF に登録し、' +
+      'AFRelationship を付与する。PDF/A-3(ISO 19005-3)や電子帳簿保存法の文脈で、' +
+      '「人が読む請求書 PDF + 機械可読データ(CSV/XML)」を 1 ファイルに束ねる用途に使う。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        attachmentPath: { type: 'string', description: '埋め込むファイルの絶対パス。' },
+        name: {
+          type: 'string',
+          description: 'PDF 内での表示名。省略時は元のファイル名。既存の添付と同名にはできない。',
+        },
+        description: { type: 'string', description: '添付の説明(/Desc・日本語可)。' },
+        mimeType: {
+          type: 'string',
+          description: 'MIME 型。省略時は拡張子から推定(例 .csv → text/csv)。',
+        },
+        relationship: {
+          type: 'string',
+          enum: ['Source', 'Data', 'Alternative', 'Supplement', 'Unspecified'],
+          description:
+            '本文との関係(PDF/A-3 §6.8)。Data=本文と同じ内容の機械可読データ(請求書の XML/CSV 等) / ' +
+            'Source=本文の元データ / Alternative=代替表現 / Supplement=補足資料 / Unspecified=不明(既定)。' +
+            'PDF/A-3 では意味のある値が必須のため、省略すると警告する。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'attachmentPath'],
+    },
+  },
+  {
     name: 'rotate_pages',
     description: 'ページを時計回りに回転する(90/180/270 度)。pages 省略時は全ページ。',
     inputSchema: {

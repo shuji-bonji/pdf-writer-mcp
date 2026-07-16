@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-07-16
+
+### Added
+
+- **`attach_file`** — embed a file in a PDF (Tier B, first tool). Registers it in
+  `/Names /EmbeddedFiles`, references it from the catalog `/AF`, and sets
+  `/AFRelationship`. This is the shape PDF/A-3 (ISO 19005-3) requires, and the
+  one used to bundle a human-readable invoice with its machine-readable
+  counterpart (CSV/XML) in a single file — the 電子帳簿保存法 use case.
+
+  - `relationship`: `Data` (machine-readable counterpart), `Source` (the data the
+    document came from), `Alternative`, `Supplement`, `Unspecified` (default).
+    Omitting it produces a warning — PDF/A-3 §6.8 wants a meaningful value, and
+    `Unspecified` says nothing about why the file is there.
+  - `mimeType` is inferred from the extension when omitted (`.csv` → `text/csv`),
+    falling back to `application/octet-stream`.
+  - `name` renames the attachment inside the PDF; duplicates are rejected because
+    name-tree keys must be unique.
+  - Attaching to a tagged PDF leaves it conformant (verified: veraPDF `ua1`,
+    106/106).
+
+  Descriptions and names round-trip in Japanese, and attached bytes come back
+  byte-identical.
+
 ## [0.5.1] - 2026-07-16
 
 ### Added

@@ -199,6 +199,50 @@ export interface AddAnnotationArgs extends CommonEditOptions {
 }
 
 /**
+ * 埋め込みファイルと本文の関係（PDF/A-3 §6.8 / ISO 32000-2 Table 46）。
+ * PDF/A-3 では指定が必須。
+ */
+export type AttachmentRelationship =
+  /** 本文の元になったデータ（例: 請求書 PDF に対する元の CSV） */
+  | 'Source'
+  /** 本文と同じ内容の機械可読データ（例: ZUGFeRD/電帳法の XML・CSV） */
+  | 'Data'
+  /** 本文の代替表現（例: 音声版） */
+  | 'Alternative'
+  /** 補足資料 */
+  | 'Supplement'
+  /** 不明・その他 */
+  | 'Unspecified';
+
+export interface AttachFileArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 埋め込むファイルのパス */
+  attachmentPath: string;
+  /** PDF 内での表示名。省略時は元のファイル名 */
+  name?: string;
+  /** 説明（/Desc） */
+  description?: string;
+  /** MIME 型。省略時は拡張子から推定 */
+  mimeType?: string;
+  /** 本文との関係。既定 Unspecified */
+  relationship?: AttachmentRelationship;
+}
+
+/**
+ * 添付結果
+ */
+export interface AttachResult extends EditResult {
+  attachment: {
+    name: string;
+    bytes: number;
+    mimeType: string;
+    relationship: string;
+  };
+  /** 埋め込み後の全添付ファイル名 */
+  attachments: string[];
+}
+
+/**
  * 編集結果
  */
 export interface EditResult {

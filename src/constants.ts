@@ -39,7 +39,18 @@ export const LIMITS = {
   /** しおりの最大総数・最大ネスト深さ */
   BOOKMARK_MAX_TOTAL: 2_000,
   BOOKMARK_MAX_DEPTH: 8,
+  /** 埋め込みファイルの最大サイズ（バイト）。PDF 全体がメモリに載るため上限を設ける */
+  ATTACHMENT_MAX_BYTES: 100 * 1024 * 1024,
 } as const;
+
+/** attach_file が受け付ける AFRelationship（PDF/A-3 §6.8） */
+export const ATTACHMENT_RELATIONSHIPS = [
+  'Source',
+  'Data',
+  'Alternative',
+  'Supplement',
+  'Unspecified',
+] as const;
 
 /** add_annotation が受け付ける注釈種別 */
 export const ANNOTATION_TYPES = ['text', 'highlight', 'square'] as const;

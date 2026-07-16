@@ -20,6 +20,8 @@ import { LIMITS } from '../constants.js';
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
+  AttachFileArgs,
+  AttachResult,
   CommonEditOptions,
   EditResult,
   SetMetadataArgs,
@@ -28,6 +30,7 @@ import type {
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict } from './annotation.js';
+import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
 import { appendAnnotationToStructTree } from './struct-append.js';
@@ -239,6 +242,38 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
   const result = await saveEdited(doc, args);
   if (warnings.length > 0) result.warnings = warnings;
   return result;
+}
+
+export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const attached = await attachFile(doc, {
+    filePath: args.attachmentPath,
+    name: args.name,
+    description: args.description,
+    mimeType: args.mimeType,
+    relationship: args.relationship,
+  });
+
+  const warnings: string[] = [];
+  if (!args.relationship) {
+    warnings.push(
+      'No "relationship" given, so the attachment is marked Unspecified. ' +
+        'PDF/A-3 requires a meaningful AFRelationship — use "Data" for machine-readable ' +
+        'counterparts of the document (e.g. an invoice CSV/XML) or "Source" for the data it came from.',
+    );
+  }
+
+  logger.info(
+    'Editor',
+    `Attached ${attached.name} (${attached.bytes} bytes, ${attached.mimeType})`,
+  );
+  const saved = await saveEdited(doc, args);
+  return {
+    ...saved,
+    warnings: warnings.length > 0 ? warnings : undefined,
+    attachment: attached,
+    attachments: listEmbeddedFiles(doc).map((f) => f.name),
+  };
 }
 
 export async function splitPdf(

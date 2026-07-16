@@ -6,6 +6,7 @@
 import {
   ANNOTATION_ICONS,
   ANNOTATION_TYPES,
+  ATTACHMENT_RELATIONSHIPS,
   LIMITS,
   PAGE_SIZES,
   type PageSizeName,
@@ -14,6 +15,7 @@ import {
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
+  AttachFileArgs,
   CommonCreateOptions,
   CommonEditOptions,
   CreateMarkdownArgs,
@@ -300,6 +302,24 @@ export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnn
   }
   if (a.open !== undefined && typeof a.open !== 'boolean') {
     throw new Error('open must be a boolean');
+  }
+}
+
+export function validateAttachFileArgs(args: unknown): asserts args is AttachFileArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  validateNonEmptyString(a.attachmentPath, 'attachmentPath');
+
+  for (const f of ['name', 'description', 'mimeType'] as const) {
+    if (a[f] !== undefined) validateNonEmptyString(a[f], f);
+  }
+  if (
+    a.relationship !== undefined &&
+    !ATTACHMENT_RELATIONSHIPS.includes(a.relationship as (typeof ATTACHMENT_RELATIONSHIPS)[number])
+  ) {
+    throw new Error(
+      `relationship must be one of ${ATTACHMENT_RELATIONSHIPS.join(', ')}, got ${String(a.relationship)}`,
+    );
   }
 }
 

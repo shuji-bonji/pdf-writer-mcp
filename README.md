@@ -49,6 +49,7 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
 | `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
+| `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape for bundling machine-readable data with a document |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
@@ -146,7 +147,8 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Editing Tier A wave 2 — bookmarks and annotations (v0.4.0)
 - [x] Tagged PDF / PDF/UA-1 — verified by veraPDF (v0.5.0)
 - [x] Annotations nested in `Annot` tags on tagged output (v0.5.1)
-- [ ] Editing Tier B — form filling/flattening, watermarks, attachments, page-number stamping
+- [x] Editing Tier B — file attachments (v0.6.0)
+- [ ] Editing Tier B — form filling/flattening, watermarks, page-number stamping
 - [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`
 - [ ] Separate faces for headings and body (bold face embedding)

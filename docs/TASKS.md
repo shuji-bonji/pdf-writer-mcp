@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-16（v0.3.1 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 9 = **12 ツール**・**116 passed**・typecheck / biome OK・npm 公開済み |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 10 = **13 ツール**・**126 passed**・typecheck / biome OK・npm 公開済み |
 
 ## 現状サマリ
 
@@ -34,7 +34,14 @@
 
 - [x] **B-5a. 編集系 Tier A 第1波**（v0.2.0）
 - [x] **B-5b. 編集系 Tier A 第2波**（v0.4.0）: `add_bookmarks` / `add_annotation`
-- [ ] **B-5c. 編集系 Tier B**: `fill_form` / `flatten_form` / `add_watermark` / `attach_file`（PDF/A-3・電帳法）/ `stamp_page_numbers`
+- [ ] **B-5c. 編集系 Tier B**（着手中）
+  - [x] `attach_file`（v0.6.0・2026-07-16）— `/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`。
+    PDF/A-3（ISO 19005-3）§6.8 準拠の形。`relationship` 省略時は Unspecified になるため警告する。
+    MIME は拡張子から推定、同名は拒否（名前ツリーのキーは一意）、タグ付き PDF に添付しても veraPDF ua1 は COMPLIANT。
+    pdf-lib の `attach()` が catalog /AF・/UF・/Params まで書くことを実測で確認済み（自前実装は不要だった）
+  - [ ] `add_watermark` — タグ付き PDF では Artifact にすること（B-1 の基盤が使える）
+  - [ ] `stamp_page_numbers` — 同上（Artifact）
+  - [ ] `fill_form` / `flatten_form` — AcroForm。タグ付きでは Widget 注釈の扱いに注意（7.18.1-1 の例外）
 - [x] **B-1. タグ付き PDF / PDF/UA-1**（v0.5.0・2026-07-16）
   - **受け入れ基準を達成**: veraPDF `--flavour ua1` で **106/106 規則・違反 0（COMPLIANT）**。text / markdown / table の 3 ツールすべて
   - `tagged: true` で opt-in（既定の出力は不変）。PDF/UA はタイトル必須のため `title` が必要

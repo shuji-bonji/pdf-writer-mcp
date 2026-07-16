@@ -11,6 +11,7 @@ import { buildPdf } from '../services/builder.js';
 import {
   addAnnotation,
   addBookmarks,
+  attachFileToPdf,
   deletePages,
   extractPages,
   mergePdfs,
@@ -23,10 +24,11 @@ import { hasNonLatin1 } from '../services/layout.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
 import { renderTable } from '../services/renderers/table.js';
 import { renderText } from '../services/renderers/text.js';
-import type { CreateResult, EditResult, SplitResult } from '../types/index.js';
+import type { AttachResult, CreateResult, EditResult, SplitResult } from '../types/index.js';
 import {
   validateAddAnnotationArgs,
   validateAddBookmarksArgs,
+  validateAttachFileArgs,
   validateCreateMarkdownArgs,
   validateCreateTableArgs,
   validateCreateTextArgs,
@@ -123,6 +125,11 @@ export async function handleAddAnnotation(args: unknown): Promise<EditResult> {
   return addAnnotation(args);
 }
 
+export async function handleAttachFile(args: unknown): Promise<AttachResult> {
+  validateAttachFileArgs(args);
+  return attachFileToPdf(args);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -140,4 +147,5 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   rotate_pages: handleRotatePages,
   add_bookmarks: handleAddBookmarks,
   add_annotation: handleAddAnnotation,
+  attach_file: handleAttachFile,
 };
