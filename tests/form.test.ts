@@ -323,9 +323,18 @@ describe('タグ付き PDF', () => {
     const input = join(dir, 't2.pdf');
     await makeTaggedForm(input);
 
+    // E-2: allowBreakingTags の誘導はメッセージから next_actions へ移った。
+    // code / retryable / next_actions を構造化エラーとして検証する。
     await expect(
       flattenForm({ inputPath: input, fontPath: FONT_PATH, outputPath: join(dir, 't2-out.pdf') }),
-    ).rejects.toThrow(/tagged PDF.*PDF\/UA-1 7\.1.*allowBreakingTags/s);
+    ).rejects.toMatchObject({
+      code: 'TAGGED_PDF',
+      message: expect.stringMatching(/tagged PDF.*PDF\/UA-1 7\.1/s),
+      options: {
+        retryable: true,
+        next_actions: [expect.objectContaining({ example: { allowBreakingTags: true } })],
+      },
+    });
 
     await expect(
       fillForm({
@@ -335,7 +344,7 @@ describe('タグ付き PDF', () => {
         fontPath: FONT_PATH,
         outputPath: join(dir, 't2b-out.pdf'),
       }),
-    ).rejects.toThrow(/allowBreakingTags/);
+    ).rejects.toMatchObject({ code: 'TAGGED_PDF' });
   });
 
   it.runIf(FONT_PATH)('allowBreakingTags なら警告つきで強行する', async () => {

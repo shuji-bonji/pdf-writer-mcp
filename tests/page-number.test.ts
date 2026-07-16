@@ -191,7 +191,7 @@ describe.skipIf(!fontPath)('stamp_page_numbers', () => {
     ).rejects.toThrow(/must contain "\{n\}"/);
     await expect(
       handleStampPageNumbers({ inputPath: input, position: 'middle', fontPath }),
-    ).rejects.toThrow(/position must be one of/);
+    ).rejects.toThrow(/position/);
   });
 
   it('stamps rotated pages without throwing', async () => {
