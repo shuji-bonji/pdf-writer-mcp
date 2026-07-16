@@ -473,7 +473,8 @@ export const tools = [
     name: 'flatten_form',
     description:
       '既存 PDF の対話フォーム(AcroForm)をフラット化し、記入済みの見た目を保ったまま非対話にする。' +
-      '配布前に値を固定したい場合に使う。既存の値に日本語が含まれる場合は fontPath が必要。' +
+      '配布前に値を固定したい場合に使う。外観の再生成が要る場合に備え、既存の値に日本語が' +
+      '含まれるなら fontPath か環境変数 PDF_WRITER_FONT を指定しておくこと。' +
       'タグ付き PDF では Widget 注釈が消えて Form 構造要素が宙に浮くため既定で拒否する' +
       '(allowBreakingTags: true で強行可)。',
     inputSchema: {
@@ -482,7 +483,9 @@ export const tools = [
         inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
         fontPath: {
           type: 'string',
-          description: '外観生成に使うフォント。既存の値に日本語が含まれる場合に必要。',
+          description:
+            '外観生成に使うフォント。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+            '既存の外観をそのまま使える場合は不要だが、再生成が必要な日本語フォームでは要る。',
         },
         allowBreakingTags: {
           type: 'boolean',
