@@ -34,6 +34,17 @@ export interface CommonCreateOptions {
   author?: string;
   /** フォント未収録文字の扱い。既定 'error' */
   onMissingGlyph?: MissingGlyphPolicy;
+  /**
+   * タグ付き PDF（PDF/UA-1）として生成するか。既定 false。
+   * true にすると構造木・XMP 宣言・/Lang・DisplayDocTitle を付与する。
+   * PDF/UA はタイトルを要求するため title の指定が必須になる。
+   */
+  tagged?: boolean;
+  /**
+   * 文書の自然言語（BCP 47。例 'ja' / 'en-US'）。
+   * tagged 時に省略すると本文から推定し、結果を warnings で報告する。
+   */
+  lang?: string;
 }
 
 export interface CreateTextArgs extends CommonCreateOptions {

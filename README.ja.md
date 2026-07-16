@@ -20,7 +20,21 @@
 | `create_markdown_pdf` | Markdown — 見出し / 段落 / 箇条書き・番号リスト / コードブロック / 引用 / 水平線 / 表 |
 | `create_table_pdf` | 罫線付き表 — 列幅の自動算出、セル内折り返し、改ページ時のヘッダ再描画 |
 
-共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `author` / `onMissingGlyph`。
+共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `author` / `onMissingGlyph` / `tagged` / `lang`。
+
+### タグ付き PDF / PDF/UA（v0.5.0）
+
+`tagged: true` を指定すると、**PDF/UA-1（ISO 14289）準拠のタグ付き PDF**（アクセシブルな PDF）を生成します。veraPDF（`--flavour ua1`）で 106/106 規則の準拠を確認済みです。
+
+```jsonc
+{ "markdown": "# 見出し\n\n本文。", "title": "レポート", "tagged": true, "lang": "ja" }
+```
+
+Markdown は構造木に対応付けられます。見出し → `H1`〜`H6`、リスト → `L`/`LI`/`LBody`、表 → `Table`/`TR`/`TH`/`TD`（ヘッダには `/Scope`）、引用 → `BlockQuote`、コード → `Code`。水平線・罫線・コード背景は Artifact になります。見出しレベルは「H1 始まり・飛ばさない」よう正規化されるため、Markdown の `# → ###` は構造上 `H1 → H2` になります（見た目のサイズは元のままです）。
+
+PDF/UA はタイトルを要求するため、`tagged: true` では `title` が必須です。`lang`（BCP 47）は省略すると本文から推定し、`warnings` で報告します。**誤った `/Lang` はスクリーンリーダの誤読を招く**ため、分かっている場合は明示してください。
+
+> タグ付けは opt-in です（既定の出力は変わりません）。機械検証は「読み順や代替テキストが**適切か**」までは判定できず、存在の有無しか見られません。人手の確認は依然として必要です。
 
 ### 編集
 
@@ -128,8 +142,9 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 
 - [x] 編集系 Tier A 第1波 — メタデータ・ページ操作（v0.2.0）
 - [x] 編集系 Tier A 第2波 — しおり・注釈（v0.4.0）
+- [x] タグ付き PDF / PDF/UA-1 — veraPDF で準拠を確認（v0.5.0）
 - [ ] 編集系 Tier B — フォーム記入 / フラット化、透かし、添付ファイル、ページ番号スタンプ
-- [ ] タグ付き PDF / PDF/UA（スクリーンリーダ向けの構造タグ）
+- [ ] 画像の代替テキスト（`Figure` + `/Alt`）、タグ付き出力での注釈の `Annot` タグ内包
 - [ ] `.ttc` からのフェイス自動抽出
 - [ ] 見出し用と本文用のフォント分け（太字フェイス埋め込み）
 - [ ] 画像埋め込み、ヘッダー / フッター

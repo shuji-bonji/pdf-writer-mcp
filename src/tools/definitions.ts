@@ -46,6 +46,20 @@ const commonProperties = {
       'フォントに存在しない文字(例: Noto Sans JP に無い ✔ U+2714)の扱い。' +
       'error(既定)=欠落文字を列挙してエラー / replace=〓 に置換して警告 / ignore=空白のまま描画して警告。',
   },
+  tagged: {
+    type: 'boolean',
+    description:
+      'タグ付き PDF(PDF/UA-1・ISO 14289)として生成する。既定 false。' +
+      'true にすると構造木・PDF/UA 宣言・/Lang・DisplayDocTitle を付与し、' +
+      'スクリーンリーダで読める文書になる。PDF/UA はタイトルを要求するため title が必須。',
+  },
+  lang: {
+    type: 'string',
+    description:
+      '文書の自然言語(BCP 47。例 "ja" / "en-US")。tagged 時に省略すると本文から推定し、' +
+      '推定結果を warnings で報告する。誤った言語宣言はスクリーンリーダの誤読を招くため、' +
+      '確実な場合は明示すること。',
+  },
 } as const;
 
 const editCommonProperties = {

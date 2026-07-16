@@ -54,45 +54,59 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
 
     const topY = engine.cursorTop;
     let x = engine.leftX;
+    // 行は TR、セルはヘッダなら TH / データなら TD（PDF/UA 7.5）
+    engine.struct?.begin('TR');
     for (let i = 0; i < cols; i++) {
       const w = colWidths[i];
-      if (isHeader) {
+      // TH には /Scope が必須（PDF/UA 7.5-1）。本レンダラのヘッダは列見出しなので Column
+      engine.struct?.begin(isHeader ? 'TH' : 'TD', isHeader ? { scope: 'Column' } : {});
+      // 背景・罫線は意味を持たない装飾 → Artifact
+      engine.drawArtifact(() => {
+        if (isHeader) {
+          engine.page.drawRectangle({
+            x,
+            y: topY - rowHeight,
+            width: w,
+            height: rowHeight,
+            color: rgb(0.93, 0.93, 0.96),
+          });
+        }
         engine.page.drawRectangle({
           x,
           y: topY - rowHeight,
           width: w,
           height: rowHeight,
-          color: rgb(0.93, 0.93, 0.96),
+          borderColor: rgb(0.7, 0.7, 0.72),
+          borderWidth: 0.5,
         });
-      }
-      engine.page.drawRectangle({
-        x,
-        y: topY - rowHeight,
-        width: w,
-        height: rowHeight,
-        borderColor: rgb(0.7, 0.7, 0.72),
-        borderWidth: 0.5,
       });
       let ty = topY - PAD_Y - size * 0.8;
       for (const ln of cellLines[i]) {
         if (ln !== '') {
-          engine.page.drawText(ln, {
-            x: x + PAD_X,
-            y: ty,
-            size,
-            font,
-            color: rgb(0.15, 0.15, 0.15),
+          const y = ty;
+          engine.drawTaggedContent(() => {
+            engine.page.drawText(ln, {
+              x: x + PAD_X,
+              y,
+              size,
+              font,
+              color: rgb(0.15, 0.15, 0.15),
+            });
           });
         }
         ty -= leading;
       }
+      engine.struct?.end();
       x += w;
     }
+    engine.struct?.end();
     engine.moveDown(rowHeight);
   };
 
+  engine.struct?.begin('Table');
   drawRow(headers, true);
   for (const row of rows) {
     drawRow(row, false);
   }
+  engine.struct?.end();
 }

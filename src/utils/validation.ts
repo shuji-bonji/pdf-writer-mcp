@@ -94,6 +94,20 @@ export function validateCommonOptions(opts: CommonCreateOptions): void {
       );
     }
   }
+
+  if (opts.tagged !== undefined && typeof opts.tagged !== 'boolean') {
+    throw new Error('tagged must be a boolean');
+  }
+
+  if (opts.lang !== undefined) {
+    validateNonEmptyString(opts.lang, 'lang');
+    // BCP 47 の緩い検査（ja / en-US / zh-Hans-CN 等）
+    if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(opts.lang)) {
+      throw new Error(
+        `lang must be a BCP 47 language tag like "ja" or "en-US", got "${opts.lang}"`,
+      );
+    }
+  }
 }
 
 export function validatePageSize(value: unknown): asserts value is PageSizeName {

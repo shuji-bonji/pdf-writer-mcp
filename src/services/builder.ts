@@ -9,8 +9,9 @@
 
 import { PDFDocument, rgb } from 'pdf-lib';
 import { DEFAULTS } from '../config.js';
-import { PAGE_SIZES, type PageSizeName } from '../constants.js';
+import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
+import { inferLang } from '../utils/lang.js';
 import {
   applyMissingGlyphPolicy,
   embedFontFor,
@@ -20,6 +21,8 @@ import {
 import { LayoutEngine } from './layout.js';
 import { finalizePdf } from './output.js';
 import { assertRenderable } from './renderers/text.js';
+import { StructTreeBuilder } from './struct-tree.js';
+import { applyPdfuaCatalog } from './xmp.js';
 
 /**
  * render コールバック。texts には onMissingGlyph ポリシー適用済みの
@@ -48,12 +51,35 @@ export async function buildPdf(
   const title = opts.title ? applied.texts[0] : undefined;
   const texts = opts.title ? applied.texts.slice(1) : applied.texts;
 
-  // 描画確定後のテキストでサブセットして埋め込む
-  const loaded = await embedFontFor(doc, source, applied.texts);
+  // 描画確定後のテキストでサブセットして埋め込む。
+  // レンダラが入力に無い文字（箇条書きの '•' 等）を足すため、それらも必ず含める
+  const loaded = await embedFontFor(doc, source, [...applied.texts, RENDERER_GENERATED_CHARS]);
 
   const pageName: PageSizeName = opts.pageSize ?? (DEFAULTS.pageSize as PageSizeName);
   const [pageWidth, pageHeight] = PAGE_SIZES[pageName];
   const fontSize = opts.fontSize ?? DEFAULTS.fontSize;
+
+  // タグ付き（PDF/UA）の準備
+  let struct: StructTreeBuilder | undefined;
+  let lang: string | undefined;
+  if (opts.tagged) {
+    if (!title) {
+      throw new Error(
+        'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
+      );
+    }
+    lang = opts.lang;
+    if (!lang) {
+      const inferred = inferLang(applied.texts.join('\n'));
+      lang = inferred.lang;
+      warnings.push(
+        inferred.confident
+          ? `Inferred document language as "${lang}"; pass "lang" explicitly to override.`
+          : `Inferred document language as "${lang}", but the text has no kana so it could also be Chinese. Pass "lang" explicitly — a wrong /Lang makes screen readers mispronounce the text.`,
+      );
+    }
+    struct = new StructTreeBuilder(doc);
+  }
 
   const engine = new LayoutEngine(doc, {
     pageWidth,
@@ -62,19 +88,27 @@ export async function buildPdf(
     font: loaded.font,
     fontSize,
     lineHeight: DEFAULTS.lineHeight,
+    struct,
   });
 
   // タイトルが指定されていれば本文冒頭に見出しとして描画（メタデータにも finalizePdf で設定）
   if (title) {
+    struct?.begin('H1');
     engine.drawParagraph(title, {
       size: fontSize + 7,
       color: rgb(0, 0, 0),
       lineHeight: 1.2,
       spaceAfter: 12,
     });
+    struct?.end();
   }
 
   render(engine, loaded, texts);
+
+  if (struct) {
+    struct.finalize();
+    applyPdfuaCatalog(doc, { title: title as string, author: opts.author, lang: lang as string });
+  }
 
   const result = await finalizePdf(doc, opts, loaded.name);
   if (warnings.length > 0) result.warnings = warnings;

@@ -20,7 +20,21 @@ Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji
 | `create_markdown_pdf` | Markdown — headings, paragraphs, bullet/ordered lists, code blocks, quotes, rules, tables |
 | `create_table_pdf` | Ruled tables — automatic column widths, cell wrapping, headers repeated across page breaks |
 
-Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `author`, `onMissingGlyph`.
+Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `author`, `onMissingGlyph`, `tagged`, `lang`.
+
+### Tagged PDF / PDF/UA (v0.5.0)
+
+Pass `tagged: true` to produce an accessible, tagged PDF conforming to **PDF/UA-1 (ISO 14289)**. Output is verified compliant by veraPDF (`--flavour ua1`, 106/106 rules).
+
+```jsonc
+{ "markdown": "# Title\n\nBody.", "title": "Report", "tagged": true, "lang": "en" }
+```
+
+Markdown maps onto the structure tree: headings → `H1`–`H6`, lists → `L`/`LI`/`LBody`, tables → `Table`/`TR`/`TH`/`TD` (headers get `/Scope`), quotes → `BlockQuote`, code → `Code`. Rules, borders and code backgrounds become artifacts. Heading levels are normalised so they start at H1 and never skip — a Markdown `# → ###` jump becomes `H1 → H2` in the structure, while visual sizes stay as authored.
+
+PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BCP 47) is inferred from the text when omitted and reported via `warnings` — pass it explicitly when you know it, since a wrong `/Lang` makes screen readers mispronounce the text.
+
+> Tagging is opt-in: default output is unchanged. Machine validation cannot judge whether reading order or alt text are *appropriate*, only that they exist — human review still matters.
 
 ### Editing
 
@@ -128,8 +142,9 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 
 - [x] Editing Tier A wave 1 — metadata and page operations (v0.2.0)
 - [x] Editing Tier A wave 2 — bookmarks and annotations (v0.4.0)
+- [x] Tagged PDF / PDF/UA-1 — verified by veraPDF (v0.5.0)
 - [ ] Editing Tier B — form filling/flattening, watermarks, attachments, page-number stamping
-- [ ] Tagged PDF / PDF/UA (structure tags for screen readers)
+- [ ] Images with alt text (`Figure` + `/Alt`), annotations nested in `Annot` tags for tagged output
 - [ ] Automatic face extraction from `.ttc`
 - [ ] Separate faces for headings and body (bold face embedding)
 - [ ] Image embedding, headers/footers

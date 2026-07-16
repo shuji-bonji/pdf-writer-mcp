@@ -5,6 +5,7 @@
  */
 
 import { type PDFDocument, type PDFFont, type PDFPage, type RGB, rgb } from 'pdf-lib';
+import type { StructTreeBuilder } from './struct-tree.js';
 
 /** ベースライン近似係数（グリフ上端からベースラインまで ≒ size * この値） */
 const ASCENT_RATIO = 0.8;
@@ -16,6 +17,11 @@ export interface LayoutOptions {
   font: PDFFont;
   fontSize: number;
   lineHeight: number;
+  /**
+   * タグ付き PDF の構造木ビルダー。
+   * 指定すると全描画が BDC/EMC で囲まれる（PDF/UA 7.1-3）。
+   */
+  struct?: StructTreeBuilder;
 }
 
 export interface DrawTextOptions {
@@ -161,6 +167,32 @@ export class LayoutEngine {
   set cursorTop(v: number) {
     this._top = v;
   }
+  /** タグ付き生成のとき構造木ビルダーを返す（未指定なら undefined） */
+  get struct(): StructTreeBuilder | undefined {
+    return this.opts.struct;
+  }
+
+  /**
+   * 実コンテンツの描画。タグ付きなら BDC/EMC で囲む。
+   * 構造要素の begin/end は呼び出し側（renderer）が行う。
+   * page へ直接描画する renderer（表・コード等）はこれを経由すること。
+   */
+  drawTaggedContent(draw: () => void): void {
+    if (this.opts.struct) {
+      this.opts.struct.markContent(this._page, draw);
+    } else {
+      draw();
+    }
+  }
+
+  /** 意味を持たない描画（罫線・背景）。タグ付きなら Artifact で囲む */
+  drawArtifact(draw: () => void): void {
+    if (this.opts.struct) {
+      this.opts.struct.markArtifact(this._page, draw);
+    } else {
+      draw();
+    }
+  }
 
   newPage(): void {
     this._page = this.doc.addPage([this.opts.pageWidth, this.opts.pageHeight]);
@@ -192,12 +224,15 @@ export class LayoutEngine {
     for (const line of lines) {
       this.ensureSpace(leading);
       if (line !== '') {
-        this._page.drawText(line, {
-          x: this.leftX + leftIndent,
-          y: this._top - size * ASCENT_RATIO,
-          size,
-          font,
-          color,
+        const y = this._top - size * ASCENT_RATIO;
+        this.drawTaggedContent(() => {
+          this._page.drawText(line, {
+            x: this.leftX + leftIndent,
+            y,
+            size,
+            font,
+            color,
+          });
         });
       }
       this._top -= leading;
@@ -215,11 +250,14 @@ export class LayoutEngine {
     const spaceAfter = options.spaceAfter ?? 8;
     this.moveDown(spaceBefore);
     this.ensureSpace(thickness + spaceAfter);
-    this._page.drawLine({
-      start: { x: this.leftX, y: this._top },
-      end: { x: this.leftX + this.contentWidth, y: this._top },
-      thickness,
-      color,
+    // 水平線は意味を持たない装飾 → Artifact（PDF/UA 7.1-3）
+    this.drawArtifact(() => {
+      this._page.drawLine({
+        start: { x: this.leftX, y: this._top },
+        end: { x: this.leftX + this.contentWidth, y: this._top },
+        thickness,
+        color,
+      });
     });
     this.moveDown(spaceAfter);
   }

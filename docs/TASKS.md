@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-16（v0.3.1 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3 + 編集系 9 = **12 ツール**・**100 passed**・typecheck OK・npm 公開済み |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 9 = **12 ツール**・**109 passed**・typecheck / biome OK・npm 公開済み |
 
 ## 現状サマリ
 
@@ -35,30 +35,17 @@
 - [x] **B-5a. 編集系 Tier A 第1波**（v0.2.0）
 - [x] **B-5b. 編集系 Tier A 第2波**（v0.4.0）: `add_bookmarks` / `add_annotation`
 - [ ] **B-5c. 編集系 Tier B**: `fill_form` / `flatten_form` / `add_watermark` / `attach_file`（PDF/A-3・電帳法）/ `stamp_page_numbers`
-- [ ] **B-1. タグ付き PDF / PDF/UA** ← **前提（M-1）が揃ったので次の第一候補**
-  - **受け入れ基準**: `validate_conformance` の `flavour: "pdfua-1"` が **veraPDF エンジンで違反 0 件**
-    （shuji 環境には veraPDF が導入済み（`/opt/homebrew/bin/verapdf`）で、106 規則の権威ある判定が得られる。
-    native の 12 規則通過は必要条件にすぎない）
-  - **実測（writer v0.4.0 の出力を veraPDF ua1 で判定 = 10 違反）** — これがそのまま実装項目:
-
-    | ISO 14289-1 条項 | 内容 | 対応 | native も検出 |
-    |------------------|------|------|:---:|
-    | 6.2-1 | MarkInfo /Marked = true | catalog に付与 | ✅ |
-    | 7.1-11 | StructTreeRoot による論理構造 | 構造木の構築 | ✅ |
-    | 7.1-8 | Metadata（/Type /Metadata・/Subtype /XML） | XMP 自前生成（pdf-lib に API 無し） | ✅ |
-    | 7.1-10 | ViewerPreferences /DisplayDocTitle = true | catalog に付与 | ✅ |
-    | **7.1-3** | **全コンテンツを Artifact かタグ付き実コンテンツに**（14 件 = 本文の全描画） | **BDC/EMC でのマーク付け。レイアウトエンジンの改修が必要 = B-1 の本丸** | ✗ |
-    | **7.2-34** | **ページ内容の自然言語の決定** | `/Lang` は catalog だけでなく**構造要素単位**でも要求される | ✗（catalog のみ検査） |
-    | **7.18.1-1** | **注釈は Annot タグで包む**（Widget/PrinterMark/Link 以外） | **`add_annotation` はタグ付き PDF では単体では不十分** | ✗ |
-    | **7.18.3-1** | **注釈のあるページは /Tabs = /S** | ページ辞書に付与 | ✗ |
-    | 7.2-2 | Outline エントリの自然言語 | しおりにも言語情報 | ✗ |
-    | 7.2-24 | 注釈 /Contents の自然言語 | 同上 | ✗ |
-
-  - Markdown の見出し / リスト / 表 → 構造タグへのマッピング（`ua-heading-hierarchy` / `ua-table-headers` も満たすこと）
-  - ※ specs/05 ではタグ木の**保守**（`ensure_tagged`）は Tier C。新規生成時の付与はそれより軽い
-  - ※ 太字の 4 件は M-1 の native 規則では検出できない（veraPDF でのみ判明）。
-    native は「pdf-lib だけで検査できる範囲」に絞る設計なので、これは想定内の役割分担。
-    ただし **7.18.1-1 は B-5b の add_annotation に後付けの課題を残した**点に注意
+- [x] **B-1. タグ付き PDF / PDF/UA-1**（v0.5.0・2026-07-16）
+  - **受け入れ基準を達成**: veraPDF `--flavour ua1` で **106/106 規則・違反 0（COMPLIANT）**。text / markdown / table の 3 ツールすべて
+  - `tagged: true` で opt-in（既定の出力は不変）。PDF/UA はタイトル必須のため `title` が必要
+  - 構造木（StructTreeRoot / StructElem / ParentTree）・BDC/EMC・Artifact・XMP（pdfuaid + 拡張スキーマ）・/Lang・DisplayDocTitle
+  - Markdown → 構造タグ（H1-H6 / L・LI・LBody / Table・TR・TH(+/Scope)・TD / BlockQuote / Code）
+  - 見出しレベルの正規化（H1 始まり・飛ばさない。`# → ###` は `H1 → H2`）
+  - `lang` 省略時は本文から推定し warnings で報告（かな→ja / ハングル→ko / 漢字のみ→ja だが中国語の可能性を警告）
+  - **副産物のバグ修正**: 箇条書きの `•` が .notdef（豆腐）だった（v0.3.0 の回帰）。
+    サブセットは入力テキスト基準だが、レンダラは入力に無い文字を足すため漏れていた。
+    veraPDF の 7.21.8-1 が発見。抽出は正常だったため既存テストでは検知不能だった
+  - 残課題（別タスク化）: 画像の Figure + /Alt、タグ付き出力での注釈の Annot タグ内包（7.18.1-1）
 - [ ] **B-2. `.ttc` フェイス自動抽出** — Node 単体で完結（現状は検知してエラー）
 - [ ] **B-3. 見出し / 本文のフォント分け** — 太字フェイス埋め込み。制約「インライン装飾は字面のみ」の解消
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）

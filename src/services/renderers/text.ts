@@ -15,10 +15,13 @@ export function renderText(engine: LayoutEngine, text: string, loaded: LoadedFon
   const paragraphs = text.split(/\n[ \t]*\n/);
   for (const para of paragraphs) {
     if (para.trim() === '') continue;
+    // タグ付き時は各段落を <P> にする
+    engine.struct?.begin('P');
     engine.drawParagraph(para, {
       color: rgb(0.1, 0.1, 0.1),
       spaceAfter: DEFAULTS.paragraphGap,
     });
+    engine.struct?.end();
   }
 }
 

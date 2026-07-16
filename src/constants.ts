@@ -59,6 +59,16 @@ export const ANNOTATION_ICONS = [
 export const ROTATION_ANGLES = [90, 180, 270] as const;
 
 /**
+ * レンダラが入力テキストに無くても描画しうる文字。
+ *
+ * フォントのサブセットは「入力テキスト」を基に行うため、レンダラが後から足す文字は
+ * サブセットに含まれず .notdef（豆腐）になる。実例: Markdown の `- item` は原文に
+ * 中黒を含まないが、箇条書きレンダラが '•' を描画する（v0.3.0〜v0.4.0 の回帰）。
+ * 番号リストの marker（`1. `）も同様に生成物。
+ */
+export const RENDERER_GENERATED_CHARS = '•0123456789. ';
+
+/**
  * フォントファイルのマジックナンバー（先頭 4 bytes）
  * .ttc（TrueTypeCollection）は pdf-lib がサブセット化できないため検知して弾く
  */

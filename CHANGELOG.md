@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-07-16
+
+### Added
+
+- **Tagged PDF / PDF/UA-1 (ISO 14289)** via `tagged: true` on the create tools.
+  Output is **verified compliant by veraPDF** (`--flavour ua1`, 106/106 rules) for
+  text, Markdown, and table documents.
+
+  Opt-in by design: existing behaviour is unchanged unless you ask for tagging.
+  PDF/UA mandates a document title, so `tagged: true` requires `title`.
+
+  - Structure tree (`StructTreeRoot`, `StructElem`, `ParentTree`) built from
+    pdf-lib's low-level object model — it has no logical-structure API.
+  - Every drawn line is wrapped in `/Tag <</MCID n>> BDC … EMC`, and decorations
+    (rules, cell borders, code backgrounds) become `/Artifact BMC … EMC` (7.1-3).
+  - Markdown maps to structure: headings → `H1`–`H6`, lists → `L`/`LI`/`LBody`,
+    tables → `Table`/`TR`/`TH`/`TD`, quotes → `BlockQuote`, code → `Code`.
+  - Heading levels are normalised so they start at H1 and never skip (7.4.2).
+    A Markdown `# → ###` jump becomes `H1 → H2`; visual sizes are untouched.
+  - Table headers carry `/A << /O /Table /Scope /Column >>` (7.5-1).
+  - XMP is generated in-house (pdf-lib has no XMP API) with the `pdfuaid`
+    declaration **and** the PDF/A extension schema description — veraPDF rejects
+    the declaration without it (5-1).
+  - `/Lang`, `/ViewerPreferences /DisplayDocTitle`, `/MarkInfo /Marked`.
+
+- **`lang` option** (BCP 47). When omitted under `tagged: true` the language is
+  inferred from the text and reported via `warnings`. Inference is conservative:
+  kana → `ja`, Hangul → `ko`, Han without kana → `ja` *with a warning that it
+  could be Chinese*. A wrong `/Lang` makes screen readers mispronounce text, so
+  the guess is always surfaced rather than silently applied.
+
+### Fixed
+
+- **Bullets in unordered lists rendered as `.notdef`** (blank boxes) — a
+  regression from 0.3.0. Font subsetting is driven by the *input* text, but the
+  Markdown renderer adds characters of its own: `- item` contains no bullet, yet
+  `•` is drawn. Those glyphs were missing from the subset. Renderer-generated
+  characters are now always subset in (`RENDERER_GENERATED_CHARS`).
+
+  Text extraction was unaffected, which is why no existing test caught it;
+  veraPDF's 7.21.8-1 (no `.notdef` references) is what surfaced it.
+
+- XMP metadata is written as UTF-8 bytes. `context.stream(string)` writes one
+  byte per character, which mangled Japanese titles.
+
 ## [Unreleased]
 
 ### Changed
