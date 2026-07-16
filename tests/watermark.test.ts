@@ -16,7 +16,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { addWatermark } from '../src/services/editor.js';
 import { centeredOrigin } from '../src/services/watermark.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
-import { validateAddWatermarkArgs } from '../src/utils/validation.js';
+import { AddWatermarkSchema, parseArgs } from '../src/utils/validation.js';
 
 const FONT_PATH = process.env.TEST_FONT_PATH;
 
@@ -230,27 +230,27 @@ describe('validateAddWatermarkArgs', () => {
   const base = { inputPath: '/tmp/a.pdf', text: 'DRAFT' };
 
   it('最小構成を受け付ける', () => {
-    expect(() => validateAddWatermarkArgs(base)).not.toThrow();
+    expect(() => parseArgs(AddWatermarkSchema, base)).not.toThrow();
   });
 
   it('text が空なら弾く', () => {
-    expect(() => validateAddWatermarkArgs({ ...base, text: '' })).toThrow(/text/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, text: '' })).toThrow(/text/);
   });
 
   it('opacity が範囲外なら弾く', () => {
-    expect(() => validateAddWatermarkArgs({ ...base, opacity: 1.5 })).toThrow(/opacity/);
-    expect(() => validateAddWatermarkArgs({ ...base, opacity: -0.1 })).toThrow(/opacity/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, opacity: 1.5 })).toThrow(/opacity/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, opacity: -0.1 })).toThrow(/opacity/);
   });
 
   it('fontSize が範囲外なら弾く', () => {
-    expect(() => validateAddWatermarkArgs({ ...base, fontSize: 200 })).toThrow(/fontSize/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, fontSize: 200 })).toThrow(/fontSize/);
   });
 
   it('angle が数値でなければ弾く', () => {
-    expect(() => validateAddWatermarkArgs({ ...base, angle: '45' })).toThrow(/angle/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, angle: '45' })).toThrow(/angle/);
   });
 
   it('behind が真偽値でなければ弾く', () => {
-    expect(() => validateAddWatermarkArgs({ ...base, behind: 'yes' })).toThrow(/behind/);
+    expect(() => parseArgs(AddWatermarkSchema, { ...base, behind: 'yes' })).toThrow(/behind/);
   });
 });

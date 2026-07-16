@@ -21,6 +21,7 @@ import { type PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
 import subsetFont from 'subset-font';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
+import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -69,18 +70,26 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
   try {
     bytes = await readFile(resolvedPath);
   } catch {
-    throw new Error(`Font file not found or unreadable: ${resolvedPath}`);
+    throw new PdfWriterError(
+      `Font file not found or unreadable: ${resolvedPath}`,
+      'FONT_NOT_FOUND',
+      { next_actions: [NEXT_ACTIONS.provideFontPath()] },
+    );
   }
 
   if (bytes.length < 4) {
-    throw new Error(`Font file is too small to be valid: ${resolvedPath}`);
+    throw new PdfWriterError(
+      `Font file is too small to be valid: ${resolvedPath}`,
+      'FONT_NOT_FOUND',
+    );
   }
 
   if (magic4(bytes) === FONT_MAGIC.TTC) {
-    throw new Error(
+    throw new PdfWriterError(
       `Font file is a TrueTypeCollection (.ttc): ${resolvedPath}. ` +
         `Extract a single face to .otf/.ttf first ` +
         `(e.g. Python fonttools: TTCollection(path).fonts[i].save('out.otf')).`,
+      'INVALID_ARGUMENT',
     );
   }
 
@@ -142,7 +151,7 @@ export async function embedFontFor(
     font = await doc.embedFont(toEmbed, { subset: false });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to embed font ${source.name}: ${msg}`);
+    throw new PdfWriterError(`Failed to embed font ${source.name}: ${msg}`, 'INTERNAL_ERROR');
   }
 
   logger.info(CTX, `Embedded custom font: ${source.name}`);
@@ -187,11 +196,11 @@ export function applyMissingGlyphPolicy(
   const suffix = missing.size > 10 ? ` and ${missing.size - 10} more` : '';
 
   if (policy === 'error') {
-    throw new Error(
+    throw new PdfWriterError(
       `The font "${source.name}" has no glyph for: ${list}${suffix}. ` +
-        'These characters would render as blank boxes. ' +
-        'Remove/replace them, use a font that covers them, ' +
-        'or set onMissingGlyph to "replace" (substitutes 〓) or "ignore".',
+        'These characters would render as blank boxes.',
+      'MISSING_GLYPH',
+      { retryable: true, next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()] },
     );
   }
 

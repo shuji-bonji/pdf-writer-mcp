@@ -10,6 +10,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import { DEFAULTS } from '../config.js';
 import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
+import { invalidArg } from '../errors.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { inferLang } from '../utils/lang.js';
 import {
@@ -64,7 +65,7 @@ export async function buildPdf(
   let lang: string | undefined;
   if (opts.tagged) {
     if (!title) {
-      throw new Error(
+      throw invalidArg(
         'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
       );
     }

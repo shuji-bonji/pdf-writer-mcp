@@ -10,7 +10,7 @@
  */
 
 import { PDFDict, type PDFDocument, PDFName, PDFRawStream, PDFString } from 'pdf-lib';
-import { PACKAGE_INFO } from '../config.js';
+import { outputDate, PACKAGE_INFO } from '../config.js';
 
 export interface XmpOptions {
   title?: string;
@@ -62,7 +62,10 @@ const PDFUA_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
     </rdf:Description>`;
 
 export function buildXmpPacket(opts: XmpOptions): string {
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  // SOURCE_DATE_EPOCH（E-6）設定時は Info 辞書側と同じ固定時刻になる
+  const now = outputDate()
+    .toISOString()
+    .replace(/\.\d{3}Z$/, 'Z');
   const parts: string[] = [];
 
   if (opts.pdfuaPart !== undefined) {

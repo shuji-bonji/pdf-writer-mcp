@@ -1,6 +1,9 @@
 /**
  * Editor
- * 既存 PDF の編集（Tier A: メタデータ・ページ操作）を担う。
+ * 既存 PDF の編集の共通基盤（loadForEdit / saveEdited）と、ページ操作以外の
+ * 編集ツール（メタデータ・しおり・注釈・添付・スタンプ・透かし・フォーム）。
+ * ページ単位の操作（merge / split / extract / delete / reorder / rotate）は
+ * page-ops.ts に分離した。
  *
  * create 系（builder → font → layout → renderer）とはフローが異なり、
  *   読込（loadForEdit: 署名ガード込み）→ 操作 → 保存（saveEdited）
@@ -14,9 +17,10 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { basename, extname, join, resolve } from 'node:path';
-import { degrees, PDFDocument } from 'pdf-lib';
+import { resolve } from 'node:path';
+import { PDFDocument } from 'pdf-lib';
 import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
+import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
   AddAnnotationArgs,
   AddBookmarksArgs,
@@ -29,7 +33,6 @@ import type {
   FlattenFormArgs,
   FormResult,
   SetMetadataArgs,
-  SplitResult,
   StampPageNumbersArgs,
   StampResult,
   WatermarkResult,
@@ -67,8 +70,8 @@ export function containsSignature(bytes: Uint8Array): boolean {
   return false;
 }
 
-/** PDF を読み込み、署名ガードを通す */
-async function loadForEdit(
+/** PDF を読み込み、署名ガード・サイズ上限を通す（page-ops.ts と共用） */
+export async function loadForEdit(
   filePath: string,
   opts: CommonEditOptions,
 ): Promise<{ doc: PDFDocument; absPath: string }> {
@@ -77,23 +80,27 @@ async function loadForEdit(
   try {
     bytes = await readFile(absPath);
   } catch {
-    throw new Error(`Cannot read PDF file: ${absPath}`);
+    throw new PdfWriterError(`Cannot read PDF file: ${absPath}`, 'DOC_NOT_FOUND', {
+      next_actions: [NEXT_ACTIONS.checkFilePath(absPath)],
+    });
   }
 
   // 入力サイズ上限（E-1）: pdf-lib は全体をメモリに載せるため verify と同水準で防御
   if (bytes.byteLength > LIMITS.INPUT_PDF_MAX_BYTES) {
-    throw new Error(
+    throw new PdfWriterError(
       `"${absPath}" is too large (${Math.round(bytes.byteLength / 1024 / 1024)}MB, ` +
         `max ${LIMITS.INPUT_PDF_MAX_BYTES / 1024 / 1024}MB)`,
+      'FILE_TOO_LARGE',
     );
   }
 
   if (containsSignature(bytes) && !opts.allowBreakingSignatures) {
-    throw new Error(
+    throw new PdfWriterError(
       `"${absPath}" appears to be digitally signed (/ByteRange found). ` +
         'Editing will invalidate existing signatures because pdf-lib rewrites the whole file. ' +
-        'Pass "allowBreakingSignatures": true to proceed anyway. ' +
         '(Signature-preserving incremental update is a future Tier C feature.)',
+      'SIGNED_PDF',
+      { retryable: true, next_actions: [NEXT_ACTIONS.allowBreakingSignatures()] },
     );
   }
 
@@ -102,45 +109,21 @@ async function loadForEdit(
     // updateMetadata: false — 読込時に Producer/ModDate を書き換えない
     doc = await PDFDocument.load(bytes, { updateMetadata: false });
   } catch (e) {
-    throw new Error(
-      `Failed to parse PDF "${absPath}" (encrypted or corrupted?): ${e instanceof Error ? e.message : String(e)}`,
+    const cause = e instanceof Error ? e.message : String(e);
+    const encrypted = /encrypt/i.test(cause);
+    throw new PdfWriterError(
+      `Failed to parse PDF "${absPath}" (${encrypted ? 'encrypted' : 'corrupted?'}): ${cause}`,
+      encrypted ? 'ENCRYPTED_PDF' : 'INVALID_PDF',
+      encrypted
+        ? { hint: 'Decrypt the PDF first — pdf-writer-mcp cannot edit encrypted files.' }
+        : {},
     );
   }
   return { doc, absPath };
 }
 
-/** 基本メタデータを src から dst へ引き継ぐ（copyPages は文書情報を運ばないため） */
-function copyDocumentInfo(src: PDFDocument, dst: PDFDocument): void {
-  const title = src.getTitle();
-  const author = src.getAuthor();
-  const subject = src.getSubject();
-  const keywords = src.getKeywords();
-  const creator = src.getCreator();
-  const producer = src.getProducer();
-  const creationDate = src.getCreationDate();
-  if (title !== undefined) dst.setTitle(title);
-  if (author !== undefined) dst.setAuthor(author);
-  if (subject !== undefined) dst.setSubject(subject);
-  if (keywords !== undefined) dst.setKeywords([keywords]);
-  if (creator !== undefined) dst.setCreator(creator);
-  if (producer !== undefined) dst.setProducer(producer);
-  if (creationDate !== undefined) dst.setCreationDate(creationDate);
-}
-
-/** src の指定ページ（1 始まり配列・指定順）だけを持つ新規文書を作る */
-async function copyIntoNewDoc(src: PDFDocument, pages1: number[]): Promise<PDFDocument> {
-  const dst = await PDFDocument.create();
-  const copied = await dst.copyPages(
-    src,
-    pages1.map((n) => n - 1),
-  );
-  for (const p of copied) dst.addPage(p);
-  copyDocumentInfo(src, dst);
-  return dst;
-}
-
 // ---------------------------------------------------------------------------
-// Tier A ツール本体
+// Tier A ツール本体（ページ操作は page-ops.ts へ）
 // ---------------------------------------------------------------------------
 
 export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
@@ -153,97 +136,10 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
   return saveEdited(doc, args);
 }
 
-export async function mergePdfs(
-  inputPaths: string[],
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const dst = await PDFDocument.create();
-  for (const p of inputPaths) {
-    const { doc: src } = await loadForEdit(p, opts);
-    const copied = await dst.copyPages(src, src.getPageIndices());
-    for (const page of copied) dst.addPage(page);
-  }
-  // 文書情報は先頭ファイルから引き継ぐ
-  const { doc: first } = await loadForEdit(inputPaths[0], opts);
-  copyDocumentInfo(first, dst);
-  logger.info('Editor', `Merged ${inputPaths.length} PDFs (${dst.getPageCount()} pages)`);
-  return saveEdited(dst, opts);
-}
-
-export async function extractPages(
-  inputPath: string,
-  pages: string,
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const { doc: src } = await loadForEdit(inputPath, opts);
-  const pageNums = parsePageSpec(pages, src.getPageCount());
-  const dst = await copyIntoNewDoc(src, pageNums);
-  return saveEdited(dst, opts);
-}
-
-export async function deletePages(
-  inputPath: string,
-  pages: string,
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const { doc: src } = await loadForEdit(inputPath, opts);
-  const total = src.getPageCount();
-  const del = new Set(parsePageSpec(pages, total));
-  if (del.size >= total) {
-    throw new Error(`Cannot delete all ${total} page(s) — the result would be an empty PDF`);
-  }
-  const keep: number[] = [];
-  for (let n = 1; n <= total; n++) if (!del.has(n)) keep.push(n);
-  const dst = await copyIntoNewDoc(src, keep);
-  return saveEdited(dst, opts);
-}
-
-export async function reorderPages(
-  inputPath: string,
-  order: number[],
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const { doc: src } = await loadForEdit(inputPath, opts);
-  const total = src.getPageCount();
-  if (order.length !== total) {
-    throw new Error(`order must list all ${total} page(s) exactly once, got ${order.length}`);
-  }
-  const seen = new Set<number>();
-  for (const n of order) {
-    if (!Number.isInteger(n) || n < 1 || n > total) {
-      throw new Error(`order contains an invalid page number ${n} (1..${total})`);
-    }
-    if (seen.has(n)) {
-      throw new Error(`order contains page ${n} more than once`);
-    }
-    seen.add(n);
-  }
-  const dst = await copyIntoNewDoc(src, order);
-  return saveEdited(dst, opts);
-}
-
-export async function rotatePages(
-  inputPath: string,
-  rotation: number,
-  pages: string | undefined,
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const { doc } = await loadForEdit(inputPath, opts);
-  const targets = pages
-    ? parsePageSpec(pages, doc.getPageCount())
-    : Array.from({ length: doc.getPageCount() }, (_, i) => i + 1);
-  for (const n of targets) {
-    const page = doc.getPage(n - 1);
-    const current = page.getRotation().angle;
-    page.setRotation(degrees((((current + rotation) % 360) + 360) % 360));
-  }
-  return saveEdited(doc, opts);
-}
-
 export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> {
   const total = countBookmarks(args.bookmarks);
   if (total > LIMITS.BOOKMARK_MAX_TOTAL) {
-    throw new Error(`too many bookmarks (${total}, max ${LIMITS.BOOKMARK_MAX_TOTAL})`);
+    throw invalidArg(`too many bookmarks (${total}, max ${LIMITS.BOOKMARK_MAX_TOTAL})`);
   }
   const { doc } = await loadForEdit(args.inputPath, args);
   const added = setBookmarks(doc, args.bookmarks);
@@ -419,14 +315,15 @@ export async function fillForm(args: FillFormArgs): Promise<FormResult> {
   const form = doc.getForm();
 
   if (form.hasXFA()) {
-    throw new Error(
+    throw new PdfWriterError(
       'This PDF uses XFA forms, which pdf-writer-mcp does not support. ' +
         '(XFA is deprecated in ISO 32000-2 and forbidden by PDF/UA-1 7.15.)',
+      'UNSUPPORTED_PDF_FEATURE',
     );
   }
 
   const names = Object.keys(args.fields);
-  if (names.length === 0) throw new Error('fields must contain at least one field to fill');
+  if (names.length === 0) throw invalidArg('fields must contain at least one field to fill');
   for (const name of names) applyFieldValue(form, name, args.fields[name]);
 
   const warnings = readOnlyWarnings(form, names);
@@ -463,11 +360,13 @@ function flattenAndWarn(
   warnings: string[],
 ): boolean {
   if (isTagged(doc) && !allowBreakingTags) {
-    throw new Error(
+    throw new PdfWriterError(
       'Flattening would break the structure tree of this tagged PDF: it removes the Widget ' +
         'annotations that the Form structure elements point to, and bakes their appearance into ' +
         'the page as untagged content (violating PDF/UA-1 7.1 and 7.18.4). ' +
-        'Pass "allowBreakingTags": true to flatten anyway, or omit flatten to keep the form interactive.',
+        'Omit flatten to keep the form interactive.',
+      'TAGGED_PDF',
+      { retryable: true, next_actions: [NEXT_ACTIONS.allowBreakingTags()] },
     );
   }
   if (isTagged(doc)) {
@@ -491,11 +390,14 @@ export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {
   const form = doc.getForm();
 
   if (form.hasXFA()) {
-    throw new Error('This PDF uses XFA forms, which pdf-writer-mcp does not support.');
+    throw new PdfWriterError(
+      'This PDF uses XFA forms, which pdf-writer-mcp does not support.',
+      'UNSUPPORTED_PDF_FEATURE',
+    );
   }
   const fieldCount = form.getFields().length;
   if (fieldCount === 0) {
-    throw new Error(`"${args.inputPath}" has no AcroForm fields to flatten.`);
+    throw invalidArg(`"${args.inputPath}" has no AcroForm fields to flatten.`);
   }
 
   const warnings: string[] = [];
@@ -512,30 +414,4 @@ export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {
     fields: [],
     warnings: warnings.length > 0 ? warnings : undefined,
   };
-}
-
-export async function splitPdf(
-  inputPath: string,
-  ranges: string[],
-  outputDir: string,
-  prefix: string | undefined,
-  opts: CommonEditOptions,
-): Promise<SplitResult> {
-  if (ranges.length > LIMITS.SPLIT_MAX_PARTS) {
-    throw new Error(`Too many split parts (${ranges.length}, max ${LIMITS.SPLIT_MAX_PARTS})`);
-  }
-  const { doc: src, absPath } = await loadForEdit(inputPath, opts);
-  const total = src.getPageCount();
-  const base = prefix ?? `${basename(absPath, extname(absPath))}-part`;
-
-  const files: SplitResult['files'] = [];
-  for (const [i, range] of ranges.entries()) {
-    const pageNums = parsePageSpec(range, total, `ranges[${i}]`);
-    const dst = await copyIntoNewDoc(src, pageNums);
-    const outputPath = join(outputDir, `${base}${i + 1}.pdf`);
-    const saved = await saveEdited(dst, { outputPath });
-    files.push({ path: saved.path as string, pageCount: saved.pageCount, bytes: saved.bytes });
-  }
-  logger.info('Editor', `Split "${absPath}" into ${files.length} file(s)`);
-  return { files, count: files.length };
 }

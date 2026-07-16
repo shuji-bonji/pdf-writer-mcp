@@ -2,29 +2,35 @@
  * Tool ハンドラ群 + ディスパッチ用 Map
  *
  * 新しいツールを追加するときは:
- *   1. handleXxx 関数を実装
- *   2. 下の toolHandlers に 1 行追加
- * だけでよい。引数検査は validation.ts に集約。
+ *   1. validation.ts に Zod スキーマ（shape + フルスキーマ）を追加
+ *   2. definitions.ts のレジストリに 1 エントリ追加
+ *   3. handleXxx 関数を実装し、下の toolHandlers に 1 行追加
+ *
+ * 引数検査は Zod（validation.ts）に一元化。MCP SDK も shape で検証するが、
+ * オブジェクト横断の refine はフルスキーマ側にしか無いため parseArgs を必ず通す。
  */
 
+import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
 import {
   addAnnotation,
   addBookmarks,
   addWatermark,
   attachFileToPdf,
-  deletePages,
-  extractPages,
   fillForm,
   flattenForm,
-  mergePdfs,
-  reorderPages,
-  rotatePages,
   setMetadata,
-  splitPdf,
   stampPageNumbers,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
+import {
+  deletePages,
+  extractPages,
+  mergePdfs,
+  reorderPages,
+  rotatePages,
+  splitPdf,
+} from '../services/page-ops.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
 import { renderTable } from '../services/renderers/table.js';
 import { renderText } from '../services/renderers/text.js';
@@ -38,53 +44,55 @@ import type {
   WatermarkResult,
 } from '../types/index.js';
 import {
-  validateAddAnnotationArgs,
-  validateAddBookmarksArgs,
-  validateAddWatermarkArgs,
-  validateAttachFileArgs,
-  validateCreateMarkdownArgs,
-  validateCreateTableArgs,
-  validateCreateTextArgs,
-  validateDeletePagesArgs,
-  validateExtractPagesArgs,
-  validateFillFormArgs,
-  validateFlattenFormArgs,
-  validateMergePdfsArgs,
-  validateReorderPagesArgs,
-  validateRotatePagesArgs,
-  validateSetMetadataArgs,
-  validateSplitPdfArgs,
-  validateStampPageNumbersArgs,
+  AddAnnotationSchema,
+  AddBookmarksSchema,
+  AddWatermarkSchema,
+  AttachFileSchema,
+  CreateMarkdownSchema,
+  CreateTableSchema,
+  CreateTextSchema,
+  DeletePagesSchema,
+  ExtractPagesSchema,
+  FillFormSchema,
+  FlattenFormSchema,
+  MergePdfsSchema,
+  parseArgs,
+  ReorderPagesSchema,
+  RotatePagesSchema,
+  SetMetadataSchema,
+  SplitPdfSchema,
+  StampPageNumbersSchema,
 } from '../utils/validation.js';
 
 export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> {
-  validateCreateTextArgs(args);
-  return buildPdf(args, [args.text], (engine, loaded, [text]) => renderText(engine, text, loaded));
+  const a = parseArgs(CreateTextSchema, args);
+  return buildPdf(a, [a.text], (engine, loaded, [text]) => renderText(engine, text, loaded));
 }
 
 export async function handleCreateMarkdownPdf(args: unknown): Promise<CreateResult> {
-  validateCreateMarkdownArgs(args);
-  return buildPdf(args, [args.markdown], (engine, loaded, [markdown]) =>
+  const a = parseArgs(CreateMarkdownSchema, args);
+  return buildPdf(a, [a.markdown], (engine, loaded, [markdown]) =>
     renderMarkdown(engine, markdown, loaded),
   );
 }
 
 export async function handleCreateTablePdf(args: unknown): Promise<CreateResult> {
-  validateCreateTableArgs(args);
+  const a = parseArgs(CreateTableSchema, args);
   // ポリシー適用のためセルを平坦化して渡し、render 内で元の形に戻す
-  const cells = [...args.headers, ...args.rows.flat()];
-  return buildPdf(args, cells, (engine, loaded, texts) => {
+  const cells = [...a.headers, ...a.rows.flat()];
+  return buildPdf(a, cells, (engine, loaded, texts) => {
     // 表は標準フォントで日本語不可のため、描画前に検査（判定は layout の hasNonLatin1 に統一）
     if (loaded.isStandard && hasNonLatin1(texts.join('\n'))) {
-      throw new Error(
-        'The table contains non-Latin characters (e.g. Japanese) but no embeddable font was provided. ' +
-          'Pass "fontPath" pointing to a .ttf/.otf font, or set PDF_WRITER_FONT.',
+      throw new PdfWriterError(
+        'The table contains non-Latin characters (e.g. Japanese) but no embeddable font was provided.',
+        'FONT_REQUIRED',
+        { retryable: true, next_actions: [NEXT_ACTIONS.provideFontPath()] },
       );
     }
-    const headers = texts.slice(0, args.headers.length);
+    const headers = texts.slice(0, a.headers.length);
     const rows: string[][] = [];
-    let i = args.headers.length;
-    for (const row of args.rows) {
+    let i = a.headers.length;
+    for (const row of a.rows) {
       rows.push(texts.slice(i, i + row.length));
       i += row.length;
     }
@@ -97,73 +105,73 @@ export async function handleCreateTablePdf(args: unknown): Promise<CreateResult>
 // ---------------------------------------------------------------------------
 
 export async function handleSetMetadata(args: unknown): Promise<EditResult> {
-  validateSetMetadataArgs(args);
-  return setMetadata(args);
+  const a = parseArgs(SetMetadataSchema, args);
+  return setMetadata(a);
 }
 
 export async function handleMergePdfs(args: unknown): Promise<EditResult> {
-  validateMergePdfsArgs(args);
-  return mergePdfs(args.inputPaths, args);
+  const a = parseArgs(MergePdfsSchema, args);
+  return mergePdfs(a.inputPaths, a);
 }
 
 export async function handleSplitPdf(args: unknown): Promise<SplitResult> {
-  validateSplitPdfArgs(args);
-  return splitPdf(args.inputPath, args.ranges, args.outputDir, args.prefix, args);
+  const a = parseArgs(SplitPdfSchema, args);
+  return splitPdf(a.inputPath, a.ranges, a.outputDir, a.prefix, a);
 }
 
 export async function handleExtractPages(args: unknown): Promise<EditResult> {
-  validateExtractPagesArgs(args);
-  return extractPages(args.inputPath, args.pages, args);
+  const a = parseArgs(ExtractPagesSchema, args);
+  return extractPages(a.inputPath, a.pages, a);
 }
 
 export async function handleDeletePages(args: unknown): Promise<EditResult> {
-  validateDeletePagesArgs(args);
-  return deletePages(args.inputPath, args.pages, args);
+  const a = parseArgs(DeletePagesSchema, args);
+  return deletePages(a.inputPath, a.pages, a);
 }
 
 export async function handleReorderPages(args: unknown): Promise<EditResult> {
-  validateReorderPagesArgs(args);
-  return reorderPages(args.inputPath, args.order, args);
+  const a = parseArgs(ReorderPagesSchema, args);
+  return reorderPages(a.inputPath, a.order, a);
 }
 
 export async function handleRotatePages(args: unknown): Promise<EditResult> {
-  validateRotatePagesArgs(args);
-  return rotatePages(args.inputPath, args.rotation, args.pages, args);
+  const a = parseArgs(RotatePagesSchema, args);
+  return rotatePages(a.inputPath, a.rotation, a.pages, a);
 }
 
 export async function handleAddBookmarks(args: unknown): Promise<EditResult> {
-  validateAddBookmarksArgs(args);
-  return addBookmarks(args);
+  const a = parseArgs(AddBookmarksSchema, args);
+  return addBookmarks(a);
 }
 
 export async function handleAddAnnotation(args: unknown): Promise<EditResult> {
-  validateAddAnnotationArgs(args);
-  return addAnnotation(args);
+  const a = parseArgs(AddAnnotationSchema, args);
+  return addAnnotation(a);
 }
 
 export async function handleAttachFile(args: unknown): Promise<AttachResult> {
-  validateAttachFileArgs(args);
-  return attachFileToPdf(args);
+  const a = parseArgs(AttachFileSchema, args);
+  return attachFileToPdf(a);
 }
 
 export async function handleStampPageNumbers(args: unknown): Promise<StampResult> {
-  validateStampPageNumbersArgs(args);
-  return stampPageNumbers(args);
+  const a = parseArgs(StampPageNumbersSchema, args);
+  return stampPageNumbers(a);
 }
 
 export async function handleAddWatermark(args: unknown): Promise<WatermarkResult> {
-  validateAddWatermarkArgs(args);
-  return addWatermark(args);
+  const a = parseArgs(AddWatermarkSchema, args);
+  return addWatermark(a);
 }
 
 export async function handleFillForm(args: unknown): Promise<FormResult> {
-  validateFillFormArgs(args);
-  return fillForm(args);
+  const a = parseArgs(FillFormSchema, args);
+  return fillForm(a);
 }
 
 export async function handleFlattenForm(args: unknown): Promise<FormResult> {
-  validateFlattenFormArgs(args);
-  return flattenForm(args);
+  const a = parseArgs(FlattenFormSchema, args);
+  return flattenForm(a);
 }
 
 /**

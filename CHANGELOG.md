@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-07-17
+
+コードレビュー（2026-07-17）と TASKS.md E 系（コード衛生・family 整合）への
+一括対応。**ツール名・必須フィールド・成功時の出力形式は不変**。エラー応答の
+形式のみ family 契約に揃えて変わった（minor バンプの理由）。
+
+### Changed
+
+- **McpServer + Zod へ移行（E-5）** — 低レベル `Server` + 手書き JSON Schema
+  （definitions.ts 553 行）+ asserts 検査（validation.ts 502 行）の二重管理を解消。
+  Zod スキーマ（validation.ts）が公開スキーマと実行時検証の単一情報源になった。
+  reader / verify と同じ `registerTool` パターン。`server.ts` の `buildServer()`
+  はテストから `InMemoryTransport` で検証され、`registry.test.ts` が 17 ツールの
+  名前・必須フィールド・annotations を外部仕様スナップショットとして固定する。
+- **構造化エラー（E-2）** — `{error: message}` から reader v0.6.0 と同じ
+  `code` / `hint` / `next_actions` / `retryable` 形式へ。writer 固有のガードは
+  すべて「解除フラグ付きで再試行可能」として表現される:
+  `SIGNED_PDF` (allowBreakingSignatures) / `TAGGED_PDF` (allowBreakingTags) /
+  `FONT_REQUIRED` (fontPath) / `MISSING_GLYPH` (onMissingGlyph)。ほかに
+  `DOC_NOT_FOUND` / `FILE_TOO_LARGE` / `ENCRYPTED_PDF` / `INVALID_PDF` /
+  `UNSUPPORTED_PDF_FEATURE` (XFA) / `FONT_NOT_FOUND` / `INVALID_ARGUMENT`。
+- **ページ操作を page-ops.ts へ分離** — merge / split / extract / delete /
+  reorder / rotate を editor.ts（20.6kB → 16.1kB）から切り出し。mergePdfs が
+  文書情報の引き継ぎのために先頭ファイルを二重読込していた無駄も解消。
+
+### Added
+
+- **パス検査の強化（E-1）** — すべてのパス引数（inputPath / inputPaths[] /
+  outputPath / outputDir / fontPath / attachmentPath）に絶対パスを強制し、
+  `..` セグメントを拒否。入力 PDF に 100MB のサイズ上限を新設
+  （verify の `MAX_FILE_SIZE` と同水準）。
+- **stdout ガード（E-3）** — `marked` / `subset-font` 等の依存が `console.log`
+  を吐いても stdio の JSON-RPC を汚染しないよう、side-effect-first の
+  `stdout-guard.ts` を導入（reader / verify と同パターン）。
+- **tool annotations（E-4）** — 全 17 ツールに `readOnlyHint` /
+  `destructiveHint` / `idempotentHint` / `openWorldHint` を付与。
+  `destructiveHint: true` は情報が失われる `delete_pages` と `flatten_form` のみ。
+- **決定論的出力（E-6）** — 環境変数 `SOURCE_DATE_EPOCH`（UNIX 秒、
+  reproducible-builds.org の慣習）設定時に CreationDate / ModificationDate /
+  XMP の日時を固定し、同一入力 → 同一バイト列を保証。学習データ工場の
+  差分検証・キャッシュ・再現テスト用。不正値は黙殺せずエラー。
+- 依存に `zod ^4.4.3` を追加。
+
 ## [0.6.0] - 2026-07-16
 
 ### Added

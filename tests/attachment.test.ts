@@ -191,7 +191,7 @@ describe('attach_file', () => {
     const csv = await attachmentFile('ok.csv', 'a\n1\n');
     await expect(
       handleAttachFile({ inputPath: pdf, attachmentPath: csv, relationship: 'Related' }),
-    ).rejects.toThrow(/relationship must be one of/);
+    ).rejects.toThrow(/relationship/);
   });
 });
 

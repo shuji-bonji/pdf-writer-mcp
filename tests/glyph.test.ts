@@ -77,7 +77,7 @@ describe.skipIf(!fontPath)('onMissingGlyph policy (embedded font)', () => {
 describe('onMissingGlyph validation', () => {
   it('rejects unknown policy values', async () => {
     await expect(handleCreateTextPdf({ text: 'x', onMissingGlyph: 'skip' })).rejects.toThrow(
-      /onMissingGlyph must be one of/,
+      /onMissingGlyph/,
     );
   });
 });

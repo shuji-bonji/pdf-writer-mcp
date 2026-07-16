@@ -92,7 +92,7 @@ describe('merge_pdfs', () => {
   });
 
   it('rejects fewer than 2 inputs', async () => {
-    await expect(handleMergePdfs({ inputPaths: ['/tmp/only.pdf'] })).rejects.toThrow(/at least 2/);
+    await expect(handleMergePdfs({ inputPaths: ['/tmp/only.pdf'] })).rejects.toThrow(/inputPaths/);
   });
 });
 
@@ -192,7 +192,7 @@ describe('rotate_pages', () => {
 
   it('rejects invalid rotation angles', async () => {
     await expect(handleRotatePages({ inputPath: '/tmp/x.pdf', rotation: 45 })).rejects.toThrow(
-      /rotation must be one of/,
+      /rotation/,
     );
   });
 });

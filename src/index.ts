@@ -1,57 +1,23 @@
 #!/usr/bin/env node
 /**
  * pdf-writer-mcp — MCP server entry
- * テキスト / Markdown / 表データから PDF を生成する。
+ * テキスト / Markdown / 表データから PDF を生成し、既存 PDF を編集する。
+ *
+ * E-5: reader / verify と同じ McpServer + registerTool + Zod 構成。
+ * ツール定義（説明・スキーマ・annotations）は tools/definitions.ts の
+ * レジストリ、実装は tools/handlers.ts、スキーマは utils/validation.ts。
  */
 
 // stdout ガードは他のあらゆる import より先（side-effect first）
 import './utils/stdout-guard.js';
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { PACKAGE_INFO } from './config.js';
-import { tools } from './tools/definitions.js';
-import { toolHandlers } from './tools/handlers.js';
+import { buildServer } from './server.js';
 import { logger } from './utils/logger.js';
 
-const server = new Server(
-  {
-    name: PACKAGE_INFO.name,
-    version: PACKAGE_INFO.version,
-  },
-  {
-    capabilities: { tools: {} },
-  },
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools,
-}));
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  try {
-    const handler = toolHandlers[name];
-    if (!handler) {
-      throw new Error(`Unknown tool: ${name}`);
-    }
-    const result = await handler(args);
-    return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(name, message, error instanceof Error ? error : undefined);
-    return {
-      content: [{ type: 'text', text: JSON.stringify({ error: message }, null, 2) }],
-      isError: true,
-    };
-  }
-});
-
 async function main(): Promise<void> {
+  const server = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   logger.info(PACKAGE_INFO.name, `v${PACKAGE_INFO.version} started (stdio)`);

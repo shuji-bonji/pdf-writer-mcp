@@ -16,7 +16,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { fillForm, flattenForm } from '../src/services/editor.js';
 import { listFields } from '../src/services/form.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
-import { validateFillFormArgs, validateFlattenFormArgs } from '../src/utils/validation.js';
+import { FillFormSchema, FlattenFormSchema, parseArgs } from '../src/utils/validation.js';
 
 const FONT_PATH = process.env.TEST_FONT_PATH;
 
@@ -443,52 +443,50 @@ describe('validateFillFormArgs', () => {
   const base = { inputPath: '/tmp/a.pdf', fields: { a: 'x' } };
 
   it('最小構成を受け付ける', () => {
-    expect(() => validateFillFormArgs(base)).not.toThrow();
+    expect(() => parseArgs(FillFormSchema, base)).not.toThrow();
   });
 
   it('文字列・数値・真偽値・文字列配列を受け付ける', () => {
     expect(() =>
-      validateFillFormArgs({ ...base, fields: { a: 'x', b: 1, c: true, d: ['x', 'y'] } }),
+      parseArgs(FillFormSchema, { ...base, fields: { a: 'x', b: 1, c: true, d: ['x', 'y'] } }),
     ).not.toThrow();
   });
 
   it('fields がオブジェクトでなければ拒否する', () => {
-    expect(() => validateFillFormArgs({ ...base, fields: 'x' })).toThrow(
-      /fields must be an object/,
-    );
-    expect(() => validateFillFormArgs({ ...base, fields: ['x'] })).toThrow(
-      /fields must be an object/,
-    );
+    expect(() => parseArgs(FillFormSchema, { ...base, fields: 'x' })).toThrow(/fields/);
+    expect(() => parseArgs(FillFormSchema, { ...base, fields: ['x'] })).toThrow(/fields/);
   });
 
   it('fields が空なら拒否する', () => {
-    expect(() => validateFillFormArgs({ ...base, fields: {} })).toThrow(/at least one/);
+    expect(() => parseArgs(FillFormSchema, { ...base, fields: {} })).toThrow(/at least one/);
   });
 
   it('値の型が想定外なら拒否する', () => {
-    expect(() => validateFillFormArgs({ ...base, fields: { a: { b: 1 } } })).toThrow(
-      /fields\["a"\]/,
+    expect(() => parseArgs(FillFormSchema, { ...base, fields: { a: { b: 1 } } })).toThrow(
+      /fields\.a/,
     );
-    expect(() => validateFillFormArgs({ ...base, fields: { a: [1, 2] } })).toThrow(/fields\["a"\]/);
+    expect(() => parseArgs(FillFormSchema, { ...base, fields: { a: [1, 2] } })).toThrow(
+      /fields\.a/,
+    );
   });
 
   it('flatten が真偽値でなければ拒否する', () => {
-    expect(() => validateFillFormArgs({ ...base, flatten: 'yes' })).toThrow(/flatten/);
+    expect(() => parseArgs(FillFormSchema, { ...base, flatten: 'yes' })).toThrow(/flatten/);
   });
 });
 
 describe('validateFlattenFormArgs', () => {
   it('最小構成を受け付ける', () => {
-    expect(() => validateFlattenFormArgs({ inputPath: '/tmp/a.pdf' })).not.toThrow();
+    expect(() => parseArgs(FlattenFormSchema, { inputPath: '/tmp/a.pdf' })).not.toThrow();
   });
 
   it('inputPath が無ければ拒否する', () => {
-    expect(() => validateFlattenFormArgs({})).toThrow(/inputPath/);
+    expect(() => parseArgs(FlattenFormSchema, {})).toThrow(/inputPath/);
   });
 
   it('allowBreakingTags が真偽値でなければ拒否する', () => {
     expect(() =>
-      validateFlattenFormArgs({ inputPath: '/tmp/a.pdf', allowBreakingTags: 'yes' }),
+      parseArgs(FlattenFormSchema, { inputPath: '/tmp/a.pdf', allowBreakingTags: 'yes' }),
     ).toThrow(/allowBreakingTags/);
   });
 });

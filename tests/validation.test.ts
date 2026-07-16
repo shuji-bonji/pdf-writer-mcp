@@ -1,124 +1,142 @@
+/**
+ * Zod スキーマ検証（E-5 移行後）。
+ * 旧 asserts 版と同じ振る舞い（受理・拒否の境界）を検証する。
+ */
+
 import { describe, expect, it } from 'vitest';
 import {
-  validateCommonOptions,
-  validateCreateMarkdownArgs,
-  validateCreateTableArgs,
-  validateCreateTextArgs,
-  validateMergePdfsArgs,
-  validatePageSize,
-  validatePath,
+  CreateMarkdownSchema,
+  CreateTableSchema,
+  CreateTextSchema,
+  MergePdfsSchema,
+  parseArgs,
+  SetMetadataSchema,
 } from '../src/utils/validation.js';
 
-describe('validateCreateTextArgs', () => {
+describe('CreateTextSchema', () => {
   it('accepts a valid text arg', () => {
-    expect(() => validateCreateTextArgs({ text: 'hello' })).not.toThrow();
+    expect(() => parseArgs(CreateTextSchema, { text: 'hello' })).not.toThrow();
   });
 
   it('accepts valid common options', () => {
     expect(() =>
-      validateCreateTextArgs({ text: 'hi', fontSize: 12, margin: 40, pageSize: 'A4' }),
+      parseArgs(CreateTextSchema, { text: 'hi', fontSize: 12, margin: 40, pageSize: 'A4' }),
     ).not.toThrow();
   });
 
   it.each([null, undefined, 42, 'string'])('rejects non-object args: %p', (v) => {
-    expect(() => validateCreateTextArgs(v)).toThrow();
+    expect(() => parseArgs(CreateTextSchema, v)).toThrow();
   });
 
   it('rejects missing text', () => {
-    expect(() => validateCreateTextArgs({})).toThrow();
+    expect(() => parseArgs(CreateTextSchema, {})).toThrow();
   });
 
   it('rejects non-string text', () => {
-    expect(() => validateCreateTextArgs({ text: 123 })).toThrow();
+    expect(() => parseArgs(CreateTextSchema, { text: 123 })).toThrow();
   });
-});
 
-describe('validateCommonOptions', () => {
-  it.each([3, 97, -1, Infinity, NaN])('rejects out-of-range fontSize: %p', (n) => {
-    expect(() => validateCommonOptions({ fontSize: n })).toThrow();
-  });
+  it.each([3, 97, -1, Number.POSITIVE_INFINITY, Number.NaN])(
+    'rejects out-of-range fontSize: %p',
+    (n) => {
+      expect(() => parseArgs(CreateTextSchema, { text: 'x', fontSize: n })).toThrow();
+    },
+  );
 
   it.each([-1, 301, 500])('rejects out-of-range margin: %p', (n) => {
-    expect(() => validateCommonOptions({ margin: n })).toThrow();
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', margin: n })).toThrow();
   });
 
-  it('accepts empty options', () => {
-    expect(() => validateCommonOptions({})).not.toThrow();
+  it.each(['A4', 'A3', 'A5', 'LETTER', 'LEGAL'])('accepts pageSize %s', (s) => {
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', pageSize: s })).not.toThrow();
+  });
+
+  it.each(['B5', 'a4', '', 4, null])('rejects pageSize %p', (v) => {
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', pageSize: v })).toThrow();
+  });
+
+  it.each(['ja', 'en-US', 'zh-Hans-CN'])('accepts BCP 47 lang %s', (lang) => {
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', lang })).not.toThrow();
+  });
+
+  it.each(['j', 'japanese language', '123'])('rejects invalid lang %p', (lang) => {
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', lang })).toThrow();
   });
 });
 
-describe('validatePageSize', () => {
-  it.each(['A4', 'A3', 'A5', 'LETTER', 'LEGAL'])('accepts %s', (s) => {
-    expect(() => validatePageSize(s)).not.toThrow();
-  });
-
-  it.each(['B5', 'a4', '', 4, null])('rejects %p', (v) => {
-    expect(() => validatePageSize(v)).toThrow();
-  });
-});
-
-describe('validatePath (E-1)', () => {
-  it('accepts an absolute path', () => {
-    expect(() => validatePath('/tmp/out.pdf', 'outputPath')).not.toThrow();
+describe('paths (E-1)', () => {
+  it('accepts an absolute outputPath', () => {
+    expect(() =>
+      parseArgs(CreateTextSchema, { text: 'x', outputPath: '/tmp/out.pdf' }),
+    ).not.toThrow();
   });
 
   it.each(['relative/out.pdf', './out.pdf', 'out.pdf'])('rejects relative path: %p', (p) => {
-    expect(() => validatePath(p, 'outputPath')).toThrow(/absolute/);
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', outputPath: p })).toThrow(/absolute/);
   });
 
   it.each(['/tmp/../etc/passwd', '/a/b/../c.pdf', '/..'])('rejects ".." segment: %p', (p) => {
-    expect(() => validatePath(p, 'inputPath')).toThrow(/\.\./);
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', outputPath: p })).toThrow(/\.\./);
   });
 
-  it.each(['', 42, null, undefined])('rejects non-string / empty: %p', (v) => {
-    expect(() => validatePath(v, 'inputPath')).toThrow();
-  });
-
-  it('applies to common create options (outputPath / fontPath)', () => {
-    expect(() => validateCommonOptions({ outputPath: 'rel.pdf' })).toThrow(/absolute/);
-    expect(() => validateCommonOptions({ fontPath: '../font.otf' })).toThrow();
+  it('applies to fontPath too', () => {
+    expect(() => parseArgs(CreateTextSchema, { text: 'x', fontPath: '../font.otf' })).toThrow();
   });
 
   it('applies to each mergePdfs input', () => {
-    expect(() => validateMergePdfsArgs({ inputPaths: ['/a.pdf', 'b.pdf'] })).toThrow(
-      /inputPaths\[1\]/,
+    expect(() => parseArgs(MergePdfsSchema, { inputPaths: ['/a.pdf', 'b.pdf'] })).toThrow(
+      /inputPaths\.1/,
     );
   });
+
+  it('mergePdfs requires at least 2 inputs', () => {
+    expect(() => parseArgs(MergePdfsSchema, { inputPaths: ['/a.pdf'] })).toThrow();
+  });
 });
 
-describe('validateCreateMarkdownArgs', () => {
+describe('SetMetadataSchema', () => {
+  it('requires at least one metadata field', () => {
+    expect(() => parseArgs(SetMetadataSchema, { inputPath: '/a.pdf' })).toThrow(/at least one/);
+  });
+
+  it('accepts a single field', () => {
+    expect(() => parseArgs(SetMetadataSchema, { inputPath: '/a.pdf', title: 't' })).not.toThrow();
+  });
+});
+
+describe('CreateMarkdownSchema', () => {
   it('accepts valid markdown', () => {
-    expect(() => validateCreateMarkdownArgs({ markdown: '# hi' })).not.toThrow();
+    expect(() => parseArgs(CreateMarkdownSchema, { markdown: '# hi' })).not.toThrow();
   });
   it('rejects missing markdown', () => {
-    expect(() => validateCreateMarkdownArgs({})).toThrow();
+    expect(() => parseArgs(CreateMarkdownSchema, {})).toThrow();
   });
 });
 
-describe('validateCreateTableArgs', () => {
+describe('CreateTableSchema', () => {
   it('accepts valid table', () => {
     expect(() =>
-      validateCreateTableArgs({ headers: ['a', 'b'], rows: [['1', '2']] }),
+      parseArgs(CreateTableSchema, { headers: ['a', 'b'], rows: [['1', '2']] }),
     ).not.toThrow();
   });
 
   it('accepts empty rows', () => {
-    expect(() => validateCreateTableArgs({ headers: ['a'], rows: [] })).not.toThrow();
+    expect(() => parseArgs(CreateTableSchema, { headers: ['a'], rows: [] })).not.toThrow();
   });
 
   it('rejects empty headers', () => {
-    expect(() => validateCreateTableArgs({ headers: [], rows: [] })).toThrow();
+    expect(() => parseArgs(CreateTableSchema, { headers: [], rows: [] })).toThrow();
   });
 
   it('rejects non-string header', () => {
-    expect(() => validateCreateTableArgs({ headers: ['a', 2], rows: [] })).toThrow();
+    expect(() => parseArgs(CreateTableSchema, { headers: ['a', 2], rows: [] })).toThrow();
   });
 
   it('rejects non-array row', () => {
-    expect(() => validateCreateTableArgs({ headers: ['a'], rows: ['x'] })).toThrow();
+    expect(() => parseArgs(CreateTableSchema, { headers: ['a'], rows: ['x'] })).toThrow();
   });
 
   it('rejects non-string cell', () => {
-    expect(() => validateCreateTableArgs({ headers: ['a'], rows: [[1]] })).toThrow();
+    expect(() => parseArgs(CreateTableSchema, { headers: ['a'], rows: [[1]] })).toThrow();
   });
 });

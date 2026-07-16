@@ -1,49 +1,24 @@
 /**
- * Input Validation
- * asserts 型述語で narrowing しつつ検査。閾値は constants.ts に集約。
+ * Input Validation — Zod スキーマ一元化（E-5）
+ *
+ * 以前は手書き asserts（本ファイル）と definitions.ts の JSON Schema が
+ * 同じ制約を二重管理していた。v0.7.0 からは Zod スキーマがただ一つの情報源:
+ *   - MCP への公開スキーマ（definitions.ts が shape を JSON Schema 化）
+ *   - 実行時検証（handlers.ts が parseArgs で同じスキーマを適用）
+ * の両方をここから導出する。閾値は constants.ts に集約（変更なし）。
+ *
+ * フィールドの description もここに置く — ツール説明と実検証の乖離を防ぐ。
  */
 
 import { isAbsolute } from 'node:path';
-import {
-  ANNOTATION_ICONS,
-  ANNOTATION_TYPES,
-  ATTACHMENT_RELATIONSHIPS,
-  LIMITS,
-  PAGE_SIZES,
-  type PageSizeName,
-  ROTATION_ANGLES,
-  STAMP_POSITIONS,
-} from '../constants.js';
-import type {
-  AddAnnotationArgs,
-  AddBookmarksArgs,
-  AddWatermarkArgs,
-  AttachFileArgs,
-  CommonCreateOptions,
-  CommonEditOptions,
-  CreateMarkdownArgs,
-  CreateTableArgs,
-  CreateTextArgs,
-  DeletePagesArgs,
-  ExtractPagesArgs,
-  FillFormArgs,
-  FlattenFormArgs,
-  MergePdfsArgs,
-  ReorderPagesArgs,
-  RotatePagesArgs,
-  SetMetadataArgs,
-  SplitPdfArgs,
-  StampPageNumbersArgs,
-} from '../types/index.js';
+import { z } from 'zod';
+import { LIMITS, PAGE_SIZES, type PageSizeName } from '../constants.js';
+import { invalidArg } from '../errors.js';
+import type { BookmarkInput } from '../types/index.js';
 
-export function validateNonEmptyString(value: unknown, fieldName: string): asserts value is string {
-  if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string, got ${typeof value}`);
-  }
-  if (value.length === 0) {
-    throw new Error(`${fieldName} must not be empty`);
-  }
-}
+// ---------------------------------------------------------------------------
+// 共有ビルディングブロック
+// ---------------------------------------------------------------------------
 
 /**
  * ファイルパスの検査（E-1）。
@@ -52,471 +27,446 @@ export function validateNonEmptyString(value: unknown, fieldName: string): asser
  * 解決結果ではなく指定文字列そのものを検査する（"/a/../b" のような
  * 意図の読めない指定を、正規化して通すのではなく明示的に拒否する）。
  */
-export function validatePath(value: unknown, fieldName: string): asserts value is string {
-  validateNonEmptyString(value, fieldName);
-  if (!isAbsolute(value)) {
-    throw new Error(
-      `${fieldName} must be an absolute path (e.g. "/path/to/file.pdf"), got "${value}"`,
-    );
-  }
-  if (value.split(/[/\\]+/).includes('..')) {
-    throw new Error(`${fieldName} must not contain ".." segments, got "${value}"`);
-  }
-}
+const zPath = z
+  .string()
+  .min(1)
+  .refine((p) => isAbsolute(p), {
+    message: 'must be an absolute path (e.g. "/path/to/file.pdf")',
+  })
+  .refine((p) => !p.split(/[/\\]+/).includes('..'), {
+    message: 'must not contain ".." segments',
+  });
 
-export function validateTextLength(value: unknown, fieldName: string): asserts value is string {
-  if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string, got ${typeof value}`);
-  }
-  if (value.length > LIMITS.TEXT_MAX_LENGTH) {
-    throw new Error(
-      `${fieldName} is too long (${value.length} chars, max ${LIMITS.TEXT_MAX_LENGTH})`,
-    );
-  }
-}
+const zFontSize = z.number().finite().min(LIMITS.FONT_SIZE_MIN).max(LIMITS.FONT_SIZE_MAX);
+
+const zMargin = z.number().finite().min(LIMITS.MARGIN_MIN).max(LIMITS.MARGIN_MAX);
+
+/** "1,3-5,8-" 形式のページ指定（構文の詳細検査は page-spec.ts が行う） */
+const zPageSpec = z.string().min(1);
+
+const zPageSize = z.enum(Object.keys(PAGE_SIZES) as [PageSizeName, ...PageSizeName[]]);
+
+// ---------------------------------------------------------------------------
+// 共通オプション（create 系 / edit 系）
+// ---------------------------------------------------------------------------
+
+export const commonCreateShape = {
+  outputPath: zPath
+    .optional()
+    .describe('保存先ファイルパス（絶対パス）。省略した場合は base64 文字列を返す。'),
+  returnBase64: z
+    .boolean()
+    .optional()
+    .describe('true の場合、保存に加えて base64 文字列も結果に含める。'),
+  fontPath: zPath
+    .optional()
+    .describe(
+      '埋め込むフォントファイル(.ttf / .otf)の絶対パス。日本語など非ラテン文字を含む場合は必須。' +
+        '.ttc(TrueTypeCollection)は非対応。環境変数 PDF_WRITER_FONT でも指定可。',
+    ),
+  fontSize: zFontSize.optional().describe('本文フォントサイズ(pt)。既定 11。範囲 4〜96。'),
+  pageSize: zPageSize.optional().describe('ページサイズ。既定 A4。'),
+  margin: zMargin.optional().describe('上下左右マージン(pt)。既定 56(≒20mm)。範囲 0〜300。'),
+  title: z
+    .string()
+    .optional()
+    .describe('PDF タイトル。メタデータに設定し、本文冒頭にも見出しとして描画する。'),
+  author: z.string().optional().describe('PDF 作成者(メタデータ)。'),
+  onMissingGlyph: z
+    .enum(['error', 'replace', 'ignore'])
+    .optional()
+    .describe(
+      'フォントに存在しない文字(例: Noto Sans JP に無い ✔ U+2714)の扱い。' +
+        'error(既定)=欠落文字を列挙してエラー / replace=〓 に置換して警告 / ignore=空白のまま描画して警告。',
+    ),
+  tagged: z
+    .boolean()
+    .optional()
+    .describe(
+      'タグ付き PDF(PDF/UA-1・ISO 14289)として生成する。既定 false。' +
+        'true にすると構造木・PDF/UA 宣言・/Lang・DisplayDocTitle を付与し、' +
+        'スクリーンリーダで読める文書になる。PDF/UA はタイトルを要求するため title が必須。',
+    ),
+  lang: z
+    .string()
+    .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, {
+      message: 'must be a BCP 47 language tag like "ja" or "en-US"',
+    })
+    .optional()
+    .describe(
+      '文書の自然言語(BCP 47。例 "ja" / "en-US")。tagged 時に省略すると本文から推定し、' +
+        '推定結果を warnings で報告する。誤った言語宣言はスクリーンリーダの誤読を招くため、' +
+        '確実な場合は明示すること。',
+    ),
+} as const;
+
+export const commonEditShape = {
+  outputPath: zPath
+    .optional()
+    .describe('保存先ファイルパス（絶対パス）。省略した場合は base64 文字列を返す。'),
+  returnBase64: z
+    .boolean()
+    .optional()
+    .describe('true の場合、保存に加えて base64 文字列も結果に含める。'),
+  allowBreakingSignatures: z
+    .boolean()
+    .optional()
+    .describe(
+      '編集対象が電子署名済み(/ByteRange 検知)の場合、既定ではエラーにする。' +
+        'true を指定すると署名が無効化されることを承知の上で編集を続行する。',
+    ),
+} as const;
+
+const inputPath = zPath.describe('対象 PDF の絶対パス。');
+
+// ---------------------------------------------------------------------------
+// ツール別スキーマ（shape = MCP 公開用 / schema = 実行時検証用）
+// ---------------------------------------------------------------------------
+
+export const createTextShape = {
+  text: z
+    .string()
+    .max(LIMITS.TEXT_MAX_LENGTH)
+    .describe('本文テキスト。\\n で改行、空行で段落区切り。'),
+  ...commonCreateShape,
+} as const;
+
+export const createMarkdownShape = {
+  markdown: z.string().max(LIMITS.TEXT_MAX_LENGTH).describe('Markdown 文字列。'),
+  ...commonCreateShape,
+} as const;
+
+export const createTableShape = {
+  headers: z
+    .array(z.string())
+    .min(1)
+    .max(LIMITS.TABLE_MAX_COLS)
+    .describe('ヘッダ行(列見出し)の配列。'),
+  rows: z
+    .array(z.array(z.string()))
+    .max(LIMITS.TABLE_MAX_ROWS)
+    .describe('データ行の配列。各行は文字列の配列で、headers と同じ列数を推奨。'),
+  ...commonCreateShape,
+} as const;
+
+export const setMetadataShape = {
+  inputPath: zPath.describe('編集対象 PDF の絶対パス。'),
+  title: z.string().optional().describe('タイトル。'),
+  author: z.string().optional().describe('作成者。'),
+  subject: z.string().optional().describe('サブタイトル・件名。'),
+  keywords: z.array(z.string()).optional().describe('キーワードの配列。'),
+  creator: z.string().optional().describe('作成アプリケーション名。'),
+  ...commonEditShape,
+} as const;
+
+export const mergePdfsShape = {
+  inputPaths: z
+    .array(zPath)
+    .min(2)
+    .max(LIMITS.MERGE_MAX_INPUTS)
+    .describe('結合する PDF の絶対パスの配列(結合順・2 件以上)。'),
+  ...commonEditShape,
+} as const;
+
+export const splitPdfShape = {
+  inputPath: zPath.describe('分割対象 PDF の絶対パス。'),
+  ranges: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(LIMITS.SPLIT_MAX_PARTS)
+    .describe(
+      'ページ範囲指定の配列。各要素は "1-3" / "5" / "7-" / "-2" 形式(1 始まり)。例: ["1-3", "4-"]。',
+    ),
+  outputDir: zPath.describe('出力先ディレクトリ（絶対パス）。'),
+  prefix: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('出力ファイル名の接頭辞。既定は "<入力ファイル名>-part"。'),
+  allowBreakingSignatures: commonEditShape.allowBreakingSignatures,
+} as const;
+
+export const extractPagesShape = {
+  inputPath,
+  pages: zPageSpec.describe('ページ指定。"1,3-5,8-" 形式(1 始まり)。指定順が出力順になる。'),
+  ...commonEditShape,
+} as const;
+
+export const deletePagesShape = {
+  inputPath,
+  pages: zPageSpec.describe('削除するページ指定。"1,3-5,8-" 形式(1 始まり)。'),
+  ...commonEditShape,
+} as const;
+
+export const reorderPagesShape = {
+  inputPath,
+  order: z
+    .array(z.number().int())
+    .min(1)
+    .describe('新しいページ順(1 始まり)。例: 5 ページの逆順は [5,4,3,2,1]。'),
+  ...commonEditShape,
+} as const;
+
+export const rotatePagesShape = {
+  inputPath,
+  rotation: z
+    .union([z.literal(90), z.literal(180), z.literal(270)])
+    .describe('時計回りの回転角(度)。90 / 180 / 270。'),
+  pages: zPageSpec
+    .optional()
+    .describe('対象ページ指定。"1,3-5" 形式(1 始まり)。省略時は全ページ。'),
+  ...commonEditShape,
+} as const;
+
+const bookmarkSchema: z.ZodType<BookmarkInput> = z.lazy(() =>
+  z.object({
+    title: z.string().min(1).describe('表示名。'),
+    page: z.number().int().min(1).describe('移動先ページ(1 始まり)。'),
+    open: z.boolean().optional().describe('子項目を展開した状態で表示するか。既定 true。'),
+    children: z.array(bookmarkSchema).min(1).optional().describe('子しおりの配列(同じ形)。'),
+  }),
+);
+
+export const addBookmarksShape = {
+  inputPath,
+  bookmarks: z
+    .array(bookmarkSchema)
+    .min(1)
+    .describe(
+      'しおりの配列。各要素は { title, page, open?, children? }。' +
+        'page は 1 始まり。children で階層化でき、最大 8 階層・合計 2000 件まで。',
+    ),
+  ...commonEditShape,
+} as const;
+
+export const addAnnotationShape = {
+  inputPath,
+  page: z.number().int().min(1).describe('対象ページ(1 始まり)。'),
+  type: z
+    .enum(['text', 'highlight', 'square'])
+    .describe('text=付箋アイコン / highlight=ハイライト / square=矩形。'),
+  rect: z
+    .object({
+      x1: z.number().finite(),
+      y1: z.number().finite(),
+      x2: z.number().finite(),
+      y2: z.number().finite(),
+    })
+    .refine((r) => r.x1 < r.x2 && r.y1 < r.y2, {
+      message: 'rect must satisfy x1 < x2 and y1 < y2',
+    })
+    .describe('注釈の矩形。PDF 座標系(左下原点・pt)。x1<x2 かつ y1<y2 であること。'),
+  contents: z.string().optional().describe('注釈の本文(日本語可)。'),
+  author: z.string().optional().describe('作成者名。'),
+  alt: z
+    .string()
+    .optional()
+    .describe(
+      '支援技術向けの代替テキスト。タグ付き PDF では注釈が Annot 構造要素に内包される' +
+        '(PDF/UA 7.18.1-1)ため、その要素の /Alt になる。タグ無し文書では無視される。',
+    ),
+  color: z
+    .string()
+    .optional()
+    .describe(
+      '#rrggbb 形式。既定は type ごと(text=#ffd400 / highlight=#ffff00 / square=#ff0000)。',
+    ),
+  interiorColor: z.string().optional().describe('square の塗り色(#rrggbb)。'),
+  icon: z
+    .enum(['Note', 'Comment', 'Key', 'Help', 'NewParagraph', 'Paragraph', 'Insert'])
+    .optional()
+    .describe('text のアイコン。既定 Note。'),
+  open: z.boolean().optional().describe('text を開いた状態にするか。既定 false。'),
+  ...commonEditShape,
+} as const;
+
+export const stampPageNumbersShape = {
+  inputPath,
+  format: z
+    .string()
+    .min(1)
+    .refine((f) => f.includes('{n}'), {
+      message: 'format must contain "{n}" (the page number placeholder)',
+    })
+    .optional()
+    .describe(
+      '書式。{n}=現在ページ、{total}=総ページ数。既定 "{n}"。' +
+        '例: "- {n} -" / "{n} / {total}" / "{n} ページ"。{n} を必ず含めること。',
+    ),
+  position: z
+    .enum(['bottom-left', 'bottom-center', 'bottom-right', 'top-left', 'top-center', 'top-right'])
+    .optional()
+    .describe('配置。既定 bottom-center。ページの回転(/Rotate)を考慮した見た目の位置。'),
+  margin: zMargin.optional().describe('端からの余白(pt)。既定 24。範囲 0〜300。'),
+  fontSize: zFontSize.optional().describe('フォントサイズ(pt)。既定 9。範囲 4〜96。'),
+  color: z.string().min(1).optional().describe('#rrggbb。既定 #666666。'),
+  fontPath: zPath
+    .optional()
+    .describe(
+      '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+        '日本語を含む書式には必須。',
+    ),
+  pages: zPageSpec
+    .optional()
+    .describe(
+      '番号を刻むページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。' +
+        '表紙を除くなら "2-" のように指定する。',
+    ),
+  startAt: z
+    .number()
+    .int()
+    .optional()
+    .describe('最初に刻む番号。既定 1。表紙を除いて 1 から始めたい場合などに使う。'),
+  ...commonEditShape,
+} as const;
+
+export const addWatermarkShape = {
+  inputPath,
+  text: z.string().min(1).describe('透かし文字。例: "社外秘" / "DRAFT" / "COPY"。'),
+  fontSize: zFontSize.optional().describe('フォントサイズ(pt)。既定 60。範囲 4〜96。'),
+  color: z.string().min(1).optional().describe('#rrggbb。既定 #808080(灰)。'),
+  opacity: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe('不透明度 0(透明)〜1(不透明)。既定 0.15。本文を読める程度に薄くする。'),
+  angle: z.number().finite().optional().describe('反時計回りの角度(度)。既定 45。0 で水平。'),
+  behind: z
+    .boolean()
+    .optional()
+    .describe(
+      '本文の背面に敷くか。既定 true。false にすると本文の上に重なる(改ざん防止の主張を強めたい場合)。',
+    ),
+  fontPath: zPath
+    .optional()
+    .describe(
+      '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+        '日本語の透かしには必須。',
+    ),
+  pages: zPageSpec
+    .optional()
+    .describe('対象ページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。'),
+  ...commonEditShape,
+} as const;
+
+export const fillFormShape = {
+  inputPath,
+  fields: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]))
+    .refine((o) => Object.keys(o).length > 0, {
+      message: 'fields must contain at least one field to fill',
+    })
+    .describe(
+      'フィールド名 → 値のオブジェクト。値の型はフィールド種別に対応する: ' +
+        'text=文字列か数値 / checkbox=真偽値 / dropdown・optionlist=文字列か文字列配列 / radio=文字列。' +
+        '例: {"user.name": "山田 太郎", "agree": true, "plan": "A"}',
+    ),
+  fontPath: zPath
+    .optional()
+    .describe(
+      '値の描画に使うフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+        '日本語の値には必須。',
+    ),
+  flatten: z
+    .boolean()
+    .optional()
+    .describe(
+      '記入後にフラット化して非対話にするか。既定 false。true にすると値は編集できなくなる。',
+    ),
+  allowBreakingTags: z
+    .boolean()
+    .optional()
+    .describe(
+      'タグ付き PDF でもフラット化を許すか。既定 false。true にすると PDF/UA-1 準拠が壊れる。',
+    ),
+  ...commonEditShape,
+} as const;
+
+export const flattenFormShape = {
+  inputPath,
+  fontPath: zPath
+    .optional()
+    .describe(
+      '外観生成に使うフォント。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+        '既存の外観をそのまま使える場合は不要だが、再生成が必要な日本語フォームでは要る。',
+    ),
+  allowBreakingTags: z
+    .boolean()
+    .optional()
+    .describe('タグ付き PDF でもフラット化を許すか。既定 false。'),
+  ...commonEditShape,
+} as const;
+
+export const attachFileShape = {
+  inputPath,
+  attachmentPath: zPath.describe('埋め込むファイルの絶対パス。'),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('PDF 内での表示名。省略時は元のファイル名。既存の添付と同名にはできない。'),
+  description: z.string().min(1).optional().describe('添付の説明(/Desc・日本語可)。'),
+  mimeType: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('MIME 型。省略時は拡張子から推定(例 .csv → text/csv)。'),
+  relationship: z
+    .enum(['Source', 'Data', 'Alternative', 'Supplement', 'Unspecified'])
+    .optional()
+    .describe(
+      '本文との関係(PDF/A-3 §6.8)。Data=本文と同じ内容の機械可読データ(請求書の XML/CSV 等) / ' +
+        'Source=本文の元データ / Alternative=代替表現 / Supplement=補足資料 / Unspecified=不明(既定)。' +
+        'PDF/A-3 では意味のある値が必須のため、省略すると警告する。',
+    ),
+  ...commonEditShape,
+} as const;
+
+// ---------------------------------------------------------------------------
+// 実行時検証用フルスキーマ（オブジェクト横断の制約はここに付ける）
+// ---------------------------------------------------------------------------
+
+export const CreateTextSchema = z.object(createTextShape);
+export const CreateMarkdownSchema = z.object(createMarkdownShape);
+export const CreateTableSchema = z.object(createTableShape);
+export const SetMetadataSchema = z
+  .object(setMetadataShape)
+  .refine(
+    (a) =>
+      a.title !== undefined ||
+      a.author !== undefined ||
+      a.subject !== undefined ||
+      a.keywords !== undefined ||
+      a.creator !== undefined,
+    { message: 'set_metadata requires at least one of: title, author, subject, keywords, creator' },
+  );
+export const MergePdfsSchema = z.object(mergePdfsShape);
+export const SplitPdfSchema = z.object(splitPdfShape);
+export const ExtractPagesSchema = z.object(extractPagesShape);
+export const DeletePagesSchema = z.object(deletePagesShape);
+export const ReorderPagesSchema = z.object(reorderPagesShape);
+export const RotatePagesSchema = z.object(rotatePagesShape);
+export const AddBookmarksSchema = z.object(addBookmarksShape);
+export const AddAnnotationSchema = z.object(addAnnotationShape);
+export const StampPageNumbersSchema = z.object(stampPageNumbersShape);
+export const AddWatermarkSchema = z.object(addWatermarkShape);
+export const FillFormSchema = z.object(fillFormShape);
+export const FlattenFormSchema = z.object(flattenFormShape);
+export const AttachFileSchema = z.object(attachFileShape);
 
 /**
- * common オプション（すべて optional）の検査。
- * 指定されているフィールドのみ検査する。
+ * Zod 検証を family エラー（INVALID_ARGUMENT）へ変換して適用する。
+ * MCP SDK も shape で検証するが、オブジェクト横断の refine はフルスキーマに
+ * しか無いため、ハンドラ側でも必ずこれを通すこと。
  */
-export function validateCommonOptions(opts: CommonCreateOptions): void {
-  if (opts.fontSize !== undefined) {
-    if (typeof opts.fontSize !== 'number' || !Number.isFinite(opts.fontSize)) {
-      throw new Error(`fontSize must be a number, got ${String(opts.fontSize)}`);
-    }
-    if (opts.fontSize < LIMITS.FONT_SIZE_MIN || opts.fontSize > LIMITS.FONT_SIZE_MAX) {
-      throw new Error(
-        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${opts.fontSize}`,
-      );
-    }
+export function parseArgs<T>(schema: z.ZodType<T>, args: unknown): T {
+  const result = schema.safeParse(args);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('; ');
+    throw invalidArg(`Invalid arguments — ${issues}`);
   }
-
-  if (opts.margin !== undefined) {
-    if (typeof opts.margin !== 'number' || !Number.isFinite(opts.margin)) {
-      throw new Error(`margin must be a number, got ${String(opts.margin)}`);
-    }
-    if (opts.margin < LIMITS.MARGIN_MIN || opts.margin > LIMITS.MARGIN_MAX) {
-      throw new Error(
-        `margin must be between ${LIMITS.MARGIN_MIN} and ${LIMITS.MARGIN_MAX}, got ${opts.margin}`,
-      );
-    }
-  }
-
-  if (opts.pageSize !== undefined) {
-    validatePageSize(opts.pageSize);
-  }
-
-  if (opts.fontPath !== undefined) {
-    validatePath(opts.fontPath, 'fontPath');
-  }
-
-  if (opts.outputPath !== undefined) {
-    validatePath(opts.outputPath, 'outputPath');
-  }
-
-  if (opts.onMissingGlyph !== undefined) {
-    if (!['error', 'replace', 'ignore'].includes(opts.onMissingGlyph as string)) {
-      throw new Error(
-        `onMissingGlyph must be one of error, replace, ignore, got ${String(opts.onMissingGlyph)}`,
-      );
-    }
-  }
-
-  if (opts.tagged !== undefined && typeof opts.tagged !== 'boolean') {
-    throw new Error('tagged must be a boolean');
-  }
-
-  if (opts.lang !== undefined) {
-    validateNonEmptyString(opts.lang, 'lang');
-    // BCP 47 の緩い検査（ja / en-US / zh-Hans-CN 等）
-    if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(opts.lang)) {
-      throw new Error(
-        `lang must be a BCP 47 language tag like "ja" or "en-US", got "${opts.lang}"`,
-      );
-    }
-  }
-}
-
-export function validatePageSize(value: unknown): asserts value is PageSizeName {
-  if (typeof value !== 'string' || !(value in PAGE_SIZES)) {
-    throw new Error(
-      `pageSize must be one of ${Object.keys(PAGE_SIZES).join(', ')}, got ${String(value)}`,
-    );
-  }
-}
-
-export function validateCreateTextArgs(args: unknown): asserts args is CreateTextArgs {
-  if (typeof args !== 'object' || args === null) {
-    throw new Error('arguments must be an object');
-  }
-  const a = args as Record<string, unknown>;
-  validateTextLength(a.text, 'text');
-  validateCommonOptions(a as CommonCreateOptions);
-}
-
-export function validateCreateMarkdownArgs(args: unknown): asserts args is CreateMarkdownArgs {
-  if (typeof args !== 'object' || args === null) {
-    throw new Error('arguments must be an object');
-  }
-  const a = args as Record<string, unknown>;
-  validateTextLength(a.markdown, 'markdown');
-  validateCommonOptions(a as CommonCreateOptions);
-}
-
-/** 編集系共通オプションの検査 + オブジェクト形状の確認 */
-function asEditArgs(args: unknown): Record<string, unknown> {
-  if (typeof args !== 'object' || args === null) {
-    throw new Error('arguments must be an object');
-  }
-  const a = args as Record<string, unknown>;
-  const opts = a as CommonEditOptions;
-  if (opts.outputPath !== undefined) {
-    validatePath(opts.outputPath, 'outputPath');
-  }
-  if (
-    opts.allowBreakingSignatures !== undefined &&
-    typeof opts.allowBreakingSignatures !== 'boolean'
-  ) {
-    throw new Error('allowBreakingSignatures must be a boolean');
-  }
-  return a;
-}
-
-export function validateSetMetadataArgs(args: unknown): asserts args is SetMetadataArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  for (const f of ['title', 'author', 'subject', 'creator'] as const) {
-    if (a[f] !== undefined && typeof a[f] !== 'string') {
-      throw new Error(`${f} must be a string`);
-    }
-  }
-  if (a.keywords !== undefined) {
-    if (!Array.isArray(a.keywords) || a.keywords.some((k) => typeof k !== 'string')) {
-      throw new Error('keywords must be an array of strings');
-    }
-  }
-  if (
-    a.title === undefined &&
-    a.author === undefined &&
-    a.subject === undefined &&
-    a.keywords === undefined &&
-    a.creator === undefined
-  ) {
-    throw new Error(
-      'set_metadata requires at least one of: title, author, subject, keywords, creator',
-    );
-  }
-}
-
-export function validateMergePdfsArgs(args: unknown): asserts args is MergePdfsArgs {
-  const a = asEditArgs(args);
-  if (!Array.isArray(a.inputPaths)) {
-    throw new Error('inputPaths must be an array of absolute paths');
-  }
-  for (const [i, p] of a.inputPaths.entries()) {
-    validatePath(p, `inputPaths[${i}]`);
-  }
-  if (a.inputPaths.length < 2) {
-    throw new Error('inputPaths must contain at least 2 files to merge');
-  }
-  if (a.inputPaths.length > LIMITS.MERGE_MAX_INPUTS) {
-    throw new Error(`inputPaths has too many files (max ${LIMITS.MERGE_MAX_INPUTS})`);
-  }
-}
-
-export function validateExtractPagesArgs(args: unknown): asserts args is ExtractPagesArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validateNonEmptyString(a.pages, 'pages');
-}
-
-export function validateDeletePagesArgs(args: unknown): asserts args is DeletePagesArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validateNonEmptyString(a.pages, 'pages');
-}
-
-export function validateReorderPagesArgs(args: unknown): asserts args is ReorderPagesArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  if (
-    !Array.isArray(a.order) ||
-    a.order.length === 0 ||
-    a.order.some((n) => typeof n !== 'number')
-  ) {
-    throw new Error('order must be a non-empty array of page numbers (1-based)');
-  }
-}
-
-export function validateRotatePagesArgs(args: unknown): asserts args is RotatePagesArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  if (!ROTATION_ANGLES.includes(a.rotation as (typeof ROTATION_ANGLES)[number])) {
-    throw new Error(
-      `rotation must be one of ${ROTATION_ANGLES.join(', ')}, got ${String(a.rotation)}`,
-    );
-  }
-  if (a.pages !== undefined) {
-    validateNonEmptyString(a.pages, 'pages');
-  }
-}
-
-function validateBookmarkTree(items: unknown, path: string): void {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error(`${path} must be a non-empty array of bookmark objects`);
-  }
-  for (const [i, raw] of items.entries()) {
-    const where = `${path}[${i}]`;
-    if (typeof raw !== 'object' || raw === null) {
-      throw new Error(`${where} must be an object`);
-    }
-    const b = raw as Record<string, unknown>;
-    validateNonEmptyString(b.title, `${where}.title`);
-    if (typeof b.page !== 'number' || !Number.isInteger(b.page) || b.page < 1) {
-      throw new Error(`${where}.page must be a positive integer (1-based)`);
-    }
-    if (b.open !== undefined && typeof b.open !== 'boolean') {
-      throw new Error(`${where}.open must be a boolean`);
-    }
-    if (b.children !== undefined) {
-      validateBookmarkTree(b.children, `${where}.children`);
-    }
-  }
-}
-
-export function validateAddBookmarksArgs(args: unknown): asserts args is AddBookmarksArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validateBookmarkTree(a.bookmarks, 'bookmarks');
-}
-
-export function validateAddAnnotationArgs(args: unknown): asserts args is AddAnnotationArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-
-  if (typeof a.page !== 'number' || !Number.isInteger(a.page) || a.page < 1) {
-    throw new Error('page must be a positive integer (1-based)');
-  }
-  if (!ANNOTATION_TYPES.includes(a.type as (typeof ANNOTATION_TYPES)[number])) {
-    throw new Error(`type must be one of ${ANNOTATION_TYPES.join(', ')}, got ${String(a.type)}`);
-  }
-
-  if (typeof a.rect !== 'object' || a.rect === null) {
-    throw new Error('rect must be an object with x1, y1, x2, y2 (PDF points, origin bottom-left)');
-  }
-  const r = a.rect as Record<string, unknown>;
-  for (const k of ['x1', 'y1', 'x2', 'y2'] as const) {
-    if (typeof r[k] !== 'number' || !Number.isFinite(r[k])) {
-      throw new Error(`rect.${k} must be a finite number`);
-    }
-  }
-  if ((r.x1 as number) >= (r.x2 as number) || (r.y1 as number) >= (r.y2 as number)) {
-    throw new Error('rect must satisfy x1 < x2 and y1 < y2');
-  }
-
-  for (const f of ['contents', 'author', 'color', 'interiorColor', 'alt'] as const) {
-    if (a[f] !== undefined && typeof a[f] !== 'string') {
-      throw new Error(`${f} must be a string`);
-    }
-  }
-  if (
-    a.icon !== undefined &&
-    !ANNOTATION_ICONS.includes(a.icon as (typeof ANNOTATION_ICONS)[number])
-  ) {
-    throw new Error(`icon must be one of ${ANNOTATION_ICONS.join(', ')}, got ${String(a.icon)}`);
-  }
-  if (a.open !== undefined && typeof a.open !== 'boolean') {
-    throw new Error('open must be a boolean');
-  }
-}
-
-export function validateAttachFileArgs(args: unknown): asserts args is AttachFileArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validatePath(a.attachmentPath, 'attachmentPath');
-
-  for (const f of ['name', 'description', 'mimeType'] as const) {
-    if (a[f] !== undefined) validateNonEmptyString(a[f], f);
-  }
-  if (
-    a.relationship !== undefined &&
-    !ATTACHMENT_RELATIONSHIPS.includes(a.relationship as (typeof ATTACHMENT_RELATIONSHIPS)[number])
-  ) {
-    throw new Error(
-      `relationship must be one of ${ATTACHMENT_RELATIONSHIPS.join(', ')}, got ${String(a.relationship)}`,
-    );
-  }
-}
-
-export function validateStampPageNumbersArgs(args: unknown): asserts args is StampPageNumbersArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-
-  if (a.format !== undefined) {
-    validateNonEmptyString(a.format, 'format');
-    if (!(a.format as string).includes('{n}')) {
-      throw new Error('format must contain "{n}" (the page number placeholder)');
-    }
-  }
-  if (
-    a.position !== undefined &&
-    !STAMP_POSITIONS.includes(a.position as (typeof STAMP_POSITIONS)[number])
-  ) {
-    throw new Error(
-      `position must be one of ${STAMP_POSITIONS.join(', ')}, got ${String(a.position)}`,
-    );
-  }
-  if (a.margin !== undefined) {
-    if (typeof a.margin !== 'number' || !Number.isFinite(a.margin)) {
-      throw new Error('margin must be a number');
-    }
-    if (a.margin < LIMITS.MARGIN_MIN || a.margin > LIMITS.MARGIN_MAX) {
-      throw new Error(
-        `margin must be between ${LIMITS.MARGIN_MIN} and ${LIMITS.MARGIN_MAX}, got ${a.margin}`,
-      );
-    }
-  }
-  if (a.fontSize !== undefined) {
-    if (typeof a.fontSize !== 'number' || !Number.isFinite(a.fontSize)) {
-      throw new Error('fontSize must be a number');
-    }
-    if (a.fontSize < LIMITS.FONT_SIZE_MIN || a.fontSize > LIMITS.FONT_SIZE_MAX) {
-      throw new Error(
-        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${a.fontSize}`,
-      );
-    }
-  }
-  if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
-  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
-  if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
-  if (a.startAt !== undefined) {
-    if (typeof a.startAt !== 'number' || !Number.isInteger(a.startAt)) {
-      throw new Error('startAt must be an integer');
-    }
-  }
-}
-
-export function validateAddWatermarkArgs(args: unknown): asserts args is AddWatermarkArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validateNonEmptyString(a.text, 'text');
-
-  if (a.fontSize !== undefined) {
-    if (typeof a.fontSize !== 'number' || !Number.isFinite(a.fontSize)) {
-      throw new Error('fontSize must be a number');
-    }
-    if (a.fontSize < LIMITS.FONT_SIZE_MIN || a.fontSize > LIMITS.FONT_SIZE_MAX) {
-      throw new Error(
-        `fontSize must be between ${LIMITS.FONT_SIZE_MIN} and ${LIMITS.FONT_SIZE_MAX}, got ${a.fontSize}`,
-      );
-    }
-  }
-  if (a.opacity !== undefined) {
-    if (typeof a.opacity !== 'number' || !Number.isFinite(a.opacity)) {
-      throw new Error('opacity must be a number');
-    }
-    if (a.opacity < 0 || a.opacity > 1) {
-      throw new Error(`opacity must be between 0 and 1, got ${a.opacity}`);
-    }
-  }
-  if (a.angle !== undefined) {
-    if (typeof a.angle !== 'number' || !Number.isFinite(a.angle)) {
-      throw new Error('angle must be a number (degrees)');
-    }
-  }
-  if (a.behind !== undefined && typeof a.behind !== 'boolean') {
-    throw new Error('behind must be a boolean');
-  }
-  if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
-  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
-  if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
-}
-
-export function validateFillFormArgs(args: unknown): asserts args is FillFormArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  if (typeof a.fields !== 'object' || a.fields === null || Array.isArray(a.fields)) {
-    throw new Error('fields must be an object mapping field names to values');
-  }
-  const fields = a.fields as Record<string, unknown>;
-  const names = Object.keys(fields);
-  if (names.length === 0) {
-    throw new Error('fields must contain at least one field to fill');
-  }
-  for (const name of names) {
-    const v = fields[name];
-    const ok =
-      typeof v === 'string' ||
-      typeof v === 'number' ||
-      typeof v === 'boolean' ||
-      (Array.isArray(v) && v.every((x) => typeof x === 'string'));
-    if (!ok) {
-      throw new Error(
-        `fields["${name}"] must be a string, number, boolean or array of strings, got ${typeof v}`,
-      );
-    }
-  }
-  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
-  if (a.flatten !== undefined && typeof a.flatten !== 'boolean') {
-    throw new Error('flatten must be a boolean');
-  }
-  if (a.allowBreakingTags !== undefined && typeof a.allowBreakingTags !== 'boolean') {
-    throw new Error('allowBreakingTags must be a boolean');
-  }
-}
-
-export function validateFlattenFormArgs(args: unknown): asserts args is FlattenFormArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  if (a.fontPath !== undefined) validatePath(a.fontPath, 'fontPath');
-  if (a.allowBreakingTags !== undefined && typeof a.allowBreakingTags !== 'boolean') {
-    throw new Error('allowBreakingTags must be a boolean');
-  }
-}
-
-export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArgs {
-  const a = asEditArgs(args);
-  validatePath(a.inputPath, 'inputPath');
-  validatePath(a.outputDir, 'outputDir');
-  if (
-    !Array.isArray(a.ranges) ||
-    a.ranges.length === 0 ||
-    a.ranges.some((r) => typeof r !== 'string' || r.length === 0)
-  ) {
-    throw new Error('ranges must be a non-empty array of page-spec strings (e.g. ["1-3", "4-"])');
-  }
-  if (a.prefix !== undefined) {
-    validateNonEmptyString(a.prefix, 'prefix');
-  }
-}
-
-export function validateCreateTableArgs(args: unknown): asserts args is CreateTableArgs {
-  if (typeof args !== 'object' || args === null) {
-    throw new Error('arguments must be an object');
-  }
-  const a = args as Record<string, unknown>;
-
-  if (!Array.isArray(a.headers) || a.headers.some((h) => typeof h !== 'string')) {
-    throw new Error('headers must be an array of strings');
-  }
-  if (a.headers.length === 0) {
-    throw new Error('headers must not be empty');
-  }
-  if (a.headers.length > LIMITS.TABLE_MAX_COLS) {
-    throw new Error(`headers has too many columns (max ${LIMITS.TABLE_MAX_COLS})`);
-  }
-
-  if (!Array.isArray(a.rows)) {
-    throw new Error('rows must be an array');
-  }
-  if (a.rows.length > LIMITS.TABLE_MAX_ROWS) {
-    throw new Error(`rows has too many rows (max ${LIMITS.TABLE_MAX_ROWS})`);
-  }
-  for (const [i, row] of a.rows.entries()) {
-    if (!Array.isArray(row) || row.some((c) => typeof c !== 'string')) {
-      throw new Error(`rows[${i}] must be an array of strings`);
-    }
-  }
-
-  validateCommonOptions(a as CommonCreateOptions);
+  return result.data;
 }

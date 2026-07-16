@@ -122,30 +122,32 @@
 > family 横断レビュー（2026-07-17）で判明した、reader / verify との実装パターンのズレと
 > writer 固有のリスク。出力パイプライン Skill（specs/07）が要求する契約でもあるため、
 > Tier C など機能系の大物より**先に**片付ける。優先度順。
+>
+> **2026-07-17: E-1〜E-6 すべて v0.7.0 で対応済み**（コードレビュー対応。CHANGELOG 参照）。
 
-- [ ] **E-1. パス検査の強化** — writer は family で唯一「任意パスへ書き込む」サーバなのに、
+- [x] **E-1. パス検査の強化** — writer は family で唯一「任意パスへ書き込む」サーバなのに、
       検査が reader / verify より緩い。
       - `inputPath` / `outputPath` / `fontPath` / `attachmentPath` に**絶対パスを強制**
         （相対パスは MCP クライアントの cwd に依存して挙動不定。reader の `validatePdfPath` と同基準）
       - `..` を含むパスの拒否（トラバーサル防御）
       - **入力 PDF のサイズ上限**を新設（verify の `MAX_FILE_SIZE` = 50MB 相当。
         `ATTACHMENT_MAX_BYTES` はあるのに入力 PDF 側が無い。merge は 50 ファイル × 無制限で膨張しうる）
-- [ ] **E-2. 構造化エラーへの移行** — 現状は `{error: message}` の文字列のみ。
+- [x] **E-2. 構造化エラーへの移行** — 現状は `{error: message}` の文字列のみ。
       reader v0.6.0 と同じ `familyCode` / `next_actions` / `retryable` / `hint` 形式に揃える。
       出力パイプライン Skill が「署名ガード → `allowBreakingSignatures` を提案」等の分岐に使う。
       例: `SIGNED_PDF`（retryable: フラグ付きで再試行可）/ `FONT_REQUIRED` / `MISSING_GLYPH` /
       `ENCRYPTED_PDF` / `DOC_NOT_FOUND`
-- [ ] **E-3. stdout ガードの導入** — reader / verify は import 前に `console.log/warn` を
+- [x] **E-3. stdout ガードの導入** — reader / verify は import 前に `console.log/warn` を
       stderr へ差し替えるガードを持つ。writer は pdfjs 非依存でリスクは低いが、
       `marked` / `subset-font`(wasm) を抱えるため family の掟として 1 ファイル追加する
-- [ ] **E-4. tool annotations の付与** — `readOnlyHint` / `destructiveHint` が皆無。
+- [x] **E-4. tool annotations の付与** — `readOnlyHint` / `destructiveHint` が皆無。
       family で唯一破壊的操作を持つサーバとして、`delete_pages` / `flatten_form` / `reorder_pages` 等に
       `destructiveHint: true`、全ツールに適切なヒントを付与する（E-5 と同時実施が自然）
-- [ ] **E-5. McpServer + zod への移行** — 現在は低レベル `Server` + 手書き asserts で、
+- [x] **E-5. McpServer + zod への移行** — 現在は低レベル `Server` + 手書き asserts で、
       `definitions.ts`（553 行の JSON Schema）と `validation.ts`（502 行）が**同じ制約を二重管理**
       （fontSize の範囲検査だけで 3 箇所に重複）。zod スキーマに一元化し、
       reader / verify と同じ `registerTool` パターンに揃える。**外部仕様は不変**（ツール名・入出力とも）
-- [ ] **E-6. 決定論的出力オプション** — `finalizePdf` が CreationDate / ModificationDate に
+- [x] **E-6. 決定論的出力オプション** — `finalizePdf` が CreationDate / ModificationDate に
       `new Date()` を焼き込むため同一入力でもバイト列が毎回変わる。学習データ工場（read-write-verify
       ループ）での差分検証・キャッシュ・再現テストのため、日時を固定できるオプション
       （例: `SOURCE_DATE_EPOCH` 環境変数 or `deterministic: true`）を追加する

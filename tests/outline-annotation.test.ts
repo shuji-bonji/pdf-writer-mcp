@@ -155,14 +155,14 @@ describe('add_bookmarks', () => {
       handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 9 }] }),
     ).rejects.toThrow(/page 9.*2 page/);
     await expect(handleAddBookmarks({ inputPath: input, bookmarks: [] })).rejects.toThrow(
-      /non-empty array/,
+      /bookmarks/,
     );
     await expect(
       handleAddBookmarks({ inputPath: input, bookmarks: [{ title: '', page: 1 }] }),
     ).rejects.toThrow(/title/);
     await expect(
       handleAddBookmarks({ inputPath: input, bookmarks: [{ title: 'x', page: 0 }] }),
-    ).rejects.toThrow(/positive integer/);
+    ).rejects.toThrow(/page/);
   });
 });
 
@@ -244,7 +244,7 @@ describe('add_annotation', () => {
     ).rejects.toThrow(/out of range/);
     await expect(
       handleAddAnnotation({ inputPath: input, page: 1, type: 'circle', rect }),
-    ).rejects.toThrow(/type must be one of/);
+    ).rejects.toThrow(/type/);
     await expect(
       handleAddAnnotation({
         inputPath: input,

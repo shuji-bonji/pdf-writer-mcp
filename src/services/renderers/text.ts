@@ -5,6 +5,7 @@
 
 import { rgb } from 'pdf-lib';
 import { DEFAULTS } from '../../config.js';
+import { NEXT_ACTIONS, PdfWriterError } from '../../errors.js';
 import type { FontSource, LoadedFont } from '../font-manager.js';
 import { hasNonLatin1, type LayoutEngine } from '../layout.js';
 
@@ -31,10 +32,10 @@ export function assertRenderable(
   loaded: Pick<FontSource | LoadedFont, 'isStandard'>,
 ): void {
   if (loaded.isStandard && hasNonLatin1(text)) {
-    throw new Error(
-      'The text contains non-Latin characters (e.g. Japanese) but no embeddable font was provided. ' +
-        'Pass "fontPath" pointing to a .ttf/.otf font (e.g. Noto Sans JP), ' +
-        `or set the ${'PDF_WRITER_FONT'} environment variable.`,
+    throw new PdfWriterError(
+      'The text contains non-Latin characters (e.g. Japanese) but no embeddable font was provided.',
+      'FONT_REQUIRED',
+      { retryable: true, next_actions: [NEXT_ACTIONS.provideFontPath()] },
     );
   }
 }

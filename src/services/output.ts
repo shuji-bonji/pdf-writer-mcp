@@ -6,7 +6,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { PDFDocument, SaveOptions } from 'pdf-lib';
-import { PACKAGE_INFO } from '../config.js';
+import { outputDate, PACKAGE_INFO } from '../config.js';
 import type {
   CommonCreateOptions,
   CommonEditOptions,
@@ -29,7 +29,7 @@ export async function saveEdited(
   opts: CommonEditOptions,
   saveOptions?: SaveOptions,
 ): Promise<EditResult> {
-  doc.setModificationDate(new Date());
+  doc.setModificationDate(outputDate());
 
   const bytes = await doc.save(saveOptions);
   const result: EditResult = {
@@ -60,8 +60,9 @@ export async function finalizePdf(
   if (opts.title) doc.setTitle(opts.title);
   if (opts.author) doc.setAuthor(opts.author);
   doc.setProducer(`${PACKAGE_INFO.name}/${PACKAGE_INFO.version}`);
-  doc.setCreationDate(new Date());
-  doc.setModificationDate(new Date());
+  const now = outputDate();
+  doc.setCreationDate(now);
+  doc.setModificationDate(now);
 
   const bytes = await doc.save();
 
