@@ -38,6 +38,27 @@ PDF family（[reader](https://github.com/shuji-bonji/pdf-reader-mcp) = 何があ
 
 ## 落とし穴（過去に踏んだもの・再発させないこと）
 
+### 0-a. フォーム系は pdf-lib の「勝手な外観再生成」を必ず止める（v0.6.0）
+
+`doc.save()` は既定で `updateFieldAppearances: true`、`form.flatten()` も同様。どちらも
+`form.getDefaultFont()` ＝ **Helvetica** で外観を作り直すため、日本語の値は
+`WinAnsi cannot encode "山"` で落ちる。順序を守ること:
+
+1. 値を適用する
+2. 描画される文字を集める（`collectRenderedTexts`）
+3. その字だけサブセットしたフォントで `form.updateFieldAppearances(font)`
+4. `save({ updateFieldAppearances: false })` / `flatten({ updateFieldAppearances: false })`
+
+フォント埋め込みを先にやると、後から入れた値の字がサブセットに無く豆腐になる。
+
+### 0-b. pdf-lib の `flatten()` は宙吊り参照を残す（v0.6.0）
+
+`PDFForm.removeField` がページの `/Annots` から消しているのは **外観ストリームの参照**
+（`findWidgetAppearanceRef`）とフィールド辞書自身の参照だけ。`addToPage` が作るウィジェットは
+`/Kids` 配下の別オブジェクトなので、その参照が `/Annots` に残り poppler が
+`Invalid XRef entry` を出す。`pruneDanglingRefs`（form.ts）で掃除している。
+テスト `tests/form.test.ts` の「宙吊り参照の掃除」がこれを固定しているので弱めないこと。
+
 ### 1. フォントのサブセットは fontkit を使わない（ADR-7 / v0.3.0）
 
 pdf-lib の `embedFont(subset: true)` は **CJK フォントのグリフを破壊**する。

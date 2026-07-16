@@ -264,6 +264,45 @@ export interface WatermarkResult extends EditResult {
   artifact: boolean;
 }
 
+export interface FillFormArgs extends CommonEditOptions {
+  inputPath: string;
+  /** フィールド名 → 値。text=文字列/数値、checkbox=真偽値、dropdown/optionlist=文字列か配列、radio=文字列 */
+  fields: Record<string, string | number | boolean | string[]>;
+  /** 値の描画に使うフォント。省略時は PDF_WRITER_FONT → 標準フォント。日本語には必須 */
+  fontPath?: string;
+  /** 記入後にフラット化して非対話にするか。既定 false */
+  flatten?: boolean;
+  /** タグ付き PDF でもフラット化を許すか（PDF/UA 準拠が壊れる）。既定 false */
+  allowBreakingTags?: boolean;
+}
+
+export interface FlattenFormArgs extends CommonEditOptions {
+  inputPath: string;
+  /** 外観生成に使うフォント。既存の値に日本語が含まれる場合に必要 */
+  fontPath?: string;
+  /** タグ付き PDF でもフラット化を許すか（PDF/UA 準拠が壊れる）。既定 false */
+  allowBreakingTags?: boolean;
+}
+
+/** フォーム 1 フィールドの情報 */
+export interface FormFieldSummary {
+  name: string;
+  kind: string;
+  value?: string | string[] | boolean;
+  options?: string[];
+  readOnly: boolean;
+  required: boolean;
+}
+
+export interface FormResult extends EditResult {
+  /** 値を設定したフィールド数 */
+  filled: number;
+  /** フラット化したか */
+  flattened: boolean;
+  /** 処理後のフィールド一覧（フラット化後は空） */
+  fields: FormFieldSummary[];
+}
+
 /**
  * 埋め込みファイルと本文の関係（PDF/A-3 §6.8 / ISO 32000-2 Table 46）。
  * PDF/A-3 では指定が必須。

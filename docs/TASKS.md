@@ -48,7 +48,13 @@
     ページ回転（/Rotate）を補正。**編集系で初めてフォントを扱う**ツールで、create 系と同じ font-manager を通す
     （harfbuzz サブセット・グリフ検査がそのまま効く）。
     副産物: `parsePageSpec` が開端指定（1 ページ文書への `"2-"`）を「範囲外」でなく「逆順」と誤報していたのを修正
-  - [ ] `fill_form` / `flatten_form` — AcroForm。タグ付きでは Widget 注釈の扱いに注意（7.18.1-1 の例外）
+  - [x] `fill_form` / `flatten_form`（2026-07-16）— AcroForm。text / checkbox / dropdown / optionlist / radio。
+        Widget は Annot ではなく **Form** タグに入る（PDF/UA-1 7.18.4）。記入は構造木に触らないため準拠は
+        入力から引き継がれる（テストで固定）。flatten はタグ付きでは既定で拒否（veraPDF で 7.1-3 違反を確認済み。
+        `allowBreakingTags: true` で強行可）。
+        **pdf-lib のバグ回避**: `PDFForm.flatten()` は `/Annots` から「外観ストリームの参照」しか消さないため、
+        `addToPage` が作った Kid ウィジェットの参照が宙吊りで残り poppler が `Invalid XRef entry` を出す。
+        `pruneDanglingRefs`（form.ts）で掃除している。
 - [x] **B-1. タグ付き PDF / PDF/UA-1**（v0.5.0・2026-07-16）
   - **受け入れ基準を達成**: veraPDF `--flavour ua1` で **106/106 規則・違反 0（COMPLIANT）**。text / markdown / table の 3 ツールすべて
   - `tagged: true` で opt-in（既定の出力は不変）。PDF/UA はタイトル必須のため `title` が必要
@@ -69,6 +75,16 @@
   - タグ無し文書には構造木を作らない（注釈のためだけにタグ付けを始めない）
 - [ ] **B-2. `.ttc` フェイス自動抽出** — Node 単体で完結（現状は検知してエラー）
 - [ ] **B-3. 見出し / 本文のフォント分け** — 太字フェイス埋め込み。制約「インライン装飾は字面のみ」の解消
+- [ ] **B-6. `tag_form_fields`（タグ付きフォームの修復）** — `fill_form` の実装中に veraPDF で判明した機会。
+      タグ付き PDF に AcroForm があるだけでは PDF/UA-1 に通らず、次の 3 つが要る:
+      - `7.18.4-1` Widget を **Form** 構造要素に入れる（OBJR で参照）
+      - `7.18.3-1` ページ辞書に `/Tabs S`
+      - `7.18.1-3` フィールドに `/TU`、または内包する構造要素に `/Alt`
+
+      機構は注釈のときの `appendAnnotationToStructTree`（struct-append.ts）とほぼ同じで、
+      タグ名を `Annot` から `Form` に変えて `/TU` を足せばよい。現状 `fill_form` は構造木に触らないため、
+      「入力が準拠していれば出力も準拠」に留まっている（＝壊さないが直しもしない）。
+
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）
 - [ ] **B-7. Tier C** — `edit_text` / `ensure_tagged` / `incremental_save`（署名保持）。pdf-engine-core と合流
 - [ ] **B-6. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）

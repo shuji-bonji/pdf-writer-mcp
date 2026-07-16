@@ -12,7 +12,7 @@
  *     文字の中心がページ中央に来るよう開始点を逆算する（centeredOrigin）。
  */
 
-import { degrees, PDFArray, PDFName, type PDFFont, type PDFPage, rgb } from 'pdf-lib';
+import { degrees, PDFArray, type PDFFont, PDFName, type PDFPage, rgb } from 'pdf-lib';
 
 export interface WatermarkOptions {
   font: PDFFont;

@@ -429,6 +429,71 @@ export const tools = [
     },
   },
   {
+    name: 'fill_form',
+    description:
+      '既存 PDF の対話フォーム(AcroForm)にフィールド値を流し込む。' +
+      'フィールド名が分からない場合は、存在しない名前を指定するとエラーに全フィールド名と型が列挙される。' +
+      '日本語の値には fontPath か環境変数 PDF_WRITER_FONT が必要。' +
+      'flatten: true で記入後に非対話化できるが、タグ付き PDF では PDF/UA 準拠が壊れるため ' +
+      'allowBreakingTags: true も要る。XFA フォームは非対応。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        fields: {
+          type: 'object',
+          description:
+            'フィールド名 → 値のオブジェクト。値の型はフィールド種別に対応する: ' +
+            'text=文字列か数値 / checkbox=真偽値 / dropdown・optionlist=文字列か文字列配列 / radio=文字列。' +
+            '例: {"user.name": "山田 太郎", "agree": true, "plan": "A"}',
+          additionalProperties: true,
+        },
+        fontPath: {
+          type: 'string',
+          description:
+            '値の描画に使うフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
+            '日本語の値には必須。',
+        },
+        flatten: {
+          type: 'boolean',
+          description:
+            '記入後にフラット化して非対話にするか。既定 false。true にすると値は編集できなくなる。',
+        },
+        allowBreakingTags: {
+          type: 'boolean',
+          description:
+            'タグ付き PDF でもフラット化を許すか。既定 false。true にすると PDF/UA-1 準拠が壊れる。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath', 'fields'],
+    },
+  },
+  {
+    name: 'flatten_form',
+    description:
+      '既存 PDF の対話フォーム(AcroForm)をフラット化し、記入済みの見た目を保ったまま非対話にする。' +
+      '配布前に値を固定したい場合に使う。既存の値に日本語が含まれる場合は fontPath が必要。' +
+      'タグ付き PDF では Widget 注釈が消えて Form 構造要素が宙に浮くため既定で拒否する' +
+      '(allowBreakingTags: true で強行可)。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        inputPath: { type: 'string', description: '対象 PDF の絶対パス。' },
+        fontPath: {
+          type: 'string',
+          description: '外観生成に使うフォント。既存の値に日本語が含まれる場合に必要。',
+        },
+        allowBreakingTags: {
+          type: 'boolean',
+          description: 'タグ付き PDF でもフラット化を許すか。既定 false。',
+        },
+        ...editCommonProperties,
+      },
+      required: ['inputPath'],
+    },
+  },
+  {
     name: 'attach_file',
     description:
       'PDF にファイルを埋め込む(添付する)。/Names /EmbeddedFiles と catalog /AF に登録し、' +

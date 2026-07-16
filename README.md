@@ -51,6 +51,8 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
 | `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape for bundling machine-readable data with a document |
 | `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
+| `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
+| `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.

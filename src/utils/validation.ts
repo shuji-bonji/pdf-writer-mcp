@@ -25,6 +25,8 @@ import type {
   CreateTextArgs,
   DeletePagesArgs,
   ExtractPagesArgs,
+  FillFormArgs,
+  FlattenFormArgs,
   MergePdfsArgs,
   ReorderPagesArgs,
   RotatePagesArgs,
@@ -408,6 +410,48 @@ export function validateAddWatermarkArgs(args: unknown): asserts args is AddWate
   if (a.color !== undefined) validateNonEmptyString(a.color, 'color');
   if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
   if (a.pages !== undefined) validateNonEmptyString(a.pages, 'pages');
+}
+
+export function validateFillFormArgs(args: unknown): asserts args is FillFormArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  if (typeof a.fields !== 'object' || a.fields === null || Array.isArray(a.fields)) {
+    throw new Error('fields must be an object mapping field names to values');
+  }
+  const fields = a.fields as Record<string, unknown>;
+  const names = Object.keys(fields);
+  if (names.length === 0) {
+    throw new Error('fields must contain at least one field to fill');
+  }
+  for (const name of names) {
+    const v = fields[name];
+    const ok =
+      typeof v === 'string' ||
+      typeof v === 'number' ||
+      typeof v === 'boolean' ||
+      (Array.isArray(v) && v.every((x) => typeof x === 'string'));
+    if (!ok) {
+      throw new Error(
+        `fields["${name}"] must be a string, number, boolean or array of strings, got ${typeof v}`,
+      );
+    }
+  }
+  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.flatten !== undefined && typeof a.flatten !== 'boolean') {
+    throw new Error('flatten must be a boolean');
+  }
+  if (a.allowBreakingTags !== undefined && typeof a.allowBreakingTags !== 'boolean') {
+    throw new Error('allowBreakingTags must be a boolean');
+  }
+}
+
+export function validateFlattenFormArgs(args: unknown): asserts args is FlattenFormArgs {
+  const a = asEditArgs(args);
+  validateNonEmptyString(a.inputPath, 'inputPath');
+  if (a.fontPath !== undefined) validateNonEmptyString(a.fontPath, 'fontPath');
+  if (a.allowBreakingTags !== undefined && typeof a.allowBreakingTags !== 'boolean') {
+    throw new Error('allowBreakingTags must be a boolean');
+  }
 }
 
 export function validateSplitPdfArgs(args: unknown): asserts args is SplitPdfArgs {

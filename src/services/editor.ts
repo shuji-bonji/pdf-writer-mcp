@@ -25,6 +25,9 @@ import type {
   AttachResult,
   CommonEditOptions,
   EditResult,
+  FillFormArgs,
+  FlattenFormArgs,
+  FormResult,
   SetMetadataArgs,
   SplitResult,
   StampPageNumbersArgs,
@@ -36,6 +39,14 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict, parseHexColor } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
+import {
+  applyFieldValue,
+  cleanUpAfterFlatten,
+  collectRenderedTexts,
+  listFields,
+  readOnlyWarnings,
+  refreshAppearances,
+} from './form.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
@@ -373,6 +384,126 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
   );
   const saved = await saveEdited(doc, args);
   return { ...saved, watermarked: targets.length, artifact: tagged };
+}
+
+/**
+ * フォーム系の共通前処理。
+ * 「値を適用 → 描画される文字を集める → その字だけサブセットしたフォントで外観を作り直す」
+ * という順番が重要。先にフォントを埋め込むと、後から入れた値の字がサブセットに無く豆腐になる。
+ */
+async function prepareFormAppearances(
+  doc: PDFDocument,
+  fontPath: string | undefined,
+): Promise<{ warnings: string[] }> {
+  const form = doc.getForm();
+  // 値を適用した後の「実際に描かれる文字」だけをサブセットの入力にする
+  const texts = collectRenderedTexts(form);
+  const source = await openFont(fontPath);
+  for (const t of texts) assertRenderable(t, source);
+  const applied = applyMissingGlyphPolicy(texts, source, 'error');
+  const loaded = await embedFontFor(doc, source, applied.texts);
+  refreshAppearances(form, loaded.font);
+  return { warnings: applied.warnings };
+}
+
+export async function fillForm(args: FillFormArgs): Promise<FormResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const form = doc.getForm();
+
+  if (form.hasXFA()) {
+    throw new Error(
+      'This PDF uses XFA forms, which pdf-writer-mcp does not support. ' +
+        '(XFA is deprecated in ISO 32000-2 and forbidden by PDF/UA-1 7.15.)',
+    );
+  }
+
+  const names = Object.keys(args.fields);
+  if (names.length === 0) throw new Error('fields must contain at least one field to fill');
+  for (const name of names) applyFieldValue(form, name, args.fields[name]);
+
+  const warnings = readOnlyWarnings(form, names);
+  const prepared = await prepareFormAppearances(doc, args.fontPath);
+  warnings.push(...prepared.warnings);
+
+  let flattened = false;
+  if (args.flatten) {
+    flattened = flattenAndWarn(doc, args.allowBreakingTags, warnings);
+  }
+
+  logger.info('Editor', `Filled ${names.length} form field(s)${flattened ? ' and flattened' : ''}`);
+  // pdf-lib の既定の外観再生成（Helvetica）を止める。上で自前のフォントで作り済み
+  const saved = await saveEdited(doc, args, { updateFieldAppearances: false });
+  return {
+    ...saved,
+    filled: names.length,
+    flattened,
+    fields: listFields(doc),
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+/**
+ * フラット化の本体。タグ付き PDF での破壊をここで一元的に判断する。
+ *
+ * flatten は Widget 注釈を消して外観 XObject をページ内容に焼き込む。タグ付き文書では
+ * Form 構造要素の参照先（OBJR）が消えるうえ、焼き込まれた図形はタグの付かない内容になるため、
+ * PDF/UA-1（7.1 の「全内容はタグか Artifact」/ 7.18.4 の Form タグ）に反する。
+ */
+function flattenAndWarn(
+  doc: PDFDocument,
+  allowBreakingTags: boolean | undefined,
+  warnings: string[],
+): boolean {
+  if (isTagged(doc) && !allowBreakingTags) {
+    throw new Error(
+      'Flattening would break the structure tree of this tagged PDF: it removes the Widget ' +
+        'annotations that the Form structure elements point to, and bakes their appearance into ' +
+        'the page as untagged content (violating PDF/UA-1 7.1 and 7.18.4). ' +
+        'Pass "allowBreakingTags": true to flatten anyway, or omit flatten to keep the form interactive.',
+    );
+  }
+  if (isTagged(doc)) {
+    warnings.push(
+      'Flattened a tagged PDF: the Form structure elements now point to removed widgets and the ' +
+        'baked-in appearances are untagged. The document is no longer PDF/UA-1 conforming.',
+    );
+  }
+  // 外観は prepareFormAppearances で生成済みなので、pdf-lib に Helvetica で作り直させない
+  doc.getForm().flatten({ updateFieldAppearances: false });
+  // pdf-lib の flatten は /Annots・/Kids に宙吊り参照を残す（form.ts の pruneDanglingRefs 参照）
+  const pruned = cleanUpAfterFlatten(doc);
+  if (pruned > 0) {
+    logger.info('Editor', `Pruned ${pruned} dangling reference(s) left by pdf-lib's flatten()`);
+  }
+  return true;
+}
+
+export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {
+  const { doc } = await loadForEdit(args.inputPath, args);
+  const form = doc.getForm();
+
+  if (form.hasXFA()) {
+    throw new Error('This PDF uses XFA forms, which pdf-writer-mcp does not support.');
+  }
+  const fieldCount = form.getFields().length;
+  if (fieldCount === 0) {
+    throw new Error(`"${args.inputPath}" has no AcroForm fields to flatten.`);
+  }
+
+  const warnings: string[] = [];
+  const prepared = await prepareFormAppearances(doc, args.fontPath);
+  warnings.push(...prepared.warnings);
+  flattenAndWarn(doc, args.allowBreakingTags, warnings);
+
+  logger.info('Editor', `Flattened ${fieldCount} form field(s)`);
+  const saved = await saveEdited(doc, args, { updateFieldAppearances: false });
+  return {
+    ...saved,
+    filled: 0,
+    flattened: true,
+    fields: [],
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
 }
 
 export async function splitPdf(

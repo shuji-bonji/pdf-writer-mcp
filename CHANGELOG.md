@@ -2,14 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2026-07-16
 
 ### Added
 
-- **`stamp_page_numbers`** — stamp page numbers onto an existing PDF (Tier B).
-- **`add_watermark`** — overlay a diagonal watermark ("社外秘" / "DRAFT" / "COPY") on each page (Tier B).
-  Drawn behind the body content by default; `behind: false` puts it on top. On tagged PDFs the watermark is
-  wrapped as an `/Artifact`, so PDF/UA-1 conformance holds (verified 106/106 with veraPDF).
+- **`fill_form`** — fill AcroForm fields: text, checkbox, dropdown, optionlist,
+  radio. Values are validated against the field's type and, for choice fields,
+  against its options; both errors name what the document actually offers.
+  Naming a field that does not exist lists the real field names, which is how a
+  caller discovers the form without a separate listing tool.
+
+  - Values are rendered with an **embedded font**, so Japanese works. pdf-lib
+    would otherwise regenerate every appearance with Helvetica on `save()` and
+    fail on `WinAnsi cannot encode "山"`; the font goes through the same
+    font-manager as the create tools (ADR-7/8).
+  - `flatten: true` fills and flattens in one pass.
+  - Filling does **not** touch the structure tree, so a tagged PDF keeps whatever
+    conformance it came in with.
+
+- **`flatten_form`** — flatten an AcroForm so the filled values become static
+  content, for fixing values before distribution.
+
+  - **Refuses tagged PDFs by default.** Flattening removes the Widget
+    annotations that the `Form` structure elements point to and bakes their
+    appearance in as untagged content. Measured, not assumed: veraPDF reports
+    `7.1-3 Content shall be marked as Artifact or tagged as real content`.
+    `allowBreakingTags: true` overrides and reports a warning.
+  - Drops the now-empty `/AcroForm` and prunes the dangling references that
+    pdf-lib's `flatten()` leaves behind in `/Annots` and `/Kids` (poppler
+    otherwise reports `Invalid XRef entry`).
+
+- **`add_watermark`** — overlay a diagonal watermark ("社外秘" / "DRAFT" /
+  "COPY") at the centre of each page.
+
+  - `text`, `fontSize` (60), `color` (`#808080`), `opacity` (0.15), `angle` (45),
+    `behind` (true), `pages`.
+  - **Behind the body content by default.** pdf-lib can only append to a content
+    stream, so the watermark is drawn and then moved to the front of the
+    `/Contents` array; each stream is self-contained in `q`/`Q`, so reordering is
+    safe.
+  - **Becomes an artifact on tagged PDFs** (PDF/UA-1 7.1-3). Verified: veraPDF
+    `ua1` 106/106.
+
+- **`stamp_page_numbers`** — stamp page numbers onto an existing PDF.
+
   - `format` expands `{n}` and `{total}` (`{n} / {total}`, `- {n} -`, `{n} ページ`).
   - `position` (six corners), `margin`, `fontSize`, `color`, `pages`, `startAt` —
     `pages: "2-"` with `startAt: 1` numbers everything but the cover from 1.
@@ -23,15 +59,24 @@ All notable changes to this project will be documented in this file.
     missing-glyph check apply. Japanese formats need `fontPath` or
     `PDF_WRITER_FONT`.
 
+### Changed
+
+- **biome adopted** for linting and formatting, matching the rest of the family
+  (same `biome.json`, same scripts). `npm run check` now runs in CI and in the
+  publish workflow. Existing sources were reformatted; the suite is clean.
+- The version is pinned to an exact `2.5.4` rather than a caret range. Biome's
+  formatting output changes between minor releases, so a range lets a local
+  `npm install` drift ahead of CI and produce spurious diffs.
+
 ### Fixed
 
 - `parsePageSpec` reported an open-ended chunk past the end (`"2-"` on a 1-page
   document) as *reversed* rather than *out of range* — the open end collapses to
   `pageCount`, which made `from > to` trigger first.
+- `handleCreateTablePdf` duplicated the Latin-1 check as a regex containing
+  control characters; it now reuses the existing `hasNonLatin1` helper.
+- `src/config.ts` imports `node:module` rather than the bare `module` specifier.
 
-## [0.6.0] - 2026-07-16
-
-### Added
 
 - **`attach_file`** — embed a file in a PDF (Tier B, first tool). Registers it in
   `/Names /EmbeddedFiles`, references it from the catalog `/AF`, and sets
@@ -124,23 +169,6 @@ an annotation was added.
 
 - XMP metadata is written as UTF-8 bytes. `context.stream(string)` writes one
   byte per character, which mangled Japanese titles.
-
-## [Unreleased]
-
-### Changed
-
-- **biome adopted** for linting and formatting, matching the rest of the family
-  (same `biome.json`, same scripts). `npm run check` now runs in CI and in the
-  publish workflow. Existing sources were reformatted; the suite is clean.
-- The version is pinned to an exact `2.5.4` rather than a caret range. Biome's
-  formatting output changes between minor releases, so a range lets a local
-  `npm install` drift ahead of CI and produce spurious diffs.
-
-### Fixed
-
-- `handleCreateTablePdf` duplicated the Latin-1 check as a regex containing
-  control characters; it now reuses the existing `hasNonLatin1` helper.
-- `src/config.ts` imports `node:module` rather than the bare `module` specifier.
 
 ## [0.4.0] - 2026-07-16
 

@@ -5,7 +5,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { PDFDocument } from 'pdf-lib';
+import type { PDFDocument, SaveOptions } from 'pdf-lib';
 import { PACKAGE_INFO } from '../config.js';
 import type {
   CommonCreateOptions,
@@ -19,11 +19,19 @@ import { logger } from '../utils/logger.js';
  * 編集済み PDF の保存・base64 化。
  * create 系の finalizePdf と異なり、既存メタデータ（Title/Producer/CreationDate 等）を
  * 尊重し、ModificationDate のみ更新する。
+ *
+ * saveOptions は pdf-lib の save() にそのまま渡す。フォーム系ツールは
+ * `{ updateFieldAppearances: false }` を渡すこと（既定の true だと pdf-lib が
+ * 標準フォント Helvetica で外観を作り直し、日本語の値が WinAnsi で落ちる）。
  */
-export async function saveEdited(doc: PDFDocument, opts: CommonEditOptions): Promise<EditResult> {
+export async function saveEdited(
+  doc: PDFDocument,
+  opts: CommonEditOptions,
+  saveOptions?: SaveOptions,
+): Promise<EditResult> {
   doc.setModificationDate(new Date());
 
-  const bytes = await doc.save();
+  const bytes = await doc.save(saveOptions);
   const result: EditResult = {
     pageCount: doc.getPageCount(),
     bytes: bytes.length,

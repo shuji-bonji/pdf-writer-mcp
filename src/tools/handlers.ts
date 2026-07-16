@@ -15,6 +15,8 @@ import {
   attachFileToPdf,
   deletePages,
   extractPages,
+  fillForm,
+  flattenForm,
   mergePdfs,
   reorderPages,
   rotatePages,
@@ -30,6 +32,7 @@ import type {
   AttachResult,
   CreateResult,
   EditResult,
+  FormResult,
   SplitResult,
   StampResult,
   WatermarkResult,
@@ -44,6 +47,8 @@ import {
   validateCreateTextArgs,
   validateDeletePagesArgs,
   validateExtractPagesArgs,
+  validateFillFormArgs,
+  validateFlattenFormArgs,
   validateMergePdfsArgs,
   validateReorderPagesArgs,
   validateRotatePagesArgs,
@@ -151,6 +156,16 @@ export async function handleAddWatermark(args: unknown): Promise<WatermarkResult
   return addWatermark(args);
 }
 
+export async function handleFillForm(args: unknown): Promise<FormResult> {
+  validateFillFormArgs(args);
+  return fillForm(args);
+}
+
+export async function handleFlattenForm(args: unknown): Promise<FormResult> {
+  validateFlattenFormArgs(args);
+  return flattenForm(args);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -171,4 +186,6 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   attach_file: handleAttachFile,
   stamp_page_numbers: handleStampPageNumbers,
   add_watermark: handleAddWatermark,
+  fill_form: handleFillForm,
+  flatten_form: handleFlattenForm,
 };
