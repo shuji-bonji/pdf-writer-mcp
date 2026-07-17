@@ -5,7 +5,30 @@
 | 目的 | writer が書き出す構造を ISO 32000-2 の条文と照合し、veraPDF の目が届かない領域（タグ無し出力・編集系の辞書構造）の shall 違反を洗い出す |
 | 手段 | pdf-spec-mcp（get_section / get_tables / search_spec）+ 実測（qpdf / pdftoppm / veraPDF） |
 | Phase 1 | 編集系ツール群（2026-07-17 実施・是正は v0.9.2） |
+| Phase 1.5 | **全 19 ツールの再照合**（2026-07-17。Phase 1 で未照合だったページ操作系・create 系・v0.9〜v0.12 の新規分） |
 | 先行 | 増分更新は v0.9.1 で照合済み（§7.5.5 / §7.5.6 / §7.5.8.1 / §14.4 / §12.8.2.2） |
+
+> [!WARNING]
+> ## ⚠️ Phase 1 / 1.5 は「欠けた正典」に対して行われた（2026-07-18 判明）
+>
+> 照合手段の pdf-spec-mcp は当時 **v0.3.2** で、翌日に判明した抽出バグを抱えていた。
+> **結論が誤りとは限らないが、根拠にした表に行が足りていなかった**ことは事実。
+>
+> | 下で照合した対象 | 当時 pdf-spec が見せていたもの | 実際 |
+> |---|---|---|
+> | add_annotation 共通エントリ → **Table 166** | **16 行**（`CA` / `BM` / `Lang` が欠落） | 19 行 |
+> | add_annotation QuadPoints → **Table 182** | **1 行**（`QuadPoints` 行が丸ごと欠落） | 2 行 |
+> | （全般）`get_requirements` | **表の中の shall を 1 件も返さない** | 2739 件（+46%） |
+>
+> - 当時の `search_spec("QuadPoints")` は「**12.5.6.11 Caret annotations**」と誤報告していた
+>   （正しくは 12.5.6.10 の Table 182）。**この誤帰属は 0.4.1 でも未修正**（pdf-spec の S-8）。
+>   search_spec の結果は節の当たりを付ける用途に留め、**必ず get_section / get_tables で裏を取る**こと
+> - 5 件の違反は**表を手で読んで**見つけたもの。当時 `get_requirements` は表を走査していなかったので、
+>   **系統的には探せていなかった**。ISO の表は要件語の宝庫であり（先頭 260 セクションの表 106 個中
+>   301 セルが "shall"）、writer が扱うのはまさに Table 166 / 182 / 150 / 151 のような辞書エントリの表
+>
+> **→ pdf-spec 0.4.1 以降で再照合する価値が高い**（`get_requirements` が `source: "table"` /
+> `table` / `key` 付きで表の要件を返すようになった）。焦点は「**旧正典に見えなかったもの**」。
 
 ## 方針
 
@@ -36,6 +59,62 @@
 - 回帰テスト `tests/spec-audit.test.ts`（AP 3 種・/Count 可視数とルート省略・名前ツリーソート・決定論）
 - veraPDF ua1: タグ付き文書への注釈（新 AP 付き）で **COMPLIANT (106/106)** 維持
 - qpdf --check クリーン・pdftoppm で AP の描画を目視確認（AP 無し時代は poppler で不可視だった）
+
+## Phase 1.5 照合結果（全 19 ツール・2026-07-17）
+
+Phase 1 は「編集系」を名乗りつつ**ページ操作系の文書レベルオブジェクトの扱いを見ていなかった**
+（rotate の /Rotate しか見ていない）。全ツールを対象に再照合した結果、**重大な欠落を 1 件発見**。
+
+### 🔴 重大: ページ操作系が文書レベルオブジェクトを黙って破棄する（v0.12.0 時点の実測）
+
+| ツール | 実装 | StructTreeRoot | MarkInfo | XMP | 添付(/Names) |
+|--------|------|:---:|:---:|:---:|:---:|
+| `rotate_pages` | in-place（loadForEdit → 保存） | ✅ 保持 | ✅ | ✅ | ✅ |
+| `merge_pdfs` | `PDFDocument.create()` + copyPages | ❌ **消失** | ❌ | ❌ | ❌ |
+| `split_pdf` | 同上 | ❌ | ❌ | ❌ | ❌ |
+| `extract_pages` | 同上 | ❌ | ❌ | ❌ | ❌ |
+| `delete_pages` | 同上 | ❌ | ❌ | ❌ | ❌ |
+| `reorder_pages` | 同上 | ❌ **消失**（実測確認） | ❌ | ❌ | ❌ |
+
+**原因**: pdf-lib の `copyPages()` は**ページ内容のみ**を複製し、catalog 配下の文書レベル辞書
+（StructTreeRoot / MarkInfo / Metadata / Names /AF）を運ばない。`copyDocumentInfo` は
+Info 辞書だけを引き継いでいたが、それ以外は誰も引き継いでいなかった。
+
+**仕様上の位置づけ**（重要な区別）:
+
+- 出力が「タグ無し PDF」になること自体は**仕様違反ではない**（タグ無し PDF は合法）。
+  §14.8.1 の「タグ付き PDF は MarkInfo/Marked=true を持つ shall」は、タグ付きを名乗る文書への要求
+- **問題は「黙って落とす」こと**。writer の設計原則（署名ガード・flatten のタグ拒否＝
+  「壊すなら明示する」）が、ページ操作にだけ適用されていない**内部不整合**
+- 実害:
+  1. **PDF/UA 準拠文書を merge/extract すると準拠が消える**（利用者は知らない）
+  2. **PDF/A-3 の添付（電帳法の機械可読データ）が消える** — §6.8 の AFRelationship ごと
+  3. XMP（pdfuaid / dc:title）が消え、Info だけ残るので **B-9 で直した Info↔XMP 整合が逆流**
+  4. pdf-publish Skill が「create(tagged) → extract_pages → verify」の順で組むと **COMPLIANT が落ちる**
+
+**対応方針（B-10 として起票）**:
+
+| 対象 | 方針 |
+|------|------|
+| 単一文書内の操作（extract / delete / reorder / split） | catalog の文書レベル辞書（Metadata / Names / AF / MarkInfo）を**引き継ぐ**。StructTreeRoot は「残ページに対応する構造要素だけ」の再構築が要るため、初版は**警告 + 破棄**（`copyPages` の限界を明示） |
+| `merge_pdfs` | 複数文書の構造木マージは重い（ParentTree のキー空間統合）。初版は**警告 + 破棄**。添付は名前衝突の解決込みで引き継ぎ可 |
+| 共通 | 「入力がタグ付き / 添付付き / XMP 持ちだったが、出力では失われた」を **warnings で必ず報告**する（最優先・低コスト） |
+
+### 他ツールの照合結果（Phase 1.5・追加分）
+
+| 対象 | 条項 | 判定 |
+|------|------|------|
+| create 系 3（Tier 0） | §7.7.3（ページツリー）/ §9.6–9.10（フォント）/ §14.8（タグ） | 適合 — veraPDF ua1 106/106 が継続的に担保。`tagged` 時のフォント埋め込み警告も v0.8.0 で追加済み |
+| `rotate_pages` | §7.7.3.3 Table 31 | 適合（mod 360・90 の倍数・in-place で catalog 保持） |
+| `ensure_tagged`（v0.12.0） | §14.8.2（BDC/EMC・MCID）/ §14.7.4.4（ParentTree）/ §14.8.1 | 適合 — veraPDF 実測 COMPLIANT。P で包む設計判断（Artifact 不採用）も §14.8.2.2 の趣旨に合致 |
+| 増分更新（v0.9〜v0.12） | §7.5.5 / §7.5.6 / §7.5.8.1 / §14.4 / §12.8.2.2 | 適合（v0.9.1 で是正済み。v0.11.1 で stream 形式の trailer 引き継ぎも修正） |
+| `fill_form` / `flatten_form` / `tag_form_fields` | §12.7 / §14.8.4（Form）/ Table 166 | 適合（Phase 1 + v0.8.0 で照合済み） |
+
+### DocMDP 解釈の family 内整合（verify Issue #5 との突き合わせ）
+
+verify #5 が「**§12.8.2.2 は P=1 でも DSS / 文書タイムスタンプの増分更新を例外として認める**」と指摘。
+writer の `assertDocMdpAllows` は注釈・メタデータ・構造・描画の追記を拒否するのみで **DSS/DTS を扱わない**ため
+実害は無いが、条文解釈を family で揃えるためコメントに例外の存在を明記する（B-11）。
 
 ## ツール側へのフィードバック
 

@@ -5,7 +5,44 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 24 ファイル（275 ケース）・typecheck / biome OK。**v0.12.0**（2026-07-17。B-7b'' = 増分更新の展開完了 / B-7c = `ensure_tagged`。preserveSignatures は 7 ツール対応。**B-7 の残りは B-7d のみ**） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 24 ファイル（275 ケース）・typecheck / biome OK。**v0.12.0**（2026-07-17）。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能** |
+| 次の最優先 | 🔴 **B-10a**（ページ操作が文書レベル情報を黙って破棄する件の警告）。SPEC-AUDIT Phase 1.5 で発見・実測済み |
+
+## 次セッションの進め方（2026-07-18 追記・pdf-spec のセッションから）
+
+**正典が変わった。** pdf-spec-mcp が **0.4.1** になり、抽出が大きく直った。
+**`docs/SPEC-AUDIT.md` の冒頭の警告を必ず読むこと** — Phase 1 / 1.5 は欠けた正典に対して
+行われており、根拠にした表に行が足りていなかった（Table 166 は 16/19 行、Table 182 は
+QuadPoints 行が欠落、`get_requirements` は表の shall を 1 件も返さなかった）。
+
+### 推奨順序
+
+1. **B-10a（警告を出す）を先に。** 監査の結果に依存しない — あれは条文照合ではなく**実測**で
+   見つけたバグで、監査が何を見つけようとやる必要がある。有界（数時間）で、
+   **今この瞬間もデータが失われている**（PDF/A-3 添付 = 電帳法データ、PDF/UA 準拠）。
+   開いた監査の人質にしないこと
+2. **その直後に、新正典で writer を再照合。** 焦点は「**旧正典に見えなかったもの**」:
+   `get_requirements` が返す **`source: "table"` の要件**（2739 件）のうち、writer が触る表
+   （166 / 182 / 150 / 151 / 31 / 177 …）。`table` / `key` フィールドで絞れる
+3. **1 + 2 をまとめて 1 リリース。** 関連する修正を分けて出すのは無駄
+
+### pdf-spec を使うときの注意（0.4.1 時点）
+
+- 🔴 **`search_spec` の section は信用しない**（pdf-spec の S-8・未修正）。ページ単位で索引し、
+  ページ全体を「そのページ以前に始まる最後のセクション」に帰属させるため、**ページ上端に残った
+  前セクションの内容は必ず誤帰属する**。実例: `search_spec("QuadPoints")` →「12.5.6.11 Caret
+  annotations」（正しくは 12.5.6.10 の Table 182）。**当たりを付ける用途に留め、get_section /
+  get_tables で裏を取る**
+- `list_specs` の `coverage` を見ること。**PDF/A（ISO 19005）と PAdES（ETSI EN 319 142）は
+  コーパスに無い**。それらの検索が 0 件でも「要件が無い」ではなく「答えられない」
+- ヘッダなしの表は分裂して返る（S-4・5 セクション）。内容は `get_section` から見える
+
+### 鶏卵ではない
+
+pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ページ・全数差分・変異）で担保されている。
+`spec → reader / verify / writer` は接地点のある一本の鎖であって循環しない。
+ただし「同じ PDF を読んで pdf-spec と reader が一致するか」という**狭い相互チェック**には価値があり、
+それは pdf-spec の S-4（ヘッダなしの表 = StructTree の読み方）に着手するときに行うのが自然。
 
 ## 現状サマリ
 
@@ -127,9 +164,41 @@
         **設計判断**: 内容を Artifact で包む案（veraPDF は通る）は却下 — 本文が AT から
         隠れる「準拠の体裁だけ」の嘘になるため。P なら少なくとも読み上げられる。
         足場に過ぎないことを warnings で明示する（見出し・表・読み順・代替テキストは作れない）
-  - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級。
-        現状の全ツールが「構造・メタデータの操作」で完結しているのに対し、これだけは
-        テキスト配置の解析と再生成が要る。pdf-engine-core の判断点（ADR-11 の再評価）
+  - [~] **B-7d. `edit_text`** → **M-8 経路へ委譲（不採用ではない）**（2026-07-17 決定）
+        条文照合（pdf-spec-mcp）と Issue #2 の再読で三方から裏が取れた:
+        1. **仕様**: リフローは可能。§14.8.1 は "Automatic reflow of page contents" を
+           **Tagged PDF の意図された用途として明記**し、§14.8.2.5 は logical content order を
+           「構造木の深さ優先走査」で定義（shall）、§14.8.2.6.2 は「repurposing tool が行分割を
+           決められるだけの情報がある」ことと単語区切りの空白（shall）を保証する。
+           **リフロー = 元レイアウトの再現ではなく「論理順序を保った新規レイアウト」**であり、
+           元の折り返し規則は不要。ただし**タグ無し文書では logical order を導出できず推測になる**
+        2. **Issue #2 の射程外**: #2 が定義した分水嶺は ①Xref のバイトオフセット ②ByteRange を
+           侵さない注釈追記 ③タグ木への外科的挿入 の 3 つで、**すべて v0.9.0〜v0.12.0 で達成済み**。
+           本文編集は #2 に一度も登場しない（#2 は close 可能）
+        3. **実装経路**: writer にコンテンツストリームパーサは**不要**。reader が既に pdfjs を持ち、
+           MCID↔テキストの対応も解けている（`extract_tables` が実証）。**reader に構造付きテキスト
+           抽出（M-8）を足せば、reader → Skill → writer の create 系再生成で成立する**
+        → よって writer 側の残作業は **replace_text（見た目保存型・リフローしない限定置換）のみ**。
+          これは Tier C ではなく **Tier B 相当の軽量機能**（B-12 として別掲）
+- [ ] **B-10. ページ操作系の文書レベルオブジェクト引き継ぎ**（🔴 **最優先** — SPEC-AUDIT Phase 1.5 で発見）
+      `copyPages` を使う 5 ツール（merge / split / extract / delete / reorder）が
+      **StructTreeRoot / MarkInfo / Metadata(XMP) / Names(添付) を黙って破棄**している（実測）。
+      rotate は in-place のため無傷。仕様違反ではない（タグ無し PDF は合法）が、
+      **「壊すなら明示する」という writer の原則に対する内部不整合**であり実害が大きい:
+      PDF/UA 準拠が消える / PDF/A-3 添付（電帳法データ）が消える / B-9 の Info↔XMP 整合が逆流 /
+      pdf-publish が「create(tagged) → extract → verify」で COMPLIANT を落とす。
+  - [ ] **B-10a. 警告を出す**（最優先・低コスト）— 入力にあった文書レベル要素が出力で失われたら warnings で報告
+  - [ ] **B-10b. 引き継ぎ**（単一文書内の操作）— Metadata / Names / AF / MarkInfo を catalog からコピー
+  - [ ] **B-10c. 構造木の引き継ぎ** — extract/delete/reorder は「残ページ分の構造要素」の再構築が要る。
+        merge は ParentTree のキー空間統合が要る。重いので b の後に判断
+- [ ] **B-11. DocMDP コメントに DSS/DTS 例外を明記** — verify #5 の指摘（§12.8.2.2 は P=1 でも
+      DSS / 文書タイムスタンプの増分更新を例外とする）。writer は DSS/DTS を扱わないため実害無しだが、
+      family 内で条文解釈を揃える
+- [ ] **B-12. `replace_text`（見た目保存型の限定置換）** — B-7d の分割で残った軽量機能（Tier B 相当）。
+      既存 Tj/TJ の文字列を**同じフォントで差し替える**のみ。リフローしない・座標を変えない。
+      幅が変わる場合は警告（または拒否）。実需: 請求書の日付・版番号・氏名の差し替え。
+      **リフローが要るなら M-8 経路（reader → Skill → create 系再生成）を使う**、と説明で誘導する。
+      難所: Tj のコード列 → 文字の逆引き（標準フォント = WinAnsi は容易 / Identity-H は ToUnicode 経由）
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
       ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
 - [x] **B-9. set_metadata の XMP 併記更新**（v0.10.0・2026-07-17）— `syncXmpWithInfo`（xmp.ts）。
