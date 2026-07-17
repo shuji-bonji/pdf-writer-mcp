@@ -31,6 +31,7 @@ import {
   PDFNumber,
   type PDFObject,
   PDFObjectParser,
+  type PDFPage,
   PDFRawStream,
   PDFRef,
 } from 'pdf-lib';
@@ -161,6 +162,54 @@ export function findDocMdpPermission(doc: PDFDocument): number | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * ページへの描画追記（透かし・ページ番号）で変更される既存オブジェクトを集める（B-7b''）。
+ *
+ * pdf-lib は load 時に /Contents を直接配列へ正規化し、そこへ新規ストリームを push する。
+ * /Resources も直接辞書であることが多く、いずれもページ辞書自身の変更になる。
+ * 間接参照で保持されている異形（/Contents が参照の配列、/Resources が参照）にも備え、
+ * 見つかったものは併せて dirty にする（重複は呼び出し側の Map で除去される）。
+ */
+export function pageContentDirtyRefs(page: PDFPage): PDFRef[] {
+  const refs: PDFRef[] = [page.ref];
+  const contents = page.node.get(PDFName.of('Contents'));
+  if (contents instanceof PDFRef) refs.push(contents);
+  const resources = page.node.get(PDFName.of('Resources'));
+  if (resources instanceof PDFRef) refs.push(resources);
+  return refs;
+}
+
+/**
+ * catalog 配下の名前ツリー（/Names /EmbeddedFiles）と /AF の変更で dirty になる
+ * 既存オブジェクトを集める（B-7b''・attach_file 用）。
+ * 各段が間接参照なら、その最深部までを対象にする。
+ */
+export function catalogNamesDirtyRefs(doc: PDFDocument): PDFRef[] {
+  const refs: PDFRef[] = [];
+  const root = doc.context.trailerInfo.Root;
+  if (root instanceof PDFRef) refs.push(root); // /Names /AF の追加は catalog の変更
+
+  const namesRaw = doc.catalog.get(PDFName.of('Names'));
+  if (namesRaw instanceof PDFRef) {
+    refs.push(namesRaw);
+    const names = doc.catalog.lookup(PDFName.of('Names'));
+    if (names instanceof PDFDict) {
+      const efRaw = names.get(PDFName.of('EmbeddedFiles'));
+      if (efRaw instanceof PDFRef) {
+        refs.push(efRaw);
+        const ef = names.lookup(PDFName.of('EmbeddedFiles'));
+        if (ef instanceof PDFDict) {
+          const arrRaw = ef.get(PDFName.of('Names'));
+          if (arrRaw instanceof PDFRef) refs.push(arrRaw);
+        }
+      }
+    }
+  }
+  const afRaw = doc.catalog.get(PDFName.of('AF'));
+  if (afRaw instanceof PDFRef) refs.push(afRaw);
+  return refs;
 }
 
 export interface IncrementalUpdateOptions {

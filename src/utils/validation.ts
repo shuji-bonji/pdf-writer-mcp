@@ -338,6 +338,7 @@ export const stampPageNumbersShape = {
     .int()
     .optional()
     .describe('最初に刻む番号。既定 1。表紙を除いて 1 から始めたい場合などに使う。'),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 
@@ -368,6 +369,7 @@ export const addWatermarkShape = {
   pages: zPageSpec
     .optional()
     .describe('対象ページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。'),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 
@@ -434,6 +436,24 @@ export const tagFormFieldsShape = {
   ...commonEditShape,
 } as const;
 
+export const ensureTaggedShape = {
+  inputPath,
+  title: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('文書タイトル(PDF/UA-1 7.1 で必須)。省略時は既存 Info の Title を使う。'),
+  lang: z
+    .string()
+    .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, {
+      message: 'must be a BCP 47 language tag like "ja" or "en-US"',
+    })
+    .optional()
+    .describe('文書の自然言語(BCP 47。例 "ja")。PDF/UA-1 7.2 で必須。'),
+  preserveSignatures: zPreserveSignatures,
+  ...commonEditShape,
+} as const;
+
 export const attachFileShape = {
   inputPath,
   attachmentPath: zPath.describe('埋め込むファイルの絶対パス。'),
@@ -456,6 +476,7 @@ export const attachFileShape = {
         'Source=本文の元データ / Alternative=代替表現 / Supplement=補足資料 / Unspecified=不明(既定)。' +
         'PDF/A-3 では意味のある値が必須のため、省略すると警告する。',
     ),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 
@@ -490,6 +511,7 @@ export const AddWatermarkSchema = z.object(addWatermarkShape);
 export const FillFormSchema = z.object(fillFormShape);
 export const FlattenFormSchema = z.object(flattenFormShape);
 export const TagFormFieldsSchema = z.object(tagFormFieldsShape);
+export const EnsureTaggedSchema = z.object(ensureTaggedShape);
 export const AttachFileSchema = z.object(attachFileShape);
 
 /**

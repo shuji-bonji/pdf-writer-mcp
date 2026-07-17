@@ -30,6 +30,8 @@ import type {
   AttachResult,
   CommonEditOptions,
   EditResult,
+  EnsureTaggedArgs,
+  EnsureTaggedResult,
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
@@ -44,6 +46,7 @@ import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict, parseHexColor } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
+import { ensureTaggedStructure } from './ensure-tagged.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
 import {
   applyFieldValue,
@@ -56,7 +59,9 @@ import {
 } from './form.js';
 import {
   buildIncrementalUpdate,
+  catalogNamesDirtyRefs,
   findDocMdpPermission,
+  pageContentDirtyRefs,
   reserveExistingObjectNumbers,
 } from './incremental.js';
 import { countBookmarks, setBookmarks } from './outline.js';
@@ -145,7 +150,7 @@ export async function loadForEdit(
  */
 function assertDocMdpAllows(
   doc: PDFDocument,
-  change: 'annotation' | 'metadata-or-outline' | 'structure',
+  change: 'annotation' | 'metadata-or-outline' | 'structure' | 'content',
 ): void {
   const p = findDocMdpPermission(doc);
   if (p === undefined) return; // 承認署名のみ — 増分更新は合法（「署名後の変更あり」にはなる）
@@ -157,7 +162,9 @@ function assertDocMdpAllows(
         : 'only form fill-in and signing are permitted; annotations are not.'
       : change === 'structure'
         ? 'structure (tagging) changes are not among the permitted change types at any level.'
-        : 'metadata and outline changes are not among the permitted change types at any level.';
+        : change === 'content'
+          ? 'drawing onto page content is not among the permitted change types at any level.'
+          : 'metadata and outline changes are not among the permitted change types at any level.';
   throw new PdfWriterError(
     `This PDF carries a certification signature (DocMDP) with permission level P=${p} — ${label}` +
       ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
@@ -351,7 +358,15 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
 }
 
 export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    // 添付は「文書への追加」であり DocMDP の許可種別に無い（認証文書は全レベル拒否）
+    assertDocMdpAllows(doc, 'metadata-or-outline');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+
   const attached = await attachFile(doc, {
     filePath: args.attachmentPath,
     name: args.name,
@@ -373,17 +388,40 @@ export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResul
     'Editor',
     `Attached ${attached.name} (${attached.bytes} bytes, ${attached.mimeType})`,
   );
-  const saved = await saveEdited(doc, args);
+
+  const saved = preserve
+    ? await (async () => {
+        const dirty = catalogNamesDirtyRefs(doc);
+        touchModificationDate(doc, since, dirty);
+        return saveWithPreservedSignatures(
+          doc,
+          bytes,
+          args,
+          dirty,
+          since,
+          `Attached ${attached.name}`,
+        );
+      })()
+    : await saveEdited(doc, args);
+
+  const allWarnings = [...(saved.warnings ?? []), ...warnings];
   return {
     ...saved,
-    warnings: warnings.length > 0 ? warnings : undefined,
+    warnings: allWarnings.length > 0 ? allWarnings : undefined,
     attachment: attached,
     attachments: listEmbeddedFiles(doc).map((f) => f.name),
   };
 }
 
 export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<StampResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    // ページ内容への描画追記は DocMDP の許可種別に無い（認証文書は全レベル拒否）
+    assertDocMdpAllows(doc, 'content');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
   const total = doc.getPageCount();
 
   const format = args.format ?? STAMP_DEFAULTS.format;
@@ -427,12 +465,34 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
     'Editor',
     `Stamped ${stamps.length} page(s)${tagged ? ' as artifacts (tagged PDF)' : ''}`,
   );
+
+  if (preserve) {
+    const dirty: PDFRef[] = [];
+    for (const stamp of stamps) dirty.push(...pageContentDirtyRefs(stamp.page));
+    touchModificationDate(doc, since, dirty);
+    const saved = await saveWithPreservedSignatures(
+      doc,
+      bytes,
+      args,
+      dirty,
+      since,
+      `Stamped ${stamps.length} page(s)`,
+    );
+    return { ...saved, stamped: stamps.length, artifact: tagged };
+  }
+
   const saved = await saveEdited(doc, args);
   return { ...saved, stamped: stamps.length, artifact: tagged };
 }
 
 export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    assertDocMdpAllows(doc, 'content');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
   const total = doc.getPageCount();
 
   const fontSize = args.fontSize ?? WATERMARK_DEFAULTS.fontSize;
@@ -469,6 +529,22 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
     'Editor',
     `Watermarked ${targets.length} page(s)${behind ? ' behind content' : ''}${tagged ? ' as artifacts' : ''}`,
   );
+
+  if (preserve) {
+    const dirty: PDFRef[] = [];
+    for (const pageNo of targets) dirty.push(...pageContentDirtyRefs(doc.getPage(pageNo - 1)));
+    touchModificationDate(doc, since, dirty);
+    const saved = await saveWithPreservedSignatures(
+      doc,
+      bytes,
+      args,
+      dirty,
+      since,
+      `Watermarked ${targets.length} page(s)`,
+    );
+    return { ...saved, watermarked: targets.length, artifact: tagged };
+  }
+
   const saved = await saveEdited(doc, args);
   return { ...saved, watermarked: targets.length, artifact: tagged };
 }
@@ -668,6 +744,46 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
     taggedWidgets: outcome.tagged,
     skippedWidgets: outcome.skipped,
     fields: listFields(doc),
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+/**
+ * ensure_tagged（Tier C・B-7c）: 既存 PDF を PDF/UA-1 の器に載せる。
+ * 詳細と限界は services/ensure-tagged.ts の冒頭コメントを参照。
+ */
+export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTaggedResult> {
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    assertDocMdpAllows(doc, 'structure');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+
+  const outcome = ensureTaggedStructure(doc, { title: args.title, lang: args.lang });
+  logger.info(
+    'Editor',
+    outcome.createdStructure
+      ? `Created a minimal structure tree (${outcome.wrappedPages} page(s) wrapped in P)`
+      : `Repaired document-level PDF/UA requirements (${outcome.addedRequirements.length} item(s))`,
+  );
+
+  const saved = preserve
+    ? await (async () => {
+        const dirty = [...outcome.dirtiedRefs];
+        touchModificationDate(doc, since, dirty);
+        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, 'Ensured tagging');
+      })()
+    : await saveEdited(doc, args);
+
+  const warnings = [...(saved.warnings ?? []), ...outcome.warnings];
+  return {
+    ...saved,
+    wasTagged: outcome.wasTagged,
+    createdStructure: outcome.createdStructure,
+    wrappedPages: outcome.wrappedPages,
+    addedRequirements: outcome.addedRequirements,
     warnings: warnings.length > 0 ? warnings : undefined,
   };
 }

@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2026-07-17
+
+Tier C continues: the last incremental-update gaps close (B-7b'') and
+`ensure_tagged` lands (B-7c). **19 tools.**
+
+### Added
+
+- **`ensure_tagged`** — put an existing PDF into the PDF/UA-1 *container*.
+  - Already tagged: the structure tree is **left untouched**; only missing
+    document-level requirements are repaired (`MarkInfo/Marked`, `/Lang`,
+    `ViewerPreferences/DisplayDocTitle`, XMP `pdfuaid:part` + `dc:title`).
+  - Untagged: a minimal scaffold is created — each page's content is wrapped
+    in `/P <</MCID 0>> BDC … EMC` and hung under `Document > P`, with a
+    ParentTree and `/StructParents` per page. Measured: an untagged
+    two-page document becomes veraPDF ua1 **COMPLIANT (106/106)**.
+  - **Honest about its limits.** Machine tagging cannot infer meaning:
+    headings, lists, tables, reading order and figure alt text are *not*
+    produced, and the result is reported as a scaffold — not an accessible
+    document — with a warning saying so. Wrapping the content in `Artifact`
+    (which would also pass veraPDF) was deliberately rejected: it hides the
+    body from assistive technology, i.e. conformance theatre. A `P` at
+    least gets the text read out.
+  - Supports `preserveSignatures` (approval signatures only).
+- **`preserveSignatures` for `attach_file`, `stamp_page_numbers` and
+  `add_watermark` (B-7b'')** — completes the incremental-update rollout
+  across the editing tools. New dirty-tracking helpers cover the two
+  remaining shapes: page content (`/Contents` array + `/Resources`, which
+  pdf-lib normalises onto the page object) and the catalog name tree
+  (`/Names /EmbeddedFiles`, `/AF`). DocMDP: drawing onto page content and
+  adding attachments are not permitted change types at any certification
+  level, so certified documents are refused.
+
 ## [0.11.1] - 2026-07-17
 
 ### Fixed

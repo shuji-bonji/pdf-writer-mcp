@@ -172,7 +172,7 @@ export interface AnnotationRect {
 
 export type AnnotationType = 'text' | 'highlight' | 'square';
 
-export interface AddAnnotationArgs extends CommonEditOptions {
+export interface AddAnnotationArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   /** 対象ページ（1 始まり） */
   page: number;
@@ -196,11 +196,6 @@ export interface AddAnnotationArgs extends CommonEditOptions {
    * その要素の /Alt になる。タグ無し文書では無視される。
    */
   alt?: string;
-  /**
-   * 署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で追加する。
-   * 既定 false。タグ付き PDF では構造木への内包（Annot タグ）も増分に含まれる（v0.11.0〜）。
-   */
-  preserveSignatures?: boolean;
 }
 
 /** スタンプの配置（ページの回転を考慮した「見た目の」位置） */
@@ -212,7 +207,7 @@ export type StampPosition =
   | 'top-center'
   | 'top-right';
 
-export interface StampPageNumbersArgs extends CommonEditOptions {
+export interface StampPageNumbersArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   /**
    * 書式。`{n}` が現在ページ、`{total}` が総ページ数に展開される。
@@ -242,7 +237,7 @@ export interface StampResult extends EditResult {
   artifact: boolean;
 }
 
-export interface AddWatermarkArgs extends CommonEditOptions {
+export interface AddWatermarkArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   /** 透かし文字（日本語可。フォント指定が必要） */
   text: string;
@@ -323,6 +318,25 @@ export interface FormResult extends EditResult {
   fields: FormFieldSummary[];
 }
 
+export interface EnsureTaggedArgs extends CommonEditOptions, PreservableEditOptions {
+  inputPath: string;
+  /** 文書タイトル（PDF/UA 7.1 で必須）。省略時は既存 Info の Title を使う */
+  title?: string;
+  /** 文書の自然言語（BCP 47。7.2 で必須） */
+  lang?: string;
+}
+
+export interface EnsureTaggedResult extends EditResult {
+  /** 入力が既にタグ付きだったか */
+  wasTagged: boolean;
+  /** 構造木を新設したか（タグ無し入力のみ） */
+  createdStructure: boolean;
+  /** P 要素で包んだページ数 */
+  wrappedPages: number;
+  /** 補った文書レベル要件 */
+  addedRequirements: string[];
+}
+
 export interface TagFormFieldsResult extends EditResult {
   /** 新たに Form 構造要素へ内包した Widget 数 */
   taggedWidgets: number;
@@ -348,7 +362,7 @@ export type AttachmentRelationship =
   /** 不明・その他 */
   | 'Unspecified';
 
-export interface AttachFileArgs extends CommonEditOptions {
+export interface AttachFileArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   /** 埋め込むファイルのパス */
   attachmentPath: string;

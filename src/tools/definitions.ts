@@ -21,6 +21,7 @@ import {
   createTableShape,
   createTextShape,
   deletePagesShape,
+  ensureTaggedShape,
   extractPagesShape,
   fillFormShape,
   flattenFormShape,
@@ -204,6 +205,21 @@ export const tools: ToolDefinition[] = [
       'タグ無し文書は対象外(create 系の tagged: true でゼロから作るか、将来の ensure_tagged を待つ)。' +
       '署名済み PDF には preserveSignatures: true で署名を保持したまま修復できる(承認署名のみ。認証署名は拒否)。',
     shape: tagFormFieldsShape,
+    annotations: base,
+  },
+  {
+    name: 'ensure_tagged',
+    title: 'Ensure Tagged (PDF/UA scaffold & repair)',
+    description:
+      '既存 PDF を PDF/UA-1 の「器」に載せる。既にタグ付きなら構造木には触らず、' +
+      '欠落した文書レベル要件(MarkInfo / Lang / DisplayDocTitle / XMP の pdfuaid:part・dc:title)' +
+      'のみ補う。タグ無し文書には最小限の構造木(各ページ = 1 つの P 要素)を新設して' +
+      '本文を支援技術から到達可能にする。' +
+      '**重要**: 機械は意味を推定できないため、見出し・表・リスト・読み順・図の代替テキストは' +
+      '作られない。新設は「足場」であって「アクセシブルな文書」ではなく、人手のレビューが要る。' +
+      '構造を最初から正しく作れる場合は create 系の tagged: true を使うこと。' +
+      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。',
+    shape: ensureTaggedShape,
     annotations: base,
   },
   {

@@ -56,13 +56,20 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
 | `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
 | `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1: nest widgets in `Form` structure elements (7.18.4-1), set `/Tabs S` (7.18.3-1), add `/TU` alternate names (7.18.1-3). Pass `labels` with human-readable names; idempotent, so safe to re-run. Supports `preserveSignatures` (approval signatures only) |
+| `ensure_tagged` | Put an existing PDF into the PDF/UA-1 container. Tagged input: the structure tree is left untouched and only missing document-level requirements are repaired (`MarkInfo`, `/Lang`, `DisplayDocTitle`, XMP). Untagged input: a **minimal scaffold** is created (each page wrapped in a single `P`). See the note below — this is a starting point, not an accessible document |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
 Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8 to the end). Order is preserved and duplicates are removed.
 
-> **Signatures**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default; pass `allowBreakingSignatures: true` to proceed destructively — or pass `preserveSignatures: true` to append an ISO 32000 incremental update that keeps every signature valid. Supported by `add_annotation` (tagged PDFs included since v0.11.0 — the structure-tree changes ride the same increment), `set_metadata`, `add_bookmarks` and `tag_form_fields`. Certified documents (DocMDP) are refused when the change type is not permitted by the certification level (§12.8.2.2). Measured: stacked increments on a really-signed PDF keep pdf-verify-mcp reporting **VALID**, and incremental structure updates on tagged PDFs stay veraPDF **COMPLIANT (106/106)**.
+> **Signatures**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default; pass `allowBreakingSignatures: true` to proceed destructively — or pass `preserveSignatures: true` to append an ISO 32000 incremental update that keeps every signature valid. Supported by every editing tool that adds to a document: `add_annotation` (tagged PDFs included — the structure-tree changes ride the same increment), `set_metadata`, `add_bookmarks`, `tag_form_fields`, `ensure_tagged`, `attach_file`, `stamp_page_numbers` and `add_watermark`. Certified documents (DocMDP) are refused when the change type is not permitted by the certification level (§12.8.2.2). Measured: stacked increments on a really-signed PDF keep pdf-verify-mcp reporting **VALID**, and incremental structure updates on tagged PDFs stay veraPDF **COMPLIANT (106/106)**.
+
+### Scaffolding an untagged PDF (`ensure_tagged`)
+
+`ensure_tagged` can hang a structure tree onto a document that never had one — each page's content is wrapped in a single `P` element, which makes the text reachable by assistive technology and passes veraPDF (measured: 106/106).
+
+> **This is a scaffold, not accessibility.** A machine cannot infer meaning, so headings, lists, tables, reading order and figure alt text are *not* produced. The tool says so in its `warnings`. (Wrapping the content in `Artifact` would also pass veraPDF while hiding the body from screen readers — conformance theatre, deliberately not implemented.) Where you control the source, `create_*` with `tagged: true` produces real structure; `ensure_tagged` is for documents you were handed.
 
 ## Install
 
@@ -185,7 +192,8 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Tier C first milestone — signature-preserving incremental updates for `add_annotation`, verified by pdf-verify-mcp against a real CMS signature (v0.9.0)
 - [x] Incremental updates extended to `set_metadata` / `add_bookmarks`, full trailer carry-over (§7.5.6), XMP kept in sync with Info (v0.10.0)
 - [x] Incremental updates on tagged PDFs — generalised dirty tracking over the structure tree; `tag_form_fields` gains `preserveSignatures` (v0.11.0)
-- [ ] Tier C continued — incremental updates for content-stream tools (watermarks, page numbers), `ensure_tagged`, `edit_text`
+- [x] Incremental updates across every editing tool, and `ensure_tagged` — PDF/UA scaffold & repair (v0.12.0)
+- [ ] Tier C remainder — `edit_text` (body text editing/reflow)
 - [ ] Publish-pipeline skill (write → read back with pdf-reader → gate with pdf-verify)
 - [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`
