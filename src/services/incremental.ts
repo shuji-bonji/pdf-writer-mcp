@@ -31,6 +31,7 @@ import {
   PDFNumber,
   type PDFObject,
   PDFObjectParser,
+  PDFRawStream,
   PDFRef,
 } from 'pdf-lib';
 import { PdfWriterError } from '../errors.js';
@@ -212,7 +213,12 @@ function parsePreviousTrailer(
     if (dictStart < 0) return null;
     const parser = PDFObjectParser.forBytes(region.subarray(dictStart), doc.context);
     const obj = parser.parseObject();
-    return obj instanceof PDFDict ? obj : null;
+    if (obj instanceof PDFDict) return obj;
+    // 相互参照ストリームでは parseObject が「辞書 + ストリーム」を返す
+    // （v0.10.0 は PDFDict 検査で弾いてしまい、stream 形式で常に縮退していた —
+    //  v0.11.0 の実機試用で発見・是正）
+    if (obj instanceof PDFRawStream) return obj.dict;
+    return null;
   } catch {
     return null;
   }

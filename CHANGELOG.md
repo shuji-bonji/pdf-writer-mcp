@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2026-07-17
+
+### Fixed
+
+- **Trailer carry-over silently degraded on cross-reference-stream files** —
+  found by live-testing v0.11.0 over MCP. `parsePreviousTrailer()` checked
+  the parsed object against `PDFDict`, but for xref-stream files pdf-lib's
+  `parseObject()` returns a `PDFRawStream` (dictionary *and* stream), so the
+  §7.5.6 full carry-over introduced in v0.10.0 never actually ran on
+  stream-style files (which includes this writer's own output) and every
+  incremental update emitted a spurious "previous trailer could not be
+  parsed" warning while falling back to the standard entries. The stream's
+  dictionary is now used. Classic-table files were unaffected. Pinned by a
+  regression assertion in both xref-style test lanes.
+
 ## [0.11.0] - 2026-07-17
 
 Incremental updates learn tagged PDFs (B-7b'): dirty tracking generalised.

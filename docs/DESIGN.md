@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.11.0（B-7b' = タグ付き文書の増分対応。struct-append の dirty 追跡一般化により、preserveSignatures が add_annotation（タグ付き可）/ set_metadata / add_bookmarks / tag_form_fields の 4 ツールで利用可能） |
+| バージョン | 0.11.1（B-7b' = タグ付き文書の増分対応 + 実機試用で発見した trailer 引き継ぎの stream 形式縮退を修正） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |

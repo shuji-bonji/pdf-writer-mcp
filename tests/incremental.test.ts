@@ -100,6 +100,9 @@ describe.each([
 
     const result = (await addAnnotation(annotArgs(input, output))) as EditResult;
     expect(result.incremental).toBe(true);
+    // 前 trailer のパースは両 xref 形式で成功する（stream 形式は PDFRawStream の辞書を使う。
+    // v0.10.0 は stream 形式で常に縮退警告が出ていた — 実機試用で発見した回帰ガード）
+    expect((result.warnings ?? []).join('\n')).not.toMatch(/could not be parsed/);
 
     const out = await readFile(output);
     // 署名保持の核心: 先頭 original.length バイトが完全一致
