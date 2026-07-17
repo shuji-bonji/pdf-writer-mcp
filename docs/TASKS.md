@@ -6,50 +6,63 @@
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
 | 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能** |
-| 次の最優先 | **B-10c**（構造木の引き継ぎ）— これが入ると MarkInfo と準拠宣言つき XMP も運べるようになり、`AcroForm` / `OCProperties` の参照張り替え・**添付の本当のマージ**（名前衝突の解決込み）も同じ回で扱える |
+| 次の最優先 | **writer ではない。** family の進行順に従い **reader の High バグ 2 件 → M-8** が先（下記「次にやること」参照）。writer 側の次は B-10c だが**急がない** — B-10a/b で「黙って壊す」は解消済みで、残るのは**申告済みの損失 + 回避策あり**（出力に `ensure_tagged`） |
 
-## 次セッションの進め方（2026-07-18 追記・pdf-spec のセッションから）
+## 次にやること（2026-07-18 更新・v0.13.0 リリース時点）
 
-> **2026-07-18 更新: 下記 1 / 2 は完了した。** 残りは「3. 1 リリースにまとめる」＝
-> `[Unreleased]`（B-10a / B-13 / SPEC-AUDIT Phase 2）のリリース。
-> 未着手の照合は SPEC-AUDIT「未実施（Phase 3 以降）」を参照（§12.7 フォームと
-> §7.11 / §14.13 添付の表由来要件が残っている）。
+> **🔴 次は writer ではない。** family の進行順（`mcps/pdf-family-role-architecture.md` /
+> 2026-07-17 合意）に従い、**pdf-reader-mcp** が先。writer は v0.13.0 で一区切りついた。
+
+### 1. reader の High バグ 2 件 + M-2（別セッション・バグ修正）
+
+**今この瞬間、誤答している。** レポート: `pdf-reader-mcp/docs/spec-conformance-review-2026-07-17.md`
+
+- **High-1**: `inspect_fonts` が Type0 フォントで `isEmbedded` 常に false
+  （FontDescriptor を DescendantFonts の CIDFont 側で見ていない）— **日本語 PDF に直撃・実証済み**
+- **High-2**: `read_images` の pdfjs ImageKind 誤マッピング（正: 1=Gray1bpp, 2=RGB, 3=RGBA）
+- **M-2**: `validate_tagged` / `validate_metadata` の deprecation 予告（verify へ移管済み）
+
+**なぜ writer の B-10c より先か**: reader は学習データ工場で「読み戻し」と「ラベル付け」を担う。
+**誤答する reader はラベルを汚染する**。一方 writer 側に残るのは**申告済みの損失 + 回避策あり**
+（B-10a/b で「黙って壊す」は解消済み）。**B-10a/b が B-10c の緊急度を下げた**。
+
+### 2. M-8 = `extract_structured_text`（さらに別セッション・新ツール）
+
+仕様: `Document-Note/mcps/PDFfamily/specs/08-structured-text-and-reflow.md`（**Draft v0.1・未実装**）
+**主対象は pdf-reader-mcp**（pdf-spec ではない。writer の再生成側は実装済みで追加作業ゼロ）。
+
+「直す」ではなく「**決める**」作業 — ツール名・出力形・family 実装規約への適合・Skill 層との
+境界を先に固める必要がある。**1 と混ぜないこと**（両方が雑になる。High-1 を設計議論の人質にしない）。
+なお「Type0 修正と M-8 は同一ファイル」は**並行作業を避ける**理由であって同時にやる理由ではない。
+1 → 2 の順なら衝突しない。M-8 が入ると **B-7d（`edit_text`）が M-8 経路で成立する**。
+
+### 3. その後: verify #4（AI 判定の決定論化）/ writer B-10c
+
+### writer 側の残り（急がない）
+
+**B-10c**（構造木の引き継ぎ）が入ると MarkInfo・準拠宣言つき XMP・`/AcroForm` /
+`/OCProperties` の参照張り替え・**添付の本当のマージ**（名前衝突の解決込み）が同じ回で片付く。
+前倒しの引き金は「`pdf-publish` が tagged 経路でページ操作を挟みたくなったとき」。
+その他: B-2（`.ttc`）/ B-3（フォント分け）/ B-4（画像）/ B-8（PDF/A）/ B-12（`replace_text`）。
+
+## SPEC-AUDIT の到達点（2026-07-18・Phase 1〜4 完了）
 
 **正典が変わった。** pdf-spec-mcp が **0.4.1** になり、抽出が大きく直った。
 **`docs/SPEC-AUDIT.md` の冒頭の警告を必ず読むこと** — Phase 1 / 1.5 は欠けた正典に対して
-行われており、根拠にした表に行が足りていなかった（Table 166 は 16/19 行、Table 182 は
-QuadPoints 行が欠落、`get_requirements` は表の shall を 1 件も返さなかった）。
+行われていた（Table 166 は 16/19 行、Table 182 は QuadPoints 行が欠落、
+`get_requirements` は表の shall を 1 件も返さなかった）。
 
-### 推奨順序
+**再照合の結果（Phase 2〜4・v0.13.0 で是正済み）**:
 
-1. ~~**B-10a（警告を出す）を先に。**~~ **完了**（2026-07-18・未リリース）。狙いどおり監査に
-   依存せず片付いた。実施中に条文（§8.11.4.2）を引いたことで、監査が挙げていなかった
-   **/AcroForm と /OCProperties の消失**が追加で見つかり、後者は「損失」ではなく
-   **shall 違反になりうる**ものだった（TASKS の B-10a 参照）
-2. ~~**その直後に、新正典で writer を再照合。**~~ **完了**（2026-07-18・SPEC-AUDIT Phase 2）。
-   結果: **Phase 1 / 1.5 の結論は 1 件を除き維持**された（欠けていた Table 166 の 4 行は
-   全て Optional / PDF 2.0 で影響なし）。**新規の shall 違反を 1 件発見・是正** —
-   §12.5.6.2 の「段落区切りは CR(0Dh)、LF(0Ah) ではない」。JSON 引数の `\n` が
-   `/Contents` に 000A のまま入っていた。**veraPDF は文字列の中身を見ないので条文照合でしか
-   見つからない類**。仮説 3 件は実測でシロと確認（記録済み）。QuadPoints は判断を変えず
-   「事実上適合」→「**既知の意図的逸脱**」と表現のみ訂正
-3. **1 + 2 をまとめて 1 リリース。** 関連する修正を分けて出すのは無駄
-   → 現在 `[Unreleased]` に **B-10a / B-13 / SPEC-AUDIT Phase 2 / Phase 3（shall 違反 2 件）**。
-   **リリース可能**（バージョン未決）
-
-### Phase 3 も実施した（2026-07-18・当初計画に無かった追加分）
-
-Phase 2 で残した §12.7（フォーム）/ §7.11・§14.13（添付）を走査し、**shall 違反を 2 件発見・是正**。
-どちらも「**pdf-lib が書いてくれる**」と信じて中身を検査していなかった箇所:
-
-1. **添付 `/Params` の日時が PDF の生成時刻**（Table 45 / R-14.13.2-2）— 電帳法・PDF/A-3 では
-   添付データの更新日時が証跡なのに「この CSV は PDF を作った瞬間に更新された」と嘘を書いていた
-2. **`/DA` のフォントが `/DR` から解決できない**（R-12.7.4.3-7 / Table 224）— pdf-lib は
-   `/DA` を書くが `/DR` を作らない。ビューアが外観を再生成すると日本語が豆腐になる
-   （**落とし穴 0-a のビューア版**。CLAUDE.md 0-a' に追記）
-
-**教訓**: veraPDF も既存テストも「pdf-lib に委譲した部分の中身」を見ていない。
-**委譲先が書いた辞書を一度は自分の目で開くこと。**
+- **Phase 1 / 1.5 の結論はほぼ無傷**だった（欠けていた Table 166 の 4 行は全て Optional / PDF 2.0）。
+  **危なかったのは「探していない領域」の方** — 表由来要件の走査で **shall 違反 3 件**を発見:
+  ①注釈テキストの段落区切りが LF（§12.5.6.2）②添付 `/Params` の日時が PDF 生成時刻
+  （Table 45 / §14.13.2）③`/DA` のフォントが `/DR` から解決できない（§12.7.4.3）
+- **3 件の共通点**: いずれも **pdf-lib に委譲した部分の中身を一度も開いていなかった**。
+  veraPDF も既存テストも委譲先が書いた辞書を見ない。
+  → **鉄則: 委譲先が書いた辞書は一度は自分の目で開く**
+- 残りは低優先（reader の観測ロジック照合 / verify native 規則 / create 系レイアウト）。
+  SPEC-AUDIT「未実施（Phase 5 以降）」参照
 
 ### pdf-spec を使うときの注意（0.4.1 時点）
 
