@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2026-07-17
+
+SPEC-AUDIT Phase 1: the editing tools were audited clause-by-clause against
+ISO 32000-2 with pdf-spec-mcp (see `docs/SPEC-AUDIT.md` for the full table).
+Three shall-violations and two determinism leaks were found and fixed.
+
+### Fixed
+
+- **Annotations now carry appearance streams (`/AP /N`)** — ISO 32000-2
+  Table 166 obliges the *writer* to include an appearance dictionary (the
+  only exceptions are degenerate rects and Popup/Projection/Link). This was
+  optional in ISO 32000-1, which is why veraPDF (PDF/UA-1 is 32000-1-based)
+  never flagged it. `add_annotation` now generates Form XObjects: a note
+  icon for `text`, a Multiply-blended bar for `highlight` (so underlying
+  text shows through), and a stroked/filled rectangle for `square`.
+  Practical win: poppler-based viewers previously rendered nothing for
+  these annotations. Verified: veraPDF ua1 still COMPLIANT (106/106) on
+  tagged documents; rendering visually confirmed via pdftoppm.
+- **Outline `/Count` semantics (§12.3.3)** — item counts now follow the
+  spec's recursive *visible descendants* procedure (children inside a
+  collapsed branch are not counted; previously the total descendant count
+  was used), and the root `/Count` is omitted when the outline has no open
+  entries (it is written only when required, and never negative).
+- **Embedded-files name tree is sorted (§7.9.6)** — name tree keys shall be
+  lexically ordered, but pdf-lib's `attach()` appends in insertion order
+  (and materialises the tree lazily, so sorting requires `flush()` first).
+  Attaching a second file used to produce an out-of-order tree.
+
+- **Determinism leaks (E-6)** — the annotation `/M` date and attachment
+  creation/modification dates bypassed `SOURCE_DATE_EPOCH` via bare
+  `new Date()`. Both now go through `outputDate()`; pinned by a
+  byte-identity regression test covering annotate + attach.
+
+### Audit notes
+
+- Confirmed conforming: annotation common entries (Table 166), text icon
+  names (Table 177), outline linking (§12.3.3), embedded-file structure
+  (§7.11.3–4, §14.13), form filling (§12.7, appearances self-generated so
+  the Widget AP obligation is met, no `NeedAppearances`), page rotation
+  (Table 31, normalised multiples of 90).
+- QuadPoints order: implementation keeps the industry-standard Z-order
+  (TL, TR, BL, BR). The ISO prose says "counterclockwise", a well-known
+  spec/reality divergence — every major viewer requires Z-order.
+- New gap tracked as **B-9**: `set_metadata` updates the Info dictionary
+  only; on documents that carry XMP (e.g. tagged output) this can leave
+  `dc:title` etc. inconsistent (§14.3.3 deprecates Info in PDF 2.0).
+- Tooling feedback: pdf-spec-mcp drops table rows that cross a page break
+  (Table 182's QuadPoints row) — recorded in pdf-spec's alignment doc.
+
 ## [0.9.1] - 2026-07-17
 
 Clause-by-clause audit of the v0.9.0 incremental writer against ISO 32000-2,

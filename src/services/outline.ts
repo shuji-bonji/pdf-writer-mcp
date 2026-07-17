@@ -25,9 +25,16 @@ import type { BookmarkInput } from '../types/index.js';
 interface BuiltNode {
   ref: PDFRef;
   dict: PDFDict;
-  /** 自身を含まない子孫の数 */
-  descendants: number;
+  /**
+   * 自身を含まない「可視な」子孫の数（ISO 32000-2 §12.3.3 Table 151 の再帰手続き）。
+   * 直下の子 + 開いている子の可視子孫のみを数える — 閉じた子の中身は数えない。
+   * v0.9.1 までは全子孫数を使っており、開いた項目の下に閉じた枝があると過大だった
+   * （SPEC-AUDIT Phase 1 で発見・是正）。
+   */
+  visibleDescendants: number;
   open: boolean;
+  /** 子を持つか（= 「open outline entry」判定に使う） */
+  hasChildren: boolean;
 }
 
 /**
@@ -42,6 +49,8 @@ export function setBookmarks(doc: PDFDocument, bookmarks: BookmarkInput[]): numb
   const rootDict = context.obj({ Type: 'Outlines' }) as PDFDict;
 
   let total = 0;
+  /** 「開いた outline 項目」（子を持ち open な項目）が 1 つでもあるか */
+  let anyOpenEntry = false;
 
   /** items を兄弟として構築し、親 parentRef に連結する */
   const buildLevel = (items: BookmarkInput[], parentRef: PDFRef, depth: number): BuiltNode[] => {
@@ -76,17 +85,29 @@ export function setBookmarks(doc: PDFDocument, bookmarks: BookmarkInput[]): numb
       dict.set(PDFName.of('Parent'), parentRef);
       dict.set(PDFName.of('Dest'), dest);
 
-      const node: BuiltNode = { ref, dict, descendants: 0, open: item.open ?? true };
+      const node: BuiltNode = {
+        ref,
+        dict,
+        visibleDescendants: 0,
+        open: item.open ?? true,
+        hasChildren: false,
+      };
 
       if (item.children && item.children.length > 0) {
+        node.hasChildren = true;
+        if (node.open) anyOpenEntry = true;
         const children = buildLevel(item.children, ref, depth + 1);
-        node.descendants = children.reduce((sum, c) => sum + 1 + c.descendants, 0);
+        // §12.3.3 の再帰手続き: 直下の子 + 「開いている」子の可視子孫のみ
+        node.visibleDescendants = children.reduce(
+          (sum, c) => sum + 1 + (c.open && c.hasChildren ? c.visibleDescendants : 0),
+          0,
+        );
         dict.set(PDFName.of('First'), children[0].ref);
         dict.set(PDFName.of('Last'), children[children.length - 1].ref);
-        // 開: 正の子孫数 / 閉: 負の子孫数
+        // 開: 正の可視子孫数 / 閉: 負（絶対値 = 開いたときに可視になる数）
         dict.set(
           PDFName.of('Count'),
-          PDFNumber.of(node.open ? node.descendants : -node.descendants),
+          PDFNumber.of(node.open ? node.visibleDescendants : -node.visibleDescendants),
         );
       }
 
@@ -107,9 +128,15 @@ export function setBookmarks(doc: PDFDocument, bookmarks: BookmarkInput[]): numb
     rootDict.set(PDFName.of('First'), top[0].ref);
     rootDict.set(PDFName.of('Last'), top[top.length - 1].ref);
   }
-  // ルートの /Count は可視な子孫の数（閉じた項目の中身は数えない）
-  const visible = top.reduce((sum, n) => sum + 1 + (n.open ? n.descendants : 0), 0);
-  rootDict.set(PDFName.of('Count'), PDFNumber.of(visible));
+  // ルートの /Count（Table 150）: 全階層の可視項目の総数。負にできない。
+  // 「開いた項目が 1 つも無ければ省略しなければならない」（shall — SPEC-AUDIT Phase 1 で是正）
+  if (anyOpenEntry) {
+    const visible = top.reduce(
+      (sum, n) => sum + 1 + (n.open && n.hasChildren ? n.visibleDescendants : 0),
+      0,
+    );
+    rootDict.set(PDFName.of('Count'), PDFNumber.of(visible));
+  }
 
   context.assign(rootRef, rootDict);
   doc.catalog.set(PDFName.of('Outlines'), rootRef);

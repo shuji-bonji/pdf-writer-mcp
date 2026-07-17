@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.9.1（Tier C 第1弾 = 署名保持の増分更新（v0.9.0・ADR-11）+ ISO 32000-2 条文照合の是正（§14.4 ID 更新 / §12.8.2.2 DocMDP ガード）） |
+| バージョン | 0.9.2（SPEC-AUDIT Phase 1 = 編集系の ISO 32000-2 条文照合。/AP 生成・/Count 可視数・名前ツリーソートを是正。docs/SPEC-AUDIT.md 参照） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |

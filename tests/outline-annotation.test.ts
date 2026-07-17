@@ -92,8 +92,10 @@ describe('add_bookmarks', () => {
     expect(dest.lookup(0)).toBe(doc.getPage(2).node);
     expect((dest.lookup(1) as PDFName).decodeText()).toBe('XYZ');
 
-    // ルートの /Count = 可視な子孫数
-    expect((root.lookup(PDFName.of('Count')) as PDFNumber).asNumber()).toBe(2);
+    // §12.3.3 Table 150（SPEC-AUDIT Phase 1 で是正）: ルートの /Count は
+    // 「開いた項目が 1 つも無ければ省略しなければならない」。
+    // フラットなしおり（全項目が子なし）には open な項目が存在しないため省略される
+    expect(root.get(PDFName.of('Count'))).toBeUndefined();
   });
 
   it('nests children and signs /Count by open state', async () => {

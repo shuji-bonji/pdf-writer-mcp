@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 20 ファイル（251 ケース）・typecheck / biome OK。**v0.9.1**（2026-07-17。v0.9.0 = Tier C 着手: 署名保持の増分更新（ADR-11）/ v0.9.1 = ISO 32000-2 条文照合の是正） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 21 ファイル（258 ケース）・typecheck / biome OK。**v0.9.2**（2026-07-17。SPEC-AUDIT Phase 1 = 編集系の条文照合と是正。`docs/SPEC-AUDIT.md`） |
 
 ## 現状サマリ
 
@@ -109,6 +109,10 @@
   - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
       ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
+- [ ] **B-9. set_metadata の XMP 併記更新** — SPEC-AUDIT Phase 1 で発見（§14.3.3）。
+      XMP（/Metadata）を持つ文書（tagged 出力等）で Info 辞書のみ更新すると dc:title 等と
+      不整合になる。Info 更新時に XMP が存在すれば対応プロパティ（dc:title / dc:creator /
+      dc:description / pdf:Keywords）も書き換える。xmp.ts の生成器を更新器に拡張する
 
 ## C. 既知の制約との対応
 

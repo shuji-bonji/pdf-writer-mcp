@@ -11,18 +11,30 @@
  */
 
 import {
+  fill,
+  fillAndStroke,
+  lineTo,
+  moveTo,
   PDFArray,
   type PDFDict,
   type PDFDocument,
   PDFHexString,
   PDFName,
   PDFNumber,
+  type PDFOperator,
   type PDFPage,
   type PDFRef,
   PDFString,
   type RGB,
+  rectangle,
   rgb,
+  setFillingRgbColor,
+  setGraphicsState,
+  setLineWidth,
+  setStrokingRgbColor,
+  stroke,
 } from 'pdf-lib';
+import { outputDate } from '../config.js';
 import type { AddAnnotationArgs, AnnotationRect } from '../types/index.js';
 
 /** #rrggbb / #rgb を pdf-lib の RGB へ */
@@ -70,7 +82,8 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
   // /Contents は日本語対応のため UTF-16BE
   dict.set(PDFName.of('Contents'), PDFHexString.fromText(args.contents ?? ''));
   if (args.author) dict.set(PDFName.of('T'), PDFHexString.fromText(args.author));
-  dict.set(PDFName.of('M'), PDFString.fromDate(new Date()));
+  // SOURCE_DATE_EPOCH（E-6）に従う。書式は §7.9.4 の日付文字列
+  dict.set(PDFName.of('M'), PDFString.fromDate(outputDate()));
   // /F: bit3 Print（印刷に含める）
   dict.set(PDFName.of('F'), PDFNumber.of(4));
 
@@ -100,6 +113,15 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
       break;
   }
 
+  // ISO 32000-2 Table 166: 「PDF writer は書き込み時に外観辞書を含めなければならない」
+  // （shall。例外は退化 Rect と Popup/Projection/Link のみ — 本ツールの 3 種は全て対象）。
+  // 32000-1 では Optional だったため v0.9.1 まで欠けていた（SPEC-AUDIT Phase 1 で発見）。
+  const w = r.x2 - r.x1;
+  const h = r.y2 - r.y1;
+  const ap = context.obj({}) as PDFDict;
+  ap.set(PDFName.of('N'), buildAppearance(doc, args, color, w, h));
+  dict.set(PDFName.of('AP'), ap);
+
   let annots = page.node.lookup(PDFName.of('Annots'));
   if (!(annots instanceof PDFArray)) {
     annots = context.obj([]) as PDFArray;
@@ -109,6 +131,74 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
   (annots as PDFArray).push(ref);
 
   return { count: (annots as PDFArray).size(), ref, page };
+}
+
+/**
+ * 通常外観（/AP /N）の Form XObject を組み立てて登録する。
+ * BBox は [0 0 w h] で、ビューアが /Rect へ写像する。
+ */
+function buildAppearance(
+  doc: PDFDocument,
+  args: AddAnnotationArgs,
+  color: RGB,
+  w: number,
+  h: number,
+): PDFRef {
+  const { context } = doc;
+  const ops: PDFOperator[] = [];
+  const extras: Record<string, unknown> = {};
+
+  switch (args.type) {
+    case 'highlight': {
+      // Multiply ブレンドで下のテキストが透ける、いわゆる蛍光ペン
+      extras.Resources = context.obj({
+        ExtGState: { GS0: { Type: 'ExtGState', BM: 'Multiply' } },
+      });
+      ops.push(
+        setGraphicsState('GS0'),
+        setFillingRgbColor(color.red, color.green, color.blue),
+        rectangle(0, 0, w, h),
+        fill(),
+      );
+      break;
+    }
+
+    case 'square': {
+      const lw = 1.5;
+      ops.push(setLineWidth(lw), setStrokingRgbColor(color.red, color.green, color.blue));
+      if (args.interiorColor) {
+        const ic = parseHexColor(args.interiorColor);
+        ops.push(
+          setFillingRgbColor(ic.red, ic.green, ic.blue),
+          rectangle(lw / 2, lw / 2, w - lw, h - lw),
+          fillAndStroke(),
+        );
+      } else {
+        ops.push(rectangle(lw / 2, lw / 2, w - lw, h - lw), stroke());
+      }
+      break;
+    }
+
+    default: {
+      // text: 付箋アイコン（地色の紙面 + 枠 + 罫線 3 本の簡易ノート）
+      ops.push(
+        setFillingRgbColor(color.red, color.green, color.blue),
+        rectangle(0, 0, w, h),
+        fill(),
+        setLineWidth(Math.max(0.75, h * 0.04)),
+        setStrokingRgbColor(0.25, 0.25, 0.25),
+        rectangle(0.5, 0.5, w - 1, h - 1),
+        stroke(),
+      );
+      for (const frac of [0.3, 0.5, 0.7]) {
+        ops.push(moveTo(w * 0.2, h * frac), lineTo(w * 0.8, h * frac), stroke());
+      }
+      break;
+    }
+  }
+
+  const xobj = context.formXObject(ops, { BBox: context.obj([0, 0, w, h]), ...extras });
+  return context.register(xobj);
 }
 
 function defaultColor(type: AddAnnotationArgs['type']): string {

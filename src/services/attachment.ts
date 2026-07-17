@@ -19,7 +19,15 @@
 
 import { readFile } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
-import { AFRelationship, PDFArray, PDFDict, type PDFDocument, PDFName } from 'pdf-lib';
+import {
+  AFRelationship,
+  PDFArray,
+  PDFDict,
+  type PDFDocument,
+  PDFName,
+  type PDFObject,
+} from 'pdf-lib';
+import { outputDate } from '../config.js';
 import { LIMITS } from '../constants.js';
 import type { AttachmentRelationship } from '../types/index.js';
 
@@ -174,7 +182,8 @@ export async function attachFile(
   const mimeType = options.mimeType ?? guessMimeType(name);
   const relationship = options.relationship ?? 'Unspecified';
 
-  const stat = { creationDate: new Date(), modificationDate: new Date() };
+  // SOURCE_DATE_EPOCH（E-6）に従う（v0.9.1 まで new Date() 直書きで決定論性が漏れていた）
+  const stat = { creationDate: outputDate(), modificationDate: outputDate() };
   await doc.attach(bytes, name, {
     mimeType,
     description: options.description,
@@ -182,5 +191,37 @@ export async function attachFile(
     ...stat,
   });
 
+  // §7.9.6: 名前ツリーのキーは辞書順でなければならない（shall）。
+  // pdf-lib の attach は「保存時まで実体化しない遅延埋め込み」かつ挿入順で追記するため、
+  // flush() で名前ツリーを実体化してから並べ直す（SPEC-AUDIT Phase 1 で実測・是正）
+  await doc.flush();
+  sortEmbeddedFileNames(doc);
+
   return { name, bytes: bytes.length, mimeType, relationship };
+}
+
+/** /Names /EmbeddedFiles の名前ツリー（平坦な /Names 配列）をキーの辞書順に並べ直す */
+function sortEmbeddedFileNames(doc: PDFDocument): void {
+  const names = doc.catalog.lookup(PDFName.of('Names'));
+  if (!(names instanceof PDFDict)) return;
+  const ef = names.lookup(PDFName.of('EmbeddedFiles'));
+  if (!(ef instanceof PDFDict)) return;
+  const arr = ef.lookup(PDFName.of('Names'));
+  if (!(arr instanceof PDFArray)) return;
+
+  const pairs: Array<{ key: string; k: PDFObject; v: PDFObject }> = [];
+  for (let i = 0; i + 1 < arr.size(); i += 2) {
+    pairs.push({
+      key: decodeName(arr.lookup(i)) ?? '',
+      k: arr.get(i),
+      v: arr.get(i + 1),
+    });
+  }
+  pairs.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+
+  while (arr.size() > 0) arr.remove(arr.size() - 1);
+  for (const p of pairs) {
+    arr.push(p.k);
+    arr.push(p.v);
+  }
 }
