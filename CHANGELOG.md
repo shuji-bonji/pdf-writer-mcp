@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Page operations now report the document-level information they drop (B-10a).**
+  `merge_pdfs`, `split_pdf`, `extract_pages`, `delete_pages` and `reorder_pages`
+  build a new document with pdf-lib's `copyPages()`, which copies *pages only* —
+  everything hanging off the catalog (ISO 32000-2 Table 29) is left behind. Until
+  now only the Info dictionary was carried over and the rest disappeared silently.
+
+  **Symptom**: a PDF/UA-1 conforming document stopped conforming after
+  `extract_pages`; a PDF/A-3 attachment (the machine-readable payload kept for
+  statutory e-bookkeeping) vanished on `merge_pdfs`; the XMP fixed in 0.10.0 was
+  undone, leaving `Info` and `dc:title` inconsistent again. The tools reported
+  success in every case.
+
+  **Cause**: `copyPages()` walks the page tree. `copyDocumentInfo` carried the Info
+  dictionary; nothing carried `/StructTreeRoot`, `/MarkInfo`, `/Metadata`,
+  `/Names /EmbeddedFiles`, `/AF`, `/AcroForm`, `/Outlines`, `/OCProperties`,
+  `/OutputIntents`, `/Lang`, `/ViewerPreferences`, `/PageLabels`, `/Dests`,
+  `/OpenAction` or the smaller Table 29 entries.
+
+  **Why it went unnoticed**: producing an untagged PDF is not a spec violation, so
+  veraPDF has nothing to say about the *output* — it only knows what it is handed.
+  The regression is only visible by comparing input and output, which no test did.
+  The real defect was an internal inconsistency: writer refuses to break signatures
+  and refuses to flatten a tagged form without an explicit flag ("if we break it, we
+  say so"), but page operations broke things silently.
+
+  Carrying the objects over is B-10b/c; **saying so is this change**. New
+  `services/doc-level.ts` surveys the input catalog and then *measures the output*,
+  reporting only what is actually missing — so the warnings will fall silent by
+  themselves once carry-over lands. Tool descriptions state the limitation and point
+  at the recovery path (`attach_file` / `ensure_tagged` / `add_bookmarks` /
+  `set_metadata` re-applied to the output). `rotate_pages` edits in place and is
+  unaffected.
+
+  One case is reported as a **specification violation** rather than data loss:
+  §8.11.4.2 requires `/OCProperties` to "be present if the PDF file contains any
+  optional content" (R-8.11.4.2-2). If the copied pages still reference optional
+  content, dropping the dictionary makes the output non-conforming, so the warning
+  says so explicitly.
+
+### Changed
+
+- `split_pdf` results now carry a `warnings` field. All parts come from the same
+  input, so the loss is reported once for the whole result rather than per file.
+
 ## [0.12.0] - 2026-07-17
 
 Tier C continues: the last incremental-update gaps close (B-7b'') and

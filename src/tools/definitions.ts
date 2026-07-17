@@ -56,6 +56,15 @@ const base: ToolAnnotations = {
   openWorldHint: false,
 };
 
+/**
+ * ページ複製で新規文書を組み立てるツール（merge / split / extract / delete / reorder）の共通注意（B-10a）。
+ * rotate_pages は in-place なので該当しない。
+ */
+const PAGE_COPY_NOTE =
+  'ページを新しい文書へ複製するため、文書レベルの情報（タグ付き構造・XMP・添付・AcroForm・' +
+  'しおり等）は引き継がれない。失われたものは warnings で報告するので、必要なら出力に対して ' +
+  'attach_file / ensure_tagged / add_bookmarks / set_metadata を後がけすること。';
+
 export const tools: ToolDefinition[] = [
   {
     name: 'create_text_pdf',
@@ -96,7 +105,9 @@ export const tools: ToolDefinition[] = [
   {
     name: 'merge_pdfs',
     title: 'Merge PDFs',
-    description: '複数の PDF を指定順に 1 つへ結合する。文書メタデータは先頭ファイルから引き継ぐ。',
+    description:
+      '複数の PDF を指定順に 1 つへ結合する。文書メタデータは先頭ファイルから引き継ぐ。' +
+      PAGE_COPY_NOTE,
     shape: mergePdfsShape,
     annotations: base,
   },
@@ -105,7 +116,8 @@ export const tools: ToolDefinition[] = [
     title: 'Split PDF',
     description:
       'PDF をページ範囲ごとに複数ファイルへ分割する。ranges の各要素が 1 ファイルになる。' +
-      '出力は "<prefix>1.pdf", "<prefix>2.pdf", ... の連番。',
+      '出力は "<prefix>1.pdf", "<prefix>2.pdf", ... の連番。' +
+      PAGE_COPY_NOTE,
     shape: splitPdfShape,
     annotations: base,
   },
@@ -113,21 +125,22 @@ export const tools: ToolDefinition[] = [
     name: 'extract_pages',
     title: 'Extract Pages',
     description:
-      '指定ページだけを含む新しい PDF を作る。指定順を保持するため、ページの並べ替えを兼ねた抽出も可能。',
+      '指定ページだけを含む新しい PDF を作る。指定順を保持するため、ページの並べ替えを兼ねた抽出も可能。' +
+      PAGE_COPY_NOTE,
     shape: extractPagesShape,
     annotations: base,
   },
   {
     name: 'delete_pages',
     title: 'Delete Pages',
-    description: '指定ページを削除した新しい PDF を作る。全ページの削除はエラー。',
+    description: `指定ページを削除した新しい PDF を作る。全ページの削除はエラー。${PAGE_COPY_NOTE}`,
     shape: deletePagesShape,
     annotations: { ...base, destructiveHint: true },
   },
   {
     name: 'reorder_pages',
     title: 'Reorder Pages',
-    description: 'ページを並べ替える。order には全ページを新しい順序で 1 回ずつ列挙する。',
+    description: `ページを並べ替える。order には全ページを新しい順序で 1 回ずつ列挙する。${PAGE_COPY_NOTE}`,
     shape: reorderPagesShape,
     annotations: base,
   },

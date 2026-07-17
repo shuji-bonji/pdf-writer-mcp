@@ -410,6 +410,11 @@ export interface EditResult {
 export interface SplitResult {
   files: Array<{ path: string; pageCount: number; bytes: number }>;
   count: number;
+  /**
+   * 注意すべき事象の報告。全パートが同じ入力から出るため損失も共通で、
+   * 結果全体に 1 度だけ載せる（B-10a: 文書レベル要素の非引き継ぎ）
+   */
+  warnings?: string[];
 }
 
 /**
