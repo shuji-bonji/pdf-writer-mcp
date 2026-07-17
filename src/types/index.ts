@@ -198,7 +198,7 @@ export interface AddAnnotationArgs extends CommonEditOptions {
   alt?: string;
   /**
    * 署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で追加する。
-   * 既定 false。タグ付き PDF では未対応（Tier C の後続マイルストーン）。
+   * 既定 false。タグ付き PDF では構造木への内包（Annot タグ）も増分に含まれる（v0.11.0〜）。
    */
   preserveSignatures?: boolean;
 }
@@ -298,7 +298,7 @@ export interface PreservableEditOptions {
   preserveSignatures?: boolean;
 }
 
-export interface TagFormFieldsArgs extends CommonEditOptions {
+export interface TagFormFieldsArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   /** フィールド名 → 人間可読な代替名（/TU）。省略したフィールドはフィールド名で代用し警告する */
   labels?: Record<string, string>;

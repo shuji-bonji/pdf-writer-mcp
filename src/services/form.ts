@@ -373,6 +373,8 @@ export interface TagWidgetsOutcome {
   orphaned: string[];
   /** /TU をフィールド名で代用したフィールド名（labels 未指定・既存 /TU 無し） */
   unlabeled: string[];
+  /** 変更した既存の間接オブジェクト（B-7b' = 増分更新の dirty 追跡） */
+  dirtiedRefs: PDFRef[];
 }
 
 /**
@@ -394,6 +396,11 @@ export function tagWidgets(doc: PDFDocument, labels: Record<string, string>): Ta
     if (!form.getFieldMaybe(name)) throw unknownFieldError(name, form);
   }
 
+  const dirtied = new Map<string, PDFRef>();
+  const markDirty = (ref: PDFRef): void => {
+    dirtied.set(ref.toString(), ref);
+  };
+
   // 7.18.1-3: /TU（代替フィールド名）
   const unlabeled: string[] = [];
   for (const field of form.getFields()) {
@@ -402,14 +409,22 @@ export function tagWidgets(doc: PDFDocument, labels: Record<string, string>): Ta
     const label = labels[name];
     if (label !== undefined) {
       dict.set(PDFName.of('TU'), PDFHexString.fromText(label));
+      markDirty(field.ref); // 既存フィールド辞書の変更
     } else if (dict.get(PDFName.of('TU')) === undefined) {
       dict.set(PDFName.of('TU'), PDFHexString.fromText(name));
       unlabeled.push(name);
+      markDirty(field.ref);
     }
   }
 
   // 7.18.4-1 / 7.18.3-1: Widget を Form 構造要素へ
-  const outcome: TagWidgetsOutcome = { tagged: 0, skipped: 0, orphaned: [], unlabeled };
+  const outcome: TagWidgetsOutcome = {
+    tagged: 0,
+    skipped: 0,
+    orphaned: [],
+    unlabeled,
+    dirtiedRefs: [],
+  };
   for (const w of enumerateWidgets(doc)) {
     if (w.hasStructParent) {
       outcome.skipped++;
@@ -420,7 +435,11 @@ export function tagWidgets(doc: PDFDocument, labels: Record<string, string>): Ta
       continue;
     }
     const appended = appendWidgetToStructTree(doc, w.page, w.widgetRef);
-    if (appended.tagged) outcome.tagged++;
+    if (appended.tagged) {
+      outcome.tagged++;
+      for (const ref of appended.dirtiedRefs) markDirty(ref);
+    }
   }
+  outcome.dirtiedRefs = [...dirtied.values()];
   return outcome;
 }

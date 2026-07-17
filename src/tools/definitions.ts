@@ -146,7 +146,7 @@ export const tools: ToolDefinition[] = [
       'ページに注釈を 1 つ追加する。付箋(text) / ハイライト(highlight) / 矩形(square) に対応。' +
       '座標は PDF 座標系(左下原点・pt)で指定する。' +
       '署名済み PDF には preserveSignatures: true で、既存署名を無効化せず増分更新で追加できる' +
-      '(タグ無し文書のみ)。',
+      '(タグ付き文書では Annot 構造要素への内包も増分に含まれ PDF/UA 準拠を維持する)。',
     shape: addAnnotationShape,
     annotations: { ...base, idempotentHint: false },
   },
@@ -201,7 +201,8 @@ export const tools: ToolDefinition[] = [
       '(7.18.4-1)、対象ページに /Tabs S を立て(7.18.3-1)、フィールドに代替名 /TU を付与する' +
       '(7.18.1-3)。labels でスクリーンリーダ向けの人間可読な名前を渡すこと。' +
       '既に構造木に結ばれた Widget はスキップするため何度実行しても安全。' +
-      'タグ無し文書は対象外(create 系の tagged: true でゼロから作るか、将来の ensure_tagged を待つ)。',
+      'タグ無し文書は対象外(create 系の tagged: true でゼロから作るか、将来の ensure_tagged を待つ)。' +
+      '署名済み PDF には preserveSignatures: true で署名を保持したまま修復できる(承認署名のみ。認証署名は拒否)。',
     shape: tagFormFieldsShape,
     annotations: base,
   },

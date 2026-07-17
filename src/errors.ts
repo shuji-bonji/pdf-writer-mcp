@@ -101,7 +101,8 @@ export const NEXT_ACTIONS = {
     action: 'retry_with_preserveSignatures',
     reason:
       '署名を保持したまま、増分更新（元バイト列に触れない末尾追記）で編集できます。' +
-      '現在は add_annotation のみ・タグ無し文書のみ対応。"preserveSignatures": true を足して再試行してください',
+      '対応: add_annotation / set_metadata / add_bookmarks / tag_form_fields（タグ付き文書可）。' +
+      '"preserveSignatures": true を足して再試行してください',
     example: { preserveSignatures: true },
   }),
   allowBreakingSignatures: (): NextAction => ({

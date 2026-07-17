@@ -27,7 +27,7 @@ import {
   PDFName,
   PDFNumber,
   type PDFPage,
-  type PDFRef,
+  PDFRef,
 } from 'pdf-lib';
 
 /** 既にタグ付けされた文書か（StructTreeRoot と MarkInfo/Marked の両方が要る） */
@@ -126,6 +126,14 @@ export interface AppendAnnotResult {
   tagged: boolean;
   /** 付与した ParentTree のキー */
   structParent?: number;
+  /**
+   * 本操作で**変更した既存の間接オブジェクト**の参照（B-7b' = 増分更新の dirty 追跡）。
+   * StructTreeRoot（ParentTreeNextKey / ParentTree 新設）・親要素（/K 追記）・
+   * ParentTree ないし /Nums 配列の保持オブジェクト・対象ページ（/Tabs）を含む。
+   * 新規オブジェクト（構造要素・OBJR）は含まない — 増分更新側が採番スナップショットで
+   * 自動検出する。
+   */
+  dirtiedRefs: PDFRef[];
 }
 
 /**
@@ -166,19 +174,25 @@ function appendObjRefToStructTree(
   tag: 'Annot' | 'Form',
   alt?: string,
 ): AppendAnnotResult {
-  if (!isTagged(doc)) return { tagged: false };
+  if (!isTagged(doc)) return { tagged: false, dirtiedRefs: [] };
 
   const root = structTreeRoot(doc);
-  if (!root) return { tagged: false };
+  if (!root) return { tagged: false, dirtiedRefs: [] };
   const parent = documentElement(root) ?? root;
   const { context } = doc;
 
+  // dirty 追跡（B-7b'）: 変更する既存オブジェクトを収集する
+  const dirtied = new Map<string, PDFRef>();
+  const markDirty = (ref: unknown): void => {
+    if (ref instanceof PDFRef) dirtied.set(ref.toString(), ref);
+  };
+  const rootRaw = doc.catalog.get(PDFName.of('StructTreeRoot'));
+
   // Annot 構造要素。/P は親への間接参照でなければならない
-  const parentRef =
-    parent === root ? doc.catalog.get(PDFName.of('StructTreeRoot')) : refOf(doc, parent);
-  if (!parentRef) {
+  const parentRef = parent === root ? rootRaw : refOf(doc, parent);
+  if (!(parentRef instanceof PDFRef)) {
     // 親が間接オブジェクトとして登録されていない異形。無理に壊さず諦める
-    return { tagged: false };
+    return { tagged: false, dirtiedRefs: [] };
   }
 
   const elemRef = context.nextRef();
@@ -198,12 +212,23 @@ function appendObjRefToStructTree(
 
   context.assign(elemRef, elem);
   appendKid(doc, parent, elemRef);
+  // 親要素の /K を書き換えた（親 = root の場合は root 側でまとめて dirty になる）
+  if (parent !== root) markDirty(parentRef);
 
   // ParentTree に登録し、注釈側へ /StructParent を書く
   const key = nextParentTreeKey(root);
   const nums = parentTreeNums(root);
   if (nums) {
     insertIntoNums(nums, key, elemRef);
+    // Nums を保持する既存オブジェクトが dirty になる:
+    //   /ParentTree が間接 → その PT 辞書（Nums が PT 内の間接配列ならその配列）
+    //   /ParentTree が直接 → root 自体（後段で root を dirty にする）
+    const ptRaw = root.get(PDFName.of('ParentTree'));
+    if (ptRaw instanceof PDFRef) {
+      const pt = root.lookup(PDFName.of('ParentTree'));
+      const numsRaw = pt instanceof PDFDict ? pt.get(PDFName.of('Nums')) : undefined;
+      markDirty(numsRaw instanceof PDFRef ? numsRaw : ptRaw);
+    }
   } else {
     // ParentTree が無い（または /Kids 形式）なら平坦な /Nums を新設する
     const created = context.obj([]) as PDFArray;
@@ -214,16 +239,26 @@ function appendObjRefToStructTree(
     root.set(PDFName.of('ParentTree'), context.register(pt));
   }
   root.set(PDFName.of('ParentTreeNextKey'), PDFNumber.of(key + 1));
+  // root 辞書は必ず変更される（ParentTreeNextKey / ParentTree 新設）。
+  // StructTreeRoot が catalog 内の直接辞書という異形なら catalog 自体が dirty
+  if (rootRaw instanceof PDFRef) {
+    markDirty(rootRaw);
+  } else {
+    markDirty(doc.context.trailerInfo.Root);
+  }
 
   const annot = context.lookup(annotRef);
   if (annot instanceof PDFDict) {
     annot.set(PDFName.of('StructParent'), PDFNumber.of(key));
+    // 既存オブジェクトへの追記（tag_form_fields の Widget 等）なら dirty
+    markDirty(annotRef);
   }
 
   // 7.18.3-1: 注釈のあるページは /Tabs /S（タブ順を構造順に）
   page.node.set(PDFName.of('Tabs'), PDFName.of('S'));
+  markDirty(page.ref);
 
-  return { tagged: true, structParent: key };
+  return { tagged: true, structParent: key, dirtiedRefs: [...dirtied.values()] };
 }
 
 /**

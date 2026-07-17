@@ -143,17 +143,23 @@ export async function loadForEdit(
  * 注釈は P=3 でのみ許可。メタデータ・しおり等の変更はどの P でも許可されない
  * （P=2 はフォーム記入と署名、P=3 は + 注釈のみ）。
  */
-function assertDocMdpAllows(doc: PDFDocument, change: 'annotation' | 'metadata-or-outline'): void {
+function assertDocMdpAllows(
+  doc: PDFDocument,
+  change: 'annotation' | 'metadata-or-outline' | 'structure',
+): void {
   const p = findDocMdpPermission(doc);
   if (p === undefined) return; // 承認署名のみ — 増分更新は合法（「署名後の変更あり」にはなる）
   if (change === 'annotation' && p >= 3) return;
+  const label =
+    change === 'annotation'
+      ? p === 1
+        ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
+        : 'only form fill-in and signing are permitted; annotations are not.'
+      : change === 'structure'
+        ? 'structure (tagging) changes are not among the permitted change types at any level.'
+        : 'metadata and outline changes are not among the permitted change types at any level.';
   throw new PdfWriterError(
-    `This PDF carries a certification signature (DocMDP) with permission level P=${p} — ` +
-      (change === 'annotation'
-        ? p === 1
-          ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
-          : 'only form fill-in and signing are permitted; annotations are not.'
-        : 'metadata and outline changes are not among the permitted change types at any level.') +
+    `This PDF carries a certification signature (DocMDP) with permission level P=${p} — ${label}` +
       ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
     'SIGNED_PDF',
     {
@@ -285,20 +291,6 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
 
   // --- 署名保持モード（Tier C・ADR-11）: 元バイト列に触れず増分更新で追記する ---
   if (args.preserveSignatures) {
-    if (isTagged(doc)) {
-      throw new PdfWriterError(
-        'preserveSignatures on a tagged PDF is not supported yet: nesting the annotation in ' +
-          'an Annot structure element (PDF/UA 7.18.1-1) rewrites existing structure objects ' +
-          'that the incremental writer does not track in this first milestone.',
-        'UNSUPPORTED_PDF_FEATURE',
-        {
-          hint:
-            'Tagged + signature-preserving annotation is a later Tier C milestone. ' +
-            'If invalidating the signature is acceptable, retry with "allowBreakingSignatures": true.',
-        },
-      );
-    }
-
     // 注釈の追加が許されるのは DocMDP P=3 のみ（承認署名なら制約なし）
     assertDocMdpAllows(doc, 'annotation');
 
@@ -312,9 +304,32 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
     //   /Annots が直接配列 or 新設 → ページオブジェクトを再定義
     const annotsRaw = added.page.node.get(PDFName.of('Annots'));
     const dirtyRefs: PDFRef[] = [annotsRaw instanceof PDFRef ? annotsRaw : added.page.ref];
+
+    // タグ付き文書なら構造木へも結び付け、変更された既存オブジェクトを dirty に合成する
+    // （B-7b': StructTreeRoot / 親要素 / ParentTree / page(/Tabs) を struct-append が報告する）
+    const warnings: string[] = [];
+    const linked = appendAnnotationToStructTree(doc, added.page, added.ref, args.alt);
+    if (linked.tagged) {
+      dirtyRefs.push(...linked.dirtiedRefs);
+      if (!args.alt) {
+        warnings.push(
+          'The document is tagged and the annotation was nested in an Annot structure element. ' +
+            'Pass "alt" to give assistive technology a description of it.',
+        );
+      }
+    }
     touchModificationDate(doc, since, dirtyRefs);
 
-    return saveWithPreservedSignatures(doc, bytes, args, dirtyRefs, since, 'Added annotation');
+    const result = await saveWithPreservedSignatures(
+      doc,
+      bytes,
+      args,
+      dirtyRefs,
+      since,
+      'Added annotation',
+    );
+    if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
+    return result;
   }
 
   const added = addAnnotationDict(doc, args);
@@ -566,7 +581,8 @@ function flattenAndWarn(
  * Tier C の ensure_tagged の領分）。
  */
 export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFieldsResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
 
   if (!isTagged(doc)) {
     throw new PdfWriterError(
@@ -592,6 +608,13 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
     throw invalidArg(`"${args.inputPath}" has no AcroForm fields to tag.`);
   }
 
+  if (preserve) {
+    // 構造タグ付けは DocMDP の許可種別に含まれない（認証文書は全レベルで拒否）
+    assertDocMdpAllows(doc, 'structure');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+
   const outcome = tagWidgets(doc, args.labels ?? {});
 
   const warnings: string[] = [];
@@ -614,6 +637,29 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
     `Tagged ${outcome.tagged} widget(s) into Form structure elements` +
       (outcome.skipped > 0 ? `, ${outcome.skipped} already tagged` : ''),
   );
+
+  if (preserve) {
+    const dirty = [...outcome.dirtiedRefs];
+    touchModificationDate(doc, since, dirty);
+    const saved = await saveWithPreservedSignatures(
+      doc,
+      bytes,
+      args,
+      dirty,
+      since,
+      `Tagged ${outcome.tagged} widget(s)`,
+    );
+    return {
+      ...saved,
+      taggedWidgets: outcome.tagged,
+      skippedWidgets: outcome.skipped,
+      fields: listFields(doc),
+      warnings:
+        [...(saved.warnings ?? []), ...warnings].length > 0
+          ? [...(saved.warnings ?? []), ...warnings]
+          : undefined,
+    };
+  }
 
   // 値は変えないので pdf-lib の外観再生成（Helvetica）を走らせない
   const saved = await saveEdited(doc, args, { updateFieldAppearances: false });

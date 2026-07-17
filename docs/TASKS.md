@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 22 ファイル（264 ケース）・typecheck / biome OK。**v0.10.0**（2026-07-17。B-7b 第1弾 = preserveSignatures を 3 ツールへ + trailer 全引き継ぎ / B-9 = XMP 同期） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 23 ファイル（267 ケース）・typecheck / biome OK。**v0.11.0**（2026-07-17。B-7b' = タグ付き文書の増分対応・dirty 追跡の一般化。preserveSignatures は 4 ツール対応に） |
 
 ## 現状サマリ
 
@@ -107,8 +107,17 @@
         **§7.5.6 trailer 全エントリ引き継ぎ**を実装（PDFObjectParser で前 trailer を自前パース、
         除外 = 位置依存 + 再計算キー）。実測: 実署名 PDF への 2 段増分（メタデータ → しおり）で
         verify_signatures = **VALID**。DocMDP はメタデータ・しおり変更を全レベルで拒否（§12.8.2.2）
-  - [ ] **B-7b'. 増分更新の展開（残）** — タグ付き文書対応（構造木の差分追記 = dirty 追跡の
-        一般化）、attach_file / stamp_page_numbers 等さらに他ツールへの展開
+  - [x] **B-7b'. タグ付き文書の増分対応 = dirty 追跡の一般化**（v0.11.0・2026-07-17）—
+        `struct-append.ts` が変更した既存オブジェクト（StructTreeRoot / 親要素 / ParentTree
+        ないし /Nums 保持オブジェクト / page(/Tabs)）を `dirtiedRefs` として報告し、
+        増分更新が正確にそれらを再定義する。`add_annotation`（タグ付き可）と
+        **`tag_form_fields` の preserveSignatures** を実現。
+        実測: タグ付き + 増分注釈 / 増分フォーム修復とも veraPDF ua1 **COMPLIANT (106/106)**・
+        実署名回帰 **VALID**・重ね掛けで ParentTreeNextKey 連番維持。
+        **この dirty 追跡が ensure_tagged（B-7c）の土台になる**
+  - [ ] **B-7b''. 増分更新の展開（残）** — attach_file / stamp_page_numbers /
+        add_watermark 等への展開（stamp/watermark はコンテンツストリーム追記 = ページ
+        /Contents 配列の再定義が要る）
   - [ ] **B-7c. `ensure_tagged`**（タグ木の生成・修復）— struct-append / tag_form_fields の一般化
   - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）

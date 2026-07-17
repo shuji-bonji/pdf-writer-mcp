@@ -175,8 +175,9 @@ describe('preserveSignatures — 最小差分と重ね掛け', () => {
 });
 
 describe('preserveSignatures — ガードと分岐', () => {
-  it('タグ付き PDF は UNSUPPORTED_PDF_FEATURE で拒否する', async () => {
+  it("タグ付き PDF でも前方バイトを保ち、Annot 構造要素が増分に含まれる（B-7b'）", async () => {
     const input = join(dir, 'tagged.pdf');
+    const output = join(dir, 'tagged-out.pdf');
     await handleCreateTextPdf({
       text: 'tagged body',
       title: 'T',
@@ -184,9 +185,28 @@ describe('preserveSignatures — ガードと分岐', () => {
       lang: 'en',
       outputPath: input,
     });
-    const err = await addAnnotation(annotArgs(input, join(dir, 'tagged-out.pdf'))).catch((e) => e);
-    expect(err).toBeInstanceOf(PdfWriterError);
-    expect((err as PdfWriterError).code).toBe('UNSUPPORTED_PDF_FEATURE');
+    const original = await readFile(input);
+
+    const args = annotArgs(input, output);
+    args.alt = 'approval note';
+    const result = (await addAnnotation(args)) as EditResult;
+    expect(result.incremental).toBe(true);
+
+    const out = await readFile(output);
+    expect(Buffer.compare(out.subarray(0, original.length), Buffer.from(original))).toBe(0);
+
+    // 再読込して構造木への内包（7.18.1-1）・/Tabs（7.18.3-1）・/StructParent を確認
+    const doc = await PDFDocument.load(out, { updateMetadata: false });
+    const page = doc.getPages()[0];
+    expect(page.node.lookup(PDFName.of('Tabs'))?.toString()).toBe('/S');
+    const annots = page.node.lookup(PDFName.of('Annots')) as PDFArray;
+    const annot = annots.lookup(annots.size() - 1) as PDFDict;
+    expect(annot.get(PDFName.of('StructParent'))).toBeDefined();
+    // 増分部に Annot 構造要素と StructTreeRoot の再定義が含まれる
+    const appended = Buffer.from(out.subarray(original.length)).toString('latin1');
+    expect(appended).toContain('/Annot');
+    expect(appended).toContain('/StructTreeRoot');
+    expect(appended).toContain('/ParentTreeNextKey');
   });
 
   it('署名ガードの next_actions に preserveSignatures が案内される', async () => {

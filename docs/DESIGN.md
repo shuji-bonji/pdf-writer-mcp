@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.10.0（B-7b 第1弾 = preserveSignatures を set_metadata / add_bookmarks へ展開 + §7.5.6 trailer 全引き継ぎ / B-9 = set_metadata の XMP 同期） |
+| バージョン | 0.11.0（B-7b' = タグ付き文書の増分対応。struct-append の dirty 追跡一般化により、preserveSignatures が add_annotation（タグ付き可）/ set_metadata / add_bookmarks / tag_form_fields の 4 ツールで利用可能） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |
@@ -637,7 +637,7 @@ graph LR
 | **Tier A** | メタデータ・ページ操作・しおり・注釈 | `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages` / `add_bookmarks` / `add_annotation` | ✅ v0.2.0 / v0.4.0 |
 | **Tier B** | フォーム・透かし・添付・ページ番号 | `attach_file` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `flatten_form` | ✅ v0.6.0 |
 | **Tier B+**（PDF/UA 修復） | タグ付きフォームの修復 | `tag_form_fields`（7.18.4-1 / 7.18.3-1 / 7.18.1-3。veraPDF 106/106 実測） | ✅ v0.8.0 |
-| **Tier C** | 本文編集・タグ木保守・増分更新 | `edit_text` / `ensure_tagged` / 増分更新（`add_annotation` の `preserveSignatures`） | **着手済み** — 増分更新 PoC ✅ v0.9.0（ADR-11。実署名で verify VALID を実測）。残: タグ付き文書対応・他ツールへの展開・edit_text / ensure_tagged |
+| **Tier C** | 本文編集・タグ木保守・増分更新 | `edit_text` / `ensure_tagged` / 増分更新（`preserveSignatures` × 4 ツール） | **進行中** — 増分更新 ✅ v0.9.0〜v0.11.0（ADR-11。タグ付き文書の構造木差分追記まで対応。実署名 VALID + veraPDF COMPLIANT を実測）。残: attach/stamp 系への展開・edit_text・ensure_tagged（dirty 追跡が土台） |
 
 **残りの優先順位**
 

@@ -295,7 +295,8 @@ export const addAnnotationShape = {
     .describe(
       '署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で注釈を追加する。' +
         '既定 false。元のバイト列には一切触れないため /ByteRange が保たれる。' +
-        'タグ付き PDF では未対応（構造木への内包が既存オブジェクトの書き換えを要するため）。',
+        'タグ付き PDF では Annot 構造要素への内包も増分に含めて PDF/UA 準拠を維持する。' +
+        '認証署名（DocMDP）では P=3 のときのみ許可。',
     ),
   ...commonEditShape,
 } as const;
@@ -429,6 +430,7 @@ export const tagFormFieldsShape = {
         '省略したフィールドはフィールド名を /TU に代用し、warnings で報告する。' +
         '存在しないフィールド名を指定するとエラーに全フィールド名が列挙される。',
     ),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 

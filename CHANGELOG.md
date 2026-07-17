@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2026-07-17
+
+Incremental updates learn tagged PDFs (B-7b'): dirty tracking generalised.
+
+### Added
+
+- **`preserveSignatures` now works on tagged PDFs** — the v0.9.0 limitation
+  is lifted. The structure-tree appender (`struct-append.ts`) now *reports
+  which existing indirect objects it mutates* (StructTreeRoot, the parent
+  element whose `/K` grows, the ParentTree — or whichever object holds its
+  `/Nums` array — and the page carrying `/Tabs`), and the incremental
+  writer includes exactly those in the appended revision. Adding an
+  annotation to a signed *and* tagged PDF keeps both properties: measured
+  **veraPDF ua1 COMPLIANT (106/106)** on the incremental output and
+  `verify_signatures: VALID` on a really-signed fixture. Stacked increments
+  keep `ParentTreeNextKey` continuous across revisions.
+- **`tag_form_fields` supports `preserveSignatures`** — PDF/UA form repair
+  on signed documents without invalidating approval signatures. `/TU`
+  writes are redefinitions of *existing* field dictionaries, so
+  `tagWidgets` also reports its dirtied refs. Certification signatures
+  (DocMDP) are refused at every permission level — structure (tagging)
+  changes are not among the permitted change types of §12.8.2.2. Measured:
+  a tagged-but-untagged-form document repaired via an incremental update is
+  **veraPDF ua1 COMPLIANT (106/106)** with a byte-identical prefix.
+
+### Notes
+
+- The groundwork is deliberate: precise dirty tracking over the structure
+  tree is the mechanism `ensure_tagged` (Tier C) will build on.
+
 ## [0.10.0] - 2026-07-17
 
 Incremental updates grow up (B-7b) and `set_metadata` learns XMP (B-9).
