@@ -204,6 +204,27 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
   - [ ] **B-10b. 引き継ぎ**（単一文書内の操作）— Metadata / Names / AF / MarkInfo を catalog からコピー
   - [ ] **B-10c. 構造木の引き継ぎ** — extract/delete/reorder は「残ページ分の構造要素」の再構築が要る。
         merge は ParentTree のキー空間統合が要る。重いので b の後に判断
+- [x] **B-13. `rotate_pages` が Claude Desktop から呼べない**（2026-07-18・B-10a の試用中に発見／未リリース）
+      症状: `rotation: 90` を渡すと**必ず** `invalid_union` で失敗し、どう呼んでも成功しない。
+      **writer 側に非は無かった** — `dist/index.js` を直接 spawn して `tools/list` を叩いた結果、
+      サーバは `anyOf: [{type:number, const:90}, ...]` を**正しく公開していた**
+      （SDK 1.29.0 は `zod/v4-mini` の `toJSONSchema` を `target: 'draft-7'` で呼ぶ。これも正常）。
+      **anyOf を落として型を見失い、文字列 `"90"` を送っていたのはクライアント側**。
+      実行時 zod は正しく弾いていた（＝ガードは機能していた）。
+      対応: それでも rotate_pages が使えない事実は残るため、`z.literal([90, 180, 270])` に変更し
+      **平坦な `{type:'number', enum:[90,180,270]}`** を公開する。anyOf を経由しないので
+      当該クライアントでも型が見える。**意味は等価**（値の列挙は本来 enum で表すのが自然）で、
+      実行時の厳格さも不変（`"90"` は引き続き拒否 — `validation.test.ts` で境界を固定）。
+      `fill_form` の `z.union`（値 = string|number|boolean|string[]）は**本物の異種型 union** で
+      anyOf が正しい表現、かつプロパティ自体は `type:'object'` を持つため対象外。
+      **なぜ検知できなかったか**: `registry.test.ts` はツール名・必須フィールド・annotations しか
+      見ておらず、プロパティのスキーマ本体を検査していなかった。
+      **ただし当初考えた「全プロパティが type/enum/anyOf を持つ」という不変条件では捕まらない**
+      （修正前も anyOf はあった）。実際に足した回帰は
+      「**const だけで構成された anyOf を公開しない**（＝ enum で書けるものを anyOf にしない）」。
+      教訓: **誤診しかけた** — `z.toJSONSchema` を既定 target で試して「SDK が anyOf を落とす」と
+      断定したが、SDK の実際の呼び方（draft-7）を確認していなかった。
+      層をまたぐ不具合は**各層に実際に何が渡っているかを 1 つずつ観測する**こと
 - [ ] **B-11. DocMDP コメントに DSS/DTS 例外を明記** — verify #5 の指摘（§12.8.2.2 は P=1 でも
       DSS / 文書タイムスタンプの増分更新を例外とする）。writer は DSS/DTS を扱わないため実害無しだが、
       family 内で条文解釈を揃える

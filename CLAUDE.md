@@ -171,6 +171,23 @@ pdf-lib の `copyPages()` が複製するのは**ページツリー配下だけ*
   複製ページの OC 使用を実測して判定している
 - **ページ複製系にツールを足すときは `saveWithDocLevelWarnings` を通すこと**
 
+### 9. 値の列挙を `anyOf` で公開しない（B-13・2026-07-18）
+
+`z.union([z.literal(90), z.literal(180), z.literal(270)])` は JSON Schema で
+`anyOf: [{type:number, const:90}, ...]` になる。**これは正しい**（SDK 1.29.0 は
+`zod/v4-mini` の `toJSONSchema` を `target: 'draft-7'` で呼ぶ。変換にも非は無い）。
+だが **anyOf を落として型を見失うクライアントが実在**し、文字列 `"90"` が飛んできて
+実行時 zod が弾き、rotate_pages が**どう呼んでも失敗**していた。
+
+→ 値の列挙は **`z.literal([90, 180, 270])`** で書く（平坦な `{type:'number', enum:[...]}`）。
+異種型の union（`fill_form` の値 = `string|number|boolean|string[]`）は anyOf が正しいので対象外。
+`registry.test.ts` の「const だけの anyOf を公開しない」が回帰ガード。
+
+**層をまたぐ不具合の調べ方**: このとき「SDK の変換が anyOf を落とす」と一度誤診した。
+`z.toJSONSchema` を**既定の target** で試し、SDK の実際の呼び方（draft-7）を確認しなかったため。
+`dist/index.js` を spawn して `tools/list` を読めば 1 分で分かった。
+**各層に実際に何が渡っているかを 1 つずつ観測すること**（推測で層を飛ばさない）。
+
 ## テスト
 
 ```bash

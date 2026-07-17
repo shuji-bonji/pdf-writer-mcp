@@ -71,6 +71,42 @@ describe('tool registry (external spec)', () => {
     expect(destructive).toEqual(['delete_pages', 'flatten_form']);
   });
 
+  /**
+   * B-13: 値の列挙を anyOf で公開しない。
+   *
+   * `z.union([z.literal(90), z.literal(180), z.literal(270)])` は
+   * `anyOf: [{type:number, const:90}, ...]` になる。**これは JSON Schema として正しく、
+   * SDK の変換にも非は無い**が、anyOf を落として型を見失うクライアントが実在し、
+   * rotate_pages が「どう呼んでも invalid_union」になっていた（Claude Desktop で実測）。
+   * `z.literal([90,180,270])` なら等価な意味のまま平坦な enum になり、この失敗を回避できる。
+   *
+   * 異種型の union（fill_form の値 = string|number|boolean|string[]）は anyOf が正しい表現なので
+   * 対象外。**const だけで構成された anyOf** — つまり enum で書けるもの — だけを禁じる。
+   */
+  it('does not express a value enumeration as anyOf of consts (B-13)', () => {
+    for (const tool of listed) {
+      for (const [key, schema] of Object.entries<Record<string, unknown>>(
+        tool.inputSchema.properties ?? {},
+      )) {
+        const anyOf = schema.anyOf as Array<Record<string, unknown>> | undefined;
+        if (!anyOf) continue;
+        const allConst = anyOf.every((branch) => 'const' in branch);
+        expect(
+          allConst,
+          `${tool.name}.${key} lists constants via anyOf; use z.literal([...]) so it becomes a ` +
+            'flat enum — some clients drop anyOf and then cannot tell the value is a number',
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('rotate_pages exposes rotation as a flat number enum (B-13)', () => {
+    const rotation = listed.find((t) => t.name === 'rotate_pages').inputSchema.properties.rotation;
+    expect(rotation.type).toBe('number');
+    expect(rotation.enum).toEqual([90, 180, 270]);
+    expect(rotation.anyOf).toBeUndefined();
+  });
+
   it('calling a tool with invalid args returns a structured family error', async () => {
     const server = buildServer();
     const client = new Client({ name: 'registry-test-2', version: '0.0.0' });

@@ -50,6 +50,34 @@ All notable changes to this project will be documented in this file.
 - `split_pdf` results now carry a `warnings` field. All parts come from the same
   input, so the loss is reported once for the whole result rather than per file.
 
+### Fixed
+
+- **`rotate_pages` was uncallable from some MCP clients (B-13).** Passing
+  `rotation: 90` always failed with `invalid_union`, so the tool could not be used
+  at all from Claude Desktop.
+
+  **This server was not at fault.** `rotation` was declared as
+  `z.union([z.literal(90), z.literal(180), z.literal(270)])`, which the SDK
+  correctly published as `anyOf: [{type: number, const: 90}, …]` — verified by
+  spawning the built server and reading `tools/list`. The client dropped the
+  `anyOf`, lost the type information, and sent the string `"90"`; the runtime Zod
+  check then correctly rejected it.
+
+  `rotation` is now `z.literal([90, 180, 270])`, which publishes the flat and
+  equivalent `{type: 'number', enum: [90, 180, 270]}` — no `anyOf` to drop. **Runtime
+  strictness is unchanged**: `90`/`180`/`270` are accepted and `"90"` is still
+  rejected (fixed by `validation.test.ts`). Enumerating values with `enum` rather
+  than `anyOf` is also the more natural JSON Schema. `fill_form`'s `fields` keeps its
+  `anyOf` — that is a genuine heterogeneous union (`string|number|boolean|string[]`)
+  where `anyOf` is the correct representation, and the property itself is typed
+  `object`.
+
+  **Why it went unnoticed**: `registry.test.ts` snapshotted tool names, required
+  fields and annotations, but never the property schemas themselves. Note that the
+  obvious invariant ("every property has `type`/`enum`/`anyOf`") would *not* have
+  caught this — the schema had `anyOf` all along. The regression added is narrower:
+  no property may enumerate constants via `anyOf`.
+
 ## [0.12.0] - 2026-07-17
 
 Tier C continues: the last incremental-update gaps close (B-7b'') and

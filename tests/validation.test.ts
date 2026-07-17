@@ -10,8 +10,23 @@ import {
   CreateTextSchema,
   MergePdfsSchema,
   parseArgs,
+  RotatePagesSchema,
   SetMetadataSchema,
 } from '../src/utils/validation.js';
+
+/**
+ * B-13: 公開スキーマを anyOf から平坦な enum に変えても、**実行時の厳格さは変わらない**。
+ * 「クライアント互換のためにゆるくした」と誤解されないよう境界を固定する。
+ */
+describe('RotatePagesSchema（B-13 の平坦化後も厳格さは不変）', () => {
+  it.each([90, 180, 270])('accepts %p', (rotation) => {
+    expect(() => parseArgs(RotatePagesSchema, { inputPath: '/a.pdf', rotation })).not.toThrow();
+  });
+
+  it.each(['90', 45, 0, 360, -90, null, true])('rejects %p', (rotation) => {
+    expect(() => parseArgs(RotatePagesSchema, { inputPath: '/a.pdf', rotation })).toThrow();
+  });
+});
 
 describe('CreateTextSchema', () => {
   it('accepts a valid text arg', () => {

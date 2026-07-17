@@ -220,9 +220,11 @@ export const reorderPagesShape = {
 
 export const rotatePagesShape = {
   inputPath,
-  rotation: z
-    .union([z.literal(90), z.literal(180), z.literal(270)])
-    .describe('時計回りの回転角(度)。90 / 180 / 270。'),
+  // z.union([z.literal(90), ...]) は JSON Schema で anyOf になる。SDK の変換は正しいが、
+  // anyOf を落として型を見失うクライアントが実在し、rotate_pages が呼べなくなっていた（B-13）。
+  // z.literal([...]) なら等価な意味のまま平坦な {type:'number', enum:[...]} になる。
+  // 実行時の厳格さは不変（文字列 "90" は引き続き拒否）。値の列挙は anyOf ではなく enum で表すこと。
+  rotation: z.literal([90, 180, 270]).describe('時計回りの回転角(度)。90 / 180 / 270。'),
   pages: zPageSpec
     .optional()
     .describe('対象ページ指定。"1,3-5" 形式(1 始まり)。省略時は全ページ。'),
