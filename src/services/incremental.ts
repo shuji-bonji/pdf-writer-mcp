@@ -20,10 +20,13 @@
  *   - 削除（free エントリ）は扱わない — 追加と再定義のみ
  */
 
+import { createHash } from 'node:crypto';
 import {
   PDFArray,
-  type PDFDict,
+  type PDFContext,
+  PDFDict,
   type PDFDocument,
+  PDFHexString,
   PDFName,
   PDFNumber,
   type PDFObject,
@@ -96,6 +99,68 @@ export function reserveExistingObjectNumbers(doc: PDFDocument, original: Uint8Ar
   }
 }
 
+/**
+ * 認証署名（DocMDP）の許可レベル P を返す（ISO 32000-2 §12.8.2.2）。
+ *
+ * P=1: 文書は最終（DSS/DTS を除く一切の変更で署名無効）
+ * P=2: フォーム記入・署名追加まで（Table 257 の既定値）
+ * P=3: + 注釈の作成・削除・変更
+ *
+ * 注釈の増分追記が許されるのは P=3 のみ。DocMDP の無い承認署名なら undefined を返す
+ * （変更は署名を無効化しないが「署名後の変更あり」として表示される — 合法）。
+ *
+ * pdf-lib の getForm() は AcroForm が無いとき勝手に作る（文書を汚す）ため、
+ * ここでは辞書を直接歩く。
+ */
+export function findDocMdpPermission(doc: PDFDocument): number | undefined {
+  const acroForm = doc.catalog.lookup(PDFName.of('AcroForm'));
+  if (!(acroForm instanceof PDFDict)) return undefined;
+  const fields = acroForm.lookup(PDFName.of('Fields'));
+  if (!(fields instanceof PDFArray)) return undefined;
+
+  const visit = (fieldDict: PDFDict): number | undefined => {
+    const v = fieldDict.lookup(PDFName.of('V'));
+    if (v instanceof PDFDict) {
+      const reference = v.lookup(PDFName.of('Reference'));
+      if (reference instanceof PDFArray) {
+        for (let i = 0; i < reference.size(); i++) {
+          const sigRef = reference.lookup(i);
+          if (!(sigRef instanceof PDFDict)) continue;
+          const method = sigRef.lookup(PDFName.of('TransformMethod'));
+          if (method instanceof PDFName && method.decodeText() === 'DocMDP') {
+            const params = sigRef.lookup(PDFName.of('TransformParams'));
+            if (params instanceof PDFDict) {
+              const p = params.lookup(PDFName.of('P'));
+              if (p instanceof PDFNumber) return p.asNumber();
+            }
+            return 2; // Table 257: P 省略時の既定値
+          }
+        }
+      }
+    }
+    const kids = fieldDict.lookup(PDFName.of('Kids'));
+    if (kids instanceof PDFArray) {
+      for (let i = 0; i < kids.size(); i++) {
+        const kid = kids.lookup(i);
+        if (kid instanceof PDFDict) {
+          const found = visit(kid);
+          if (found !== undefined) return found;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  for (let i = 0; i < fields.size(); i++) {
+    const f = fields.lookup(i);
+    if (f instanceof PDFDict) {
+      const found = visit(f);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
 export interface IncrementalUpdateOptions {
   /** 元ファイルのバイト列（一切変更しない） */
   original: Uint8Array;
@@ -143,6 +208,28 @@ function serializeObject(obj: PDFObject): Uint8Array {
 
 function latin1(s: string): Uint8Array {
   return Uint8Array.from(Buffer.from(s, 'latin1'));
+}
+
+/**
+ * ファイル ID の更新（ISO 32000-2 §14.4）。
+ * 第 1 要素は永続識別子として**変えず**、第 2 要素は「更新時点の内容に基づく
+ * 変化する識別子」で**なければならない**（shall）。追記内容のハッシュから導出するため、
+ * SOURCE_DATE_EPOCH 下でも決定論的（同一入力 → 同一 ID）に保たれる。
+ */
+function updateFileId(
+  context: PDFContext,
+  id: PDFObject | undefined,
+  original: Uint8Array,
+  appendedSoFar: Uint8Array[],
+): PDFArray | undefined {
+  if (!(id instanceof PDFArray) || id.size() < 1) return undefined;
+  const hash = createHash('md5'); // §14.4 が例示するダイジェスト（暗号用途ではない）
+  hash.update(original);
+  for (const c of appendedSoFar) hash.update(c);
+  const updated = context.obj([]) as PDFArray;
+  updated.push(id.get(0)); // 第 1 要素は永続
+  updated.push(PDFHexString.of(hash.digest('hex').toUpperCase()));
+  return updated;
 }
 
 /**
@@ -197,6 +284,9 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
   }
 
   // --- trailer に引き継ぐ共通エントリ ---
+  // 注: §7.5.6 は「前 trailer の全エントリ（Prev 以外）を引き継ぐ」ことを要求するが、
+  // pdf-lib の trailerInfo が保持するのは Root / Encrypt / Info / ID のみ。
+  // 稀な追加キー（hybrid の XRefStm、second-class name）は落ちる — B-7b の課題として記録済み。
   const ti = context.trailerInfo;
   if (!(ti.Root instanceof PDFRef)) {
     throw new PdfWriterError(
@@ -204,6 +294,8 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
       'INVALID_PDF',
     );
   }
+  // §14.4: ID 第 2 要素は更新のたびに変えなければならない（shall）
+  const updatedId = updateFileId(context, ti.ID, original, chunks);
 
   if (style === 'table') {
     // --- 古典 xref テーブル + trailer ---
@@ -223,7 +315,7 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
     trailer.set(PDFName.of('Prev'), PDFNumber.of(prevStartXref));
     trailer.set(PDFName.of('Root'), ti.Root);
     if (ti.Info instanceof PDFRef) trailer.set(PDFName.of('Info'), ti.Info);
-    if (ti.ID instanceof PDFArray) trailer.set(PDFName.of('ID'), ti.ID);
+    if (updatedId) trailer.set(PDFName.of('ID'), updatedId);
 
     push(latin1('trailer\n'));
     push(serializeObject(trailer));
@@ -263,7 +355,7 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
     dict.set(PDFName.of('Prev'), PDFNumber.of(prevStartXref));
     dict.set(PDFName.of('Root'), ti.Root);
     if (ti.Info instanceof PDFRef) dict.set(PDFName.of('Info'), ti.Info);
-    if (ti.ID instanceof PDFArray) dict.set(PDFName.of('ID'), ti.ID);
+    if (updatedId) dict.set(PDFName.of('ID'), updatedId);
 
     push(latin1(`${xrefNum} 0 obj\n`));
     push(serializeObject(dict));

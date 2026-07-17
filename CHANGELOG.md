@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2026-07-17
+
+Clause-by-clause audit of the v0.9.0 incremental writer against ISO 32000-2,
+performed with pdf-spec-mcp. Two gaps were found and fixed:
+
+### Fixed
+
+- **§14.4 (file identifiers)**: the second `/ID` byte string *shall* change
+  on every update, but v0.9.0 copied the `/ID` array unchanged. It is now
+  recomputed as an MD5 of the file contents — content-based, so
+  `SOURCE_DATE_EPOCH` reproducibility is unaffected; the first element
+  stays permanent as required.
+
+### Added
+
+- **§12.8.2.2 (DocMDP) guard**: annotations are only a permitted change at
+  P=3 (default when P is absent is 2). `preserveSignatures` now refuses
+  certified documents with P=1 (document final) or P=2 (form fill-in only)
+  with a `SIGNED_PDF` error — the incremental update would be byte-legal,
+  but validators would flag it as a disallowed change.
+  `findDocMdpPermission()` walks the AcroForm dictionaries directly
+  (pdf-lib's `getForm()` would create an AcroForm on documents without one).
+
+### Audit notes
+
+- Confirmed conforming: §7.5.6 (append-only, changed-objects-only xref,
+  `/Prev`, per-update `%%EOF`), §7.5.5 (`/Size` = highest object number + 1
+  — the basis of `reserveExistingObjectNumbers`), §7.5.8.1 (files using
+  cross-reference streams shall not use `xref`/`trailer` keywords — hence
+  the style-following writer).
+- Known remaining gap (tracked as B-7b): §7.5.6 requires carrying over
+  *all* previous-trailer entries; pdf-lib only surfaces
+  Root/Encrypt/Info/ID, so rare keys (hybrid `XRefStm`, second-class names)
+  are dropped.
+- Re-verified after the fixes: 251 tests, `qpdf --check` clean for both
+  xref styles, and the really-signed fixture still reports
+  `verify_signatures: VALID`.
+
 ## [0.9.0] - 2026-07-17
 
 First Tier C milestone: **signature-preserving incremental updates** (ADR-11).

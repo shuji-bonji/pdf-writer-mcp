@@ -54,7 +54,11 @@ import {
   refreshAppearances,
   tagWidgets,
 } from './form.js';
-import { buildIncrementalUpdate, reserveExistingObjectNumbers } from './incremental.js';
+import {
+  buildIncrementalUpdate,
+  findDocMdpPermission,
+  reserveExistingObjectNumbers,
+} from './incremental.js';
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
@@ -169,6 +173,26 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
           hint:
             'Tagged + signature-preserving annotation is a later Tier C milestone. ' +
             'If invalidating the signature is acceptable, retry with "allowBreakingSignatures": true.',
+        },
+      );
+    }
+
+    // 認証署名（DocMDP）の許可レベル検査（ISO 32000-2 §12.8.2.2）:
+    // 注釈の追加が許されるのは P=3 のみ。P=1（変更禁止）/ P=2（フォームまで）では
+    // 増分更新が合法でも認証署名の検証が「許可されない変更」として失敗する。
+    const docMdpP = findDocMdpPermission(doc);
+    if (docMdpP !== undefined && docMdpP < 3) {
+      throw new PdfWriterError(
+        `This PDF carries a certification signature (DocMDP) with permission level P=${docMdpP} — ` +
+          (docMdpP === 1
+            ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
+            : 'only form fill-in and signing are permitted; annotations are not.') +
+          ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
+        'SIGNED_PDF',
+        {
+          retryable: true,
+          hint: 'ISO 32000-2 §12.8.2.2: annotation changes require DocMDP P=3.',
+          next_actions: [NEXT_ACTIONS.allowBreakingSignatures()],
         },
       );
     }

@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 20 ファイル（249 ケース）・typecheck / biome OK。**v0.9.0**（2026-07-17。Tier C 着手: 署名保持の増分更新 = ADR-11） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 20 ファイル（251 ケース）・typecheck / biome OK。**v0.9.1**（2026-07-17。v0.9.0 = Tier C 着手: 署名保持の増分更新（ADR-11）/ v0.9.1 = ISO 32000-2 条文照合の是正） |
 
 ## 現状サマリ
 
@@ -97,9 +97,14 @@
         追記 = 自前。xref テーブル・ストリーム両対応）。Issue #2 のマイルストーンを実測達成:
         実署名（CMS）PDF への追加後、verify_signatures = **VALID**・verify_integrity =
         **合法な増分更新 1 件**・qpdf --check クリーン。
-        副産物: pdf-lib が容器ストリームを登録しない採番落とし穴を発見（CLAUDE.md 落とし穴 7）
+        副産物: pdf-lib が容器ストリームを登録しない採番落とし穴を発見（CLAUDE.md 落とし穴 7）。
+        **pdf-spec-mcp による条文照合済み → 是正は v0.9.1**（§7.5.6 / §7.5.5 / §7.5.8.1 適合を確認。
+        照合で発見した 2 件を v0.9.1 で是正: §14.4 の ID 第 2 要素更新（shall）、
+        §12.8.2.2 の DocMDP P<3 拒否ガード。CHANGELOG 0.9.1 参照）
   - [ ] **B-7b. 増分更新の展開** — タグ付き文書対応（構造木の差分追記 = dirty 追跡の一般化）、
-        set_metadata / add_bookmarks 等の他ツールへの `preserveSignatures` 展開
+        set_metadata / add_bookmarks 等の他ツールへの `preserveSignatures` 展開、
+        **§7.5.6 の trailer 全エントリ引き継ぎ**（pdf-lib の trailerInfo は Root/Encrypt/Info/ID
+        のみ保持。hybrid の XRefStm・second-class name が落ちる — 前 trailer の自前パースが要る）
   - [ ] **B-7c. `ensure_tagged`**（タグ木の生成・修復）— struct-append / tag_form_fields の一般化
   - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）

@@ -224,6 +224,62 @@ describe('preserveSignatures — ガードと分岐', () => {
   });
 });
 
+describe('preserveSignatures — 仕様照合による是正（pdf-spec-mcp で確認）', () => {
+  it('§14.4: ファイル ID の第 1 要素は保持し、第 2 要素は更新される', async () => {
+    const input = join(dir, 'id.pdf');
+    const output = join(dir, 'id-out.pdf');
+    const doc = await PDFDocument.create();
+    doc.addPage([400, 300]);
+    const first = 'AABBCCDDEEFF00112233445566778899';
+    doc.context.trailerInfo.ID = doc.context.obj([PDFHexString.of(first), PDFHexString.of(first)]);
+    await writeFile(input, await doc.save({ useObjectStreams: false }));
+    const original = await readFile(input);
+
+    await addAnnotation(annotArgs(input, output));
+    const out = await readFile(output);
+    const appended = Buffer.from(out.subarray(original.length)).toString('latin1');
+
+    const idMatch = /\/ID\s*\[\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\]/.exec(appended);
+    expect(idMatch, 'appended trailer must carry /ID').toBeTruthy();
+    expect(idMatch?.[1].toUpperCase()).toBe(first); // 第 1 要素 = 永続
+    expect(idMatch?.[2].toUpperCase()).not.toBe(first); // 第 2 要素 = 更新（shall）
+    expect(idMatch?.[2]).toHaveLength(32); // MD5 = 16 バイト（§14.4 の最小長を満たす）
+  });
+
+  it('§12.8.2.2: DocMDP P=1 / P=2 の認証署名では注釈の増分追記を拒否する', async () => {
+    for (const p of [1, 2]) {
+      const input = join(dir, `docmdp-${p}.pdf`);
+      const doc = await PDFDocument.create();
+      doc.addPage([400, 300]);
+      // 認証署名の構造だけを持つフィクスチャ（V → /Reference → DocMDP /P）
+      const { context } = doc;
+      const params = context.obj({ P: p }) as PDFDict;
+      const sigRef = context.obj({}) as PDFDict;
+      sigRef.set(PDFName.of('TransformMethod'), PDFName.of('DocMDP'));
+      sigRef.set(PDFName.of('TransformParams'), params);
+      const refArray = context.obj([]) as PDFArray;
+      refArray.push(sigRef);
+      const v = context.obj({ Type: 'Sig' }) as PDFDict;
+      v.set(PDFName.of('Reference'), refArray);
+      const field = context.obj({ FT: 'Sig', T: PDFHexString.fromText('Sig1') }) as PDFDict;
+      field.set(PDFName.of('V'), context.register(v));
+      const fields = context.obj([]) as PDFArray;
+      fields.push(context.register(field));
+      const acroForm = context.obj({}) as PDFDict;
+      acroForm.set(PDFName.of('Fields'), fields);
+      doc.catalog.set(PDFName.of('AcroForm'), context.register(acroForm));
+      await writeFile(input, await doc.save({ useObjectStreams: false }));
+
+      const err = await addAnnotation(annotArgs(input, join(dir, `docmdp-${p}-out.pdf`))).catch(
+        (e) => e,
+      );
+      expect(err, `P=${p} must be rejected`).toBeInstanceOf(PdfWriterError);
+      expect((err as PdfWriterError).code).toBe('SIGNED_PDF');
+      expect((err as PdfWriterError).message).toContain(`P=${p}`);
+    }
+  });
+});
+
 describe('incremental — 低レベルの安全弁', () => {
   it('startxref が壊れたファイルは INVALID_PDF', () => {
     const junk = Buffer.from('%PDF-1.7\nnothing to see here', 'latin1');
