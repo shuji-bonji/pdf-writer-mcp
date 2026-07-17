@@ -4,10 +4,10 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.8.0（+ tag_form_fields = タグ付きフォームの PDF/UA 修復） |
+| バージョン | 0.9.0（+ Tier C 第1マイルストーン = 署名を保持する増分更新・ADR-11） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
-| ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。McpServer + Zod・構造化エラー・stdout ガード・決定論的出力対応 |
+| ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |
 
 > **本書のバージョン行は `package.json` と同期させること。** リリース手順（CLAUDE.md）に
 > 「DESIGN.md ヘッダの更新」を含める。v0.3.1→v0.6.0 の間、本書が未更新のまま放置され、
@@ -608,6 +608,7 @@ TEST_FONT_PATH=/path/NotoSansJP.otf npm test  # 日本語 ToUnicode も検証
 | ADR-9 | 構造木を **「構築（struct-tree）」と「追記（struct-append）」に分離**（v0.5.1） | create 系はゼロから作れるが、編集系は既存の StructTreeRoot / ParentTree を読んで**続きの番号**で追記する必要がある。両者は入力も不変条件も違うため、無理に共通化しない。追記側は Tier C の `ensure_tagged` の足がかりになる | 単一クラスに両モードを持たせる（分岐が増え、ParentTree の不変条件が曖昧になる） |
 | ADR-8 | harfbuzz サブセット時に **`noLayoutClosure: true`** を指定（v0.3.1） | pdf-lib(subset:false) は CID を `font.layout()` の結果から、ToUnicode を cmap 由来のベースグリフから作る。GSUB 置換が起きると両者がずれ、抽出が壊れる（§7.1 参照）。置換候補をサブセットに含めなければ置換自体が起きない。副次効果でサイズも縮小（9.1KB→4.5KB） | ToUnicode の後段パッチ（pdf-lib 内部への侵襲）、GSUB テーブルの手動除去（sfnt 再構築が必要） |
 | ADR-10 | **McpServer + Zod へ移行**し、公開スキーマと実行時検査を単一情報源化（v0.7.0・E-5） | JSON Schema（553 行）と asserts（502 行）の二重管理はドリフトの温床。reader / verify と同型になり family の実装パターンが揃う（PDFfamily specs/06）。外部仕様の非破壊性は `registry.test.ts` のスナップショットで担保 | 低レベル `Server` 継続（二重管理が残る）、zod-to-json-schema による片方向生成（SDK が shape を直接受けるため不要） |
+| ADR-11 | **増分更新は「pdf-lib で読み、追記だけ自前で書く」ハイブリッド**（v0.9.0・Tier C 第1弾） | 全面自前パーサ/シリアライザ（pdf-engine-core）を作る前に、①オブジェクトの直列化は pdf-lib の `copyBytesInto` を再利用、②末尾追記（オフセット計算・xref・trailer）だけ自前実装、で署名保持を達成できると実証。元バイト列に一切触れないため前方一致 = 署名保持が構成的に保証される。xref は元ファイルの形式（テーブル / ストリーム）に追随。**注意**: pdf-lib はオブジェクトストリーム容器・旧 xref ストリームを登録しないため、採番前に trailer /Size から番号を予約する（`reserveExistingObjectNumbers`。怠ると容器と番号衝突 — qpdf 実測） | Rust/WASM の新規エンジン（学習コスト・ビルド複雑化が先行）、pdf-lib への増分保存パッチ（内部への深い侵襲） |
 
 ---
 
@@ -636,7 +637,7 @@ graph LR
 | **Tier A** | メタデータ・ページ操作・しおり・注釈 | `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages` / `add_bookmarks` / `add_annotation` | ✅ v0.2.0 / v0.4.0 |
 | **Tier B** | フォーム・透かし・添付・ページ番号 | `attach_file` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `flatten_form` | ✅ v0.6.0 |
 | **Tier B+**（PDF/UA 修復） | タグ付きフォームの修復 | `tag_form_fields`（7.18.4-1 / 7.18.3-1 / 7.18.1-3。veraPDF 106/106 実測） | ✅ v0.8.0 |
-| **Tier C** | 本文編集・タグ木保守・増分更新 | `edit_text` / `ensure_tagged` / `incremental_save` | 未着手（pdf-engine-core と合流） |
+| **Tier C** | 本文編集・タグ木保守・増分更新 | `edit_text` / `ensure_tagged` / 増分更新（`add_annotation` の `preserveSignatures`） | **着手済み** — 増分更新 PoC ✅ v0.9.0（ADR-11。実署名で verify VALID を実測）。残: タグ付き文書対応・他ツールへの展開・edit_text / ensure_tagged |
 
 **残りの優先順位**
 

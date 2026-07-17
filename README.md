@@ -50,7 +50,7 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `reorder_pages` | Reorder by an explicit permutation of all pages |
 | `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
-| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
+| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it. With `preserveSignatures: true`, a **signed PDF keeps its signatures**: the annotation is appended as an ISO 32000 incremental update, leaving the original bytes untouched (untagged documents only) |
 | `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape for bundling machine-readable data with a document |
 | `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
 | `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
@@ -62,7 +62,7 @@ Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
 Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8 to the end). Order is preserved and duplicates are removed.
 
-> **Signatures**: pdf-lib rewrites the whole file on save, so editing always invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default; pass `allowBreakingSignatures: true` to proceed anyway. Signature-preserving incremental updates are on the roadmap.
+> **Signatures**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default; pass `allowBreakingSignatures: true` to proceed destructively — or, for `add_annotation`, pass `preserveSignatures: true` (v0.9.0) to append an incremental update that keeps every signature valid. Measured: after annotating a really-signed PDF, pdf-verify-mcp reports the signature **VALID** and the added bytes as one legal incremental revision.
 
 ## Install
 
@@ -182,6 +182,8 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Editing Tier B — file attachments, form filling/flattening, watermarks, page-number stamping (v0.6.0)
 - [x] Code hygiene / family alignment — McpServer + Zod, structured errors, absolute-path enforcement, stdout guard, tool annotations, deterministic output (v0.7.0)
 - [x] `tag_form_fields` — PDF/UA repair for forms in tagged PDFs, verified COMPLIANT by veraPDF (v0.8.0)
+- [x] Tier C first milestone — signature-preserving incremental updates for `add_annotation`, verified by pdf-verify-mcp against a real CMS signature (v0.9.0)
+- [ ] Tier C continued — incremental updates for tagged PDFs and more tools, `ensure_tagged`, `edit_text`
 - [ ] Publish-pipeline skill (write → read back with pdf-reader → gate with pdf-verify)
 - [ ] Images with alt text (`Figure` + `/Alt`)
 - [ ] Automatic face extraction from `.ttc`

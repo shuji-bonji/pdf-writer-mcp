@@ -141,7 +141,9 @@ export const tools: ToolDefinition[] = [
     title: 'Add Annotation',
     description:
       'ページに注釈を 1 つ追加する。付箋(text) / ハイライト(highlight) / 矩形(square) に対応。' +
-      '座標は PDF 座標系(左下原点・pt)で指定する。',
+      '座標は PDF 座標系(左下原点・pt)で指定する。' +
+      '署名済み PDF には preserveSignatures: true で、既存署名を無効化せず増分更新で追加できる' +
+      '(タグ無し文書のみ)。',
     shape: addAnnotationShape,
     annotations: { ...base, idempotentHint: false },
   },

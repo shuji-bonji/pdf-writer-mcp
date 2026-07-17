@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 19 ファイル（240 ケース）・typecheck / biome OK。**v0.8.0**（2026-07-17。`tag_form_fields` 追加、タグ付き×標準フォントの警告） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 20 ファイル（249 ケース）・typecheck / biome OK。**v0.9.0**（2026-07-17。Tier C 着手: 署名保持の増分更新 = ADR-11） |
 
 ## 現状サマリ
 
@@ -88,8 +88,20 @@
         create 系に警告を追加（フォント埋め込みが PDF/UA の必要条件）
 
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）
-- [ ] **B-7. Tier C** — `edit_text` / `ensure_tagged` / `incremental_save`（署名保持）。pdf-engine-core と合流。
-      **着手前に署名付与の所在（pdf-signature-mcp 別出し案。specs/05 §7-3）を決着させること**
+- [ ] **B-7. Tier C**（**着手済み** v0.9.0〜）— pdf-engine-core と合流。
+      技術的ハードルの整理は [Issue #2](https://github.com/shuji-bonji/pdf-writer-mcp/issues/2)。
+      決着（2026-07-17）: **署名付与は別 MCP（pdf-signature-mcp）に決定**（specs/05 §7-3）。
+      エンジン言語は **TS（writer 内 PoC）で確立**（ADR-11）。
+  - [x] **B-7a. 増分更新 PoC = 署名保持の注釈追加**（v0.9.0・2026-07-17）—
+        `add_annotation` に `preserveSignatures`。`services/incremental.ts`（読み = pdf-lib /
+        追記 = 自前。xref テーブル・ストリーム両対応）。Issue #2 のマイルストーンを実測達成:
+        実署名（CMS）PDF への追加後、verify_signatures = **VALID**・verify_integrity =
+        **合法な増分更新 1 件**・qpdf --check クリーン。
+        副産物: pdf-lib が容器ストリームを登録しない採番落とし穴を発見（CLAUDE.md 落とし穴 7）
+  - [ ] **B-7b. 増分更新の展開** — タグ付き文書対応（構造木の差分追記 = dirty 追跡の一般化）、
+        set_metadata / add_bookmarks 等の他ツールへの `preserveSignatures` 展開
+  - [ ] **B-7c. `ensure_tagged`**（タグ木の生成・修復）— struct-append / tag_form_fields の一般化
+  - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
       ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
 
@@ -113,10 +125,12 @@
     ネイティブ規則の妥当性が裏付けられた。同時に native では届かない 4 項目も判明（B-1 の表の太字）
 - [ ] **M-2. reader の `validate_tagged` / `validate_metadata` の deprecation 予告** — verify へ移管済みのため description で誘導 → 次メジャーで削除
 - [x] **M-6. specs/05 に Tier 0（create 系）を追記**（2026-07-17）— 実装済み MVP を上位仕様の Tier 体系に位置づけた。DESIGN.md §1.2 / §12 も Tier 対応表に改訂済み
-- [ ] **M-7. 出力パイプライン Skill（pdf-publish）の実装** — trust skill（受入監査）の対になる
-      「write → reader 読み戻し → verify 品質ゲート」の編成 Skill。仕様は
-      `Document-Note/mcps/PDFfamily/specs/07-pdf-publish-skill.md`（2026-07-17 起草）。
-      前提: E-2（構造化エラー）があると分岐が堅牢になるが、初版は無くても開始可能
+- [x] **M-7. 出力パイプライン Skill（pdf-publish）の実装**（2026-07-17）—
+      `skills/pdf-publish-skill`（SKILL.md + references 3 本 + plugin.json）として実装。
+      品質ゲート水準 3 段階（none / readback / conformance）、writer 構造化エラーのコード分岐、
+      違反 clause → writer 操作の修正対応表、Publish Report + opt-in JSONL 実行ログ。
+      実 MCP でドライラン済み（veraPDF 106/106 COMPLIANT）。仕様: specs/07 v0.2。
+      副産物: reader `inspect_fonts` の Type0 埋め込み誤報告を発見（reader 側 docs に記録）
 
 ## E. コード衛生・family 整合（2026-07-17 追加。詳細は PDFfamily `specs/06-family-implementation-standards.md`）
 

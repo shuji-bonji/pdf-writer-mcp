@@ -52,6 +52,32 @@ export async function saveEdited(
   return result;
 }
 
+/**
+ * 事前に組み立て済みのバイト列（増分更新など doc.save() を通せないもの）の
+ * 保存・base64 化。saveEdited と同じ出力規約に従う。
+ */
+export async function saveRawBytes(
+  bytes: Uint8Array,
+  pageCount: number,
+  opts: CommonEditOptions,
+): Promise<EditResult> {
+  const result: EditResult = { pageCount, bytes: bytes.length };
+
+  if (opts.outputPath) {
+    const abs = resolve(opts.outputPath);
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, bytes);
+    result.path = abs;
+    logger.info('Output', `Saved PDF: ${abs} (${bytes.length} bytes, ${pageCount} pages)`);
+  }
+
+  if (opts.returnBase64 || !opts.outputPath) {
+    result.base64 = Buffer.from(bytes).toString('base64');
+  }
+
+  return result;
+}
+
 export async function finalizePdf(
   doc: PDFDocument,
   opts: CommonCreateOptions,

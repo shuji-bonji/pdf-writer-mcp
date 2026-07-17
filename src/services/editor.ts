@@ -18,7 +18,8 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFRef } from 'pdf-lib';
+import { outputDate } from '../config.js';
 import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
@@ -53,8 +54,9 @@ import {
   refreshAppearances,
   tagWidgets,
 } from './form.js';
+import { buildIncrementalUpdate, reserveExistingObjectNumbers } from './incremental.js';
 import { countBookmarks, setBookmarks } from './outline.js';
-import { saveEdited } from './output.js';
+import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
 import { assertRenderable } from './renderers/text.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
@@ -76,8 +78,8 @@ export function containsSignature(bytes: Uint8Array): boolean {
 /** PDF を読み込み、署名ガード・サイズ上限を通す（page-ops.ts と共用） */
 export async function loadForEdit(
   filePath: string,
-  opts: CommonEditOptions,
-): Promise<{ doc: PDFDocument; absPath: string }> {
+  opts: CommonEditOptions & { preserveSignatures?: boolean },
+): Promise<{ doc: PDFDocument; absPath: string; bytes: Uint8Array }> {
   const absPath = resolve(filePath);
   let bytes: Uint8Array;
   try {
@@ -97,13 +99,15 @@ export async function loadForEdit(
     );
   }
 
-  if (containsSignature(bytes) && !opts.allowBreakingSignatures) {
+  if (containsSignature(bytes) && !opts.allowBreakingSignatures && !opts.preserveSignatures) {
     throw new PdfWriterError(
       `"${absPath}" appears to be digitally signed (/ByteRange found). ` +
-        'Editing will invalidate existing signatures because pdf-lib rewrites the whole file. ' +
-        '(Signature-preserving incremental update is a future Tier C feature.)',
+        'Editing will invalidate existing signatures because pdf-lib rewrites the whole file.',
       'SIGNED_PDF',
-      { retryable: true, next_actions: [NEXT_ACTIONS.allowBreakingSignatures()] },
+      {
+        retryable: true,
+        next_actions: [NEXT_ACTIONS.preserveSignatures(), NEXT_ACTIONS.allowBreakingSignatures()],
+      },
     );
   }
 
@@ -122,7 +126,7 @@ export async function loadForEdit(
         : {},
     );
   }
-  return { doc, absPath };
+  return { doc, absPath, bytes };
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +155,55 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
 }
 
 export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+
+  // --- 署名保持モード（Tier C・ADR-11）: 元バイト列に触れず増分更新で追記する ---
+  if (args.preserveSignatures) {
+    if (isTagged(doc)) {
+      throw new PdfWriterError(
+        'preserveSignatures on a tagged PDF is not supported yet: nesting the annotation in ' +
+          'an Annot structure element (PDF/UA 7.18.1-1) rewrites existing structure objects ' +
+          'that the incremental writer does not track in this first milestone.',
+        'UNSUPPORTED_PDF_FEATURE',
+        {
+          hint:
+            'Tagged + signature-preserving annotation is a later Tier C milestone. ' +
+            'If invalidating the signature is acceptable, retry with "allowBreakingSignatures": true.',
+        },
+      );
+    }
+
+    // 容器ストリーム等の「登録されない番号」との衝突を防いでから採番を始める
+    reserveExistingObjectNumbers(doc, bytes);
+    const since = doc.context.largestObjectNumber;
+    const added = addAnnotationDict(doc, args);
+
+    // 再定義が必要な既存オブジェクトを特定する:
+    //   /Annots が間接配列 → その配列オブジェクトだけを再定義（ページ辞書は元のまま）
+    //   /Annots が直接配列 or 新設 → ページオブジェクトを再定義
+    const annotsRaw = added.page.node.get(PDFName.of('Annots'));
+    const dirtyRefs: PDFRef[] = [annotsRaw instanceof PDFRef ? annotsRaw : added.page.ref];
+
+    // ModificationDate の更新も増分に含める（Info が既存なら再定義、無ければ新規扱い）
+    doc.setModificationDate(outputDate());
+    const info = doc.context.trailerInfo.Info;
+    if (info instanceof PDFRef && info.objectNumber <= since) dirtyRefs.push(info);
+
+    const update = buildIncrementalUpdate({
+      original: bytes,
+      doc,
+      dirtyRefs,
+      sinceObjectNumber: since,
+    });
+    logger.info(
+      'Editor',
+      `Added annotation via incremental update (${update.objectsWritten} object(s), ` +
+        `${update.xrefStyle} xref, +${update.bytes.length - bytes.length} bytes); signatures preserved`,
+    );
+    const saved = await saveRawBytes(update.bytes, doc.getPageCount(), args);
+    return { ...saved, incremental: true };
+  }
+
   const added = addAnnotationDict(doc, args);
 
   // タグ付き PDF なら構造木にも結び付ける（PDF/UA 7.18.1-1 / 7.18.3-1）。

@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-07-17
+
+First Tier C milestone: **signature-preserving incremental updates** (ADR-11).
+
+### Added
+
+- **`add_annotation` `preserveSignatures: true`** — add an annotation to a
+  digitally signed PDF **without invalidating its signatures**. Instead of
+  pdf-lib's full-file rewrite, the new `services/incremental.ts` appends an
+  ISO 32000-1 §7.5.6 incremental update: the original bytes are byte-for-byte
+  untouched (so every signature's `/ByteRange` still verifies), and only the
+  new/changed objects plus a cross-reference section are appended.
+
+  - Follows the original file's xref style — classic table *and*
+    cross-reference stream (PDF 1.5+) are both supported; mixing styles in
+    one file is a spec violation.
+  - Objects are serialised with pdf-lib's own `copyBytesInto` (no hand-rolled
+    tokenizer); offsets are exact by construction (`original length +
+    relative position`).
+  - Minimal diff: when `/Annots` is an indirect array only that array is
+    redefined, leaving the page object untouched.
+  - Tagged PDFs are rejected (`UNSUPPORTED_PDF_FEATURE`) for now — nesting
+    the annotation into the structure tree rewrites structure objects this
+    first milestone does not track.
+  - The `SIGNED_PDF` guard error now suggests `retry_with_preserveSignatures`
+    ahead of `allowBreakingSignatures`.
+  - Results carry `incremental: true`.
+
+  **Measured acceptance** (Issue #2's milestone): a really-signed PDF
+  (CMS/ETSI.CAdES.detached) annotated with `preserveSignatures` still
+  verifies — pdf-verify-mcp reports `verify_signatures: VALID` (digest
+  match, cryptographically verified) and `verify_integrity: 2 revisions,
+  1 legal incremental update`. `qpdf --check` is clean for both xref styles.
+
+### Fixed (during development, never released broken)
+
+- Incremental object numbering could collide with object-stream containers:
+  pdf-lib does not register the container stream / old xref stream as
+  indirect objects, so `largestObjectNumber` under-reports on
+  `useObjectStreams` files and a new annotation would reuse the container's
+  number (qpdf: "supposed object stream N is not a stream"). Fixed by
+  `reserveExistingObjectNumbers()`, which reads the active trailer's `/Size`
+  before allocating. Pinned by a regression test.
+
 ## [0.8.0] - 2026-07-17
 
 ### Added

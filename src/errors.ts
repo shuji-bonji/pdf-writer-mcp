@@ -97,6 +97,13 @@ export function toStructuredError(error: unknown): WriterServiceError {
 
 /** よく使う next_actions のプリセット（writer のガード解除フラグ群） */
 export const NEXT_ACTIONS = {
+  preserveSignatures: (): NextAction => ({
+    action: 'retry_with_preserveSignatures',
+    reason:
+      '署名を保持したまま、増分更新（元バイト列に触れない末尾追記）で編集できます。' +
+      '現在は add_annotation のみ・タグ無し文書のみ対応。"preserveSignatures": true を足して再試行してください',
+    example: { preserveSignatures: true },
+  }),
   allowBreakingSignatures: (): NextAction => ({
     action: 'retry_with_allowBreakingSignatures',
     reason:

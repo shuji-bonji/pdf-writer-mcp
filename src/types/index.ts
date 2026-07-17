@@ -196,6 +196,11 @@ export interface AddAnnotationArgs extends CommonEditOptions {
    * その要素の /Alt になる。タグ無し文書では無視される。
    */
   alt?: string;
+  /**
+   * 署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で追加する。
+   * 既定 false。タグ付き PDF では未対応（Tier C の後続マイルストーン）。
+   */
+  preserveSignatures?: boolean;
 }
 
 /** スタンプの配置（ページの回転を考慮した「見た目の」位置） */
@@ -372,6 +377,8 @@ export interface EditResult {
   bytes: number;
   /** 注意すべき事象の報告（タグ付き PDF への注釈で alt 未指定、等） */
   warnings?: string[];
+  /** 増分更新（末尾追記）で保存したか。true なら既存署名は保持されている */
+  incremental?: boolean;
 }
 
 /**

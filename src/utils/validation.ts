@@ -277,6 +277,14 @@ export const addAnnotationShape = {
     .optional()
     .describe('text のアイコン。既定 Note。'),
   open: z.boolean().optional().describe('text を開いた状態にするか。既定 false。'),
+  preserveSignatures: z
+    .boolean()
+    .optional()
+    .describe(
+      '署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で注釈を追加する。' +
+        '既定 false。元のバイト列には一切触れないため /ByteRange が保たれる。' +
+        'タグ付き PDF では未対応（構造木への内包が既存オブジェクトの書き換えを要するため）。',
+    ),
   ...commonEditShape,
 } as const;
 
