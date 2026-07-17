@@ -17,7 +17,7 @@
  *   元データなら Source を指定する（§6.8）。
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { basename, extname, resolve } from 'node:path';
 import {
   AFRelationship,
@@ -27,7 +27,7 @@ import {
   PDFName,
   type PDFObject,
 } from 'pdf-lib';
-import { outputDate } from '../config.js';
+import { ENV_KEYS, outputDate } from '../config.js';
 import { LIMITS } from '../constants.js';
 import type { AttachmentRelationship } from '../types/index.js';
 
@@ -148,6 +148,41 @@ export interface AttachedFile {
 }
 
 /**
+ * 添付の /Params に入れる日時を決める（SPEC-AUDIT Phase 3）。
+ *
+ * ISO 32000-2 Table 45 は **埋め込まれたファイル自身**の日時を求めている:
+ *   - `ModDate`（AF では**必須**）: "The date and time when the embedded file was last modified"
+ *   - `CreationDate`: "The date and time when the embedded file was created"
+ * §14.13.2（R-14.13.2-2・shall）はさらに明示的で、「ModDate の値は**ソースファイルの
+ * 最終更新日時**でなければならない」と言う。
+ *
+ * v0.12.0 まで両方に `outputDate()`（＝ PDF の生成時刻）を焼き込んでいた。これは
+ * 「この CSV は PDF を作った瞬間に作られ更新された」という**嘘**であり、電帳法・PDF/A-3 の
+ * 文脈では添付データの更新日時そのものが証跡になるため実害がある。
+ *
+ * **E-6（決定論）との緊張**: ソースの mtime を使うと、同じ内容でも checkout のたびに
+ * バイト列が変わる（git は mtime を保存しない）。`SOURCE_DATE_EPOCH` は
+ * 「再現性を正確さより優先する」という**明示的な opt-in** なので、設定時は固定値で上書きする。
+ * reproducible-builds.org の慣習は min(mtime, epoch) の clamp だが、それだと
+ * mtime < epoch のとき出力が checkout 依存のままになり、本サーバが約束している
+ * 「同一入力 → 同一バイト列」（config.ts の SOURCE_DATE_EPOCH の記述）を守れない。
+ */
+async function attachmentDates(
+  absPath: string,
+): Promise<{ creationDate: Date; modificationDate: Date }> {
+  if (process.env[ENV_KEYS.SOURCE_DATE_EPOCH]) {
+    // 決定論モード: 正確さより再現性（呼び出し側が明示的に選んでいる）
+    const fixed = outputDate();
+    return { creationDate: fixed, modificationDate: fixed };
+  }
+  const stats = await stat(absPath);
+  // birthtime はファイルシステムによっては 0 や mtime を返す。信用できないときは mtime で代用
+  const birth = stats.birthtime;
+  const usableBirth = birth instanceof Date && birth.getTime() > 0 ? birth : stats.mtime;
+  return { creationDate: usableBirth, modificationDate: stats.mtime };
+}
+
+/**
  * ファイルを PDF に埋め込む。
  * 同名の添付が既にある場合はエラー（名前ツリーのキーは一意であるべき）。
  */
@@ -182,13 +217,14 @@ export async function attachFile(
   const mimeType = options.mimeType ?? guessMimeType(name);
   const relationship = options.relationship ?? 'Unspecified';
 
-  // SOURCE_DATE_EPOCH（E-6）に従う（v0.9.1 まで new Date() 直書きで決定論性が漏れていた）
-  const stat = { creationDate: outputDate(), modificationDate: outputDate() };
+  // Table 45 / §14.13.2: /Params の日時は「埋め込むファイル自身」のもの（SPEC-AUDIT Phase 3）。
+  // SOURCE_DATE_EPOCH 設定時のみ固定値で上書きする（E-6・attachmentDates のコメント参照）
+  const dates = await attachmentDates(abs);
   await doc.attach(bytes, name, {
     mimeType,
     description: options.description,
     afRelationship: toAFRelationship(relationship),
-    ...stat,
+    ...dates,
   });
 
   // §7.9.6: 名前ツリーのキーは辞書順でなければならない（shall）。

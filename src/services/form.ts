@@ -299,8 +299,109 @@ export function cleanUpAfterFlatten(doc: PDFDocument): number {
  * pdf-lib は dirty なフィールドのみ再生成するため、触っていないフィールドの
  * 既存外観（＝元のフォント）はそのまま残る。
  */
-export function refreshAppearances(form: PDFForm, font: PDFFont): void {
+export function refreshAppearances(form: PDFForm, font: PDFFont): { unresolvedDaFonts: string[] } {
   form.updateFieldAppearances(font);
+  return ensureDefaultResources(form, font);
+}
+
+/** /DA の `… /<name> <size> Tf` からフォント名を取り出す */
+function daFontName(da: string | undefined): string | null {
+  const m = da ? /\/([^\s/]+)\s+[\d.]+\s+Tf/.exec(da) : null;
+  return m ? m[1] : null;
+}
+
+/** 可変テキストを含むフィールドか（Tx / Ch）。/DA と /DR の要件はこれらにだけ働く */
+function isVariableTextField(field: PDFField): boolean {
+  return (
+    field instanceof PDFTextField || field instanceof PDFDropdown || field instanceof PDFOptionList
+  );
+}
+
+/**
+ * フィールドの Widget の外観ストリームの `/Resources /Font` から、指定名のフォント参照を探す。
+ * 見つかればそれを `/DR` へ写せる（**同じオブジェクトを指すので見た目は一切変わらない**）。
+ */
+function findFontRefInWidgets(field: PDFField, name: string): PDFRef | null {
+  const key = PDFName.of(name);
+  for (const widget of field.acroField.getWidgets()) {
+    const ap = widget.dict.lookup(PDFName.of('AP'));
+    if (!(ap instanceof PDFDict)) continue;
+    const normal = widget.dict.context.lookup(ap.get(PDFName.of('N')));
+    if (!(normal instanceof PDFStream)) continue;
+    const resources = normal.dict.lookup(PDFName.of('Resources'));
+    if (!(resources instanceof PDFDict)) continue;
+    const fonts = resources.lookup(PDFName.of('Font'));
+    if (!(fonts instanceof PDFDict)) continue;
+    const ref = fonts.get(key);
+    if (ref instanceof PDFRef) return ref;
+  }
+  return null;
+}
+
+/**
+ * AcroForm の `/DR /Font` を、可変テキストの `/DA` が参照する全フォントで満たす（SPEC-AUDIT Phase 3）。
+ *
+ * `updateFieldAppearances(font)` は各フィールドの `/DA` を
+ * `(0 0 0 rg /NotoSansJP-Regular 18 Tf)` のように書くが、pdf-lib は **`/DR` を作らない**
+ * （実測: AcroForm が `<< /Fields [7 0 R] >>` だけになる）。
+ *
+ * ISO 32000-2:
+ *   - Table 224 `DR`: 「フォームフィールドの外観ストリームが使う既定リソース。
+ *     **最低限 Font エントリを含まなければならない**」
+ *   - **R-12.7.4.3-7（shall）**: 「`/DA` が指定するフォント値は、`/DR` から参照される
+ *     既定リソース辞書の Font エントリのリソース名と**一致しなければならない**」
+ *   → `/DR` が無ければ一致しようがなく、この shall は充足不可能になる。
+ *
+ * **実害**（落とし穴 0-a のビューア版）: 外観ストリーム自体は自前で作ってあるので普通に開く分には
+ * 描画される。しかしビューアが値の変更などで**外観を再生成**すると、`/DA` のフォント名を
+ * `/DR` から解決できず既定フォント（Helvetica）に落ち、**日本語が豆腐になる**。
+ *
+ * 自分が埋め込んだフォントを入れるだけでは足りない。`updateFieldAppearances` は
+ * **dirty なフィールドしか更新しない**ため、writer が触っていないフィールドは入力時代の
+ * `/DA`（例: `/Helvetica`）を保つ。それらの参照先は **Widget の外観ストリームの
+ * `/Resources /Font` に既にある**ので、そこから `/DR` へ**同じ参照を写す**
+ * （新たに埋め込まないので見た目は変わらない）。
+ *
+ * R-12.7.4.3-13 に従い、同名のリソースが既にあれば**残す**（上書きしない）。
+ * 解決できなかった名前は呼び出し側が warnings で報告する — 入力が既に壊れているケースであり、
+ * writer が黙って直せるものではない（「壊れているなら明示する」）。
+ */
+function ensureDefaultResources(form: PDFForm, font: PDFFont): { unresolvedDaFonts: string[] } {
+  const acro = form.acroForm.dict;
+  const context = acro.context;
+
+  let dr = acro.lookup(PDFName.of('DR'));
+  if (!(dr instanceof PDFDict)) {
+    dr = context.obj({}) as PDFDict;
+    acro.set(PDFName.of('DR'), dr);
+  }
+  let fonts = (dr as PDFDict).lookup(PDFName.of('Font'));
+  if (!(fonts instanceof PDFDict)) {
+    fonts = context.obj({}) as PDFDict;
+    (dr as PDFDict).set(PDFName.of('Font'), fonts);
+  }
+  const drFonts = fonts as PDFDict;
+
+  /** 既存の同名リソースは残す（R-12.7.4.3-13） */
+  const register = (name: string, ref: PDFRef): void => {
+    const key = PDFName.of(name);
+    if (drFonts.get(key) === undefined) drFonts.set(key, ref);
+  };
+
+  // 1. 自分が外観生成に使ったフォント
+  register(font.name, font.ref);
+
+  // 2. writer が触っていないフィールドが引き継いだ /DA のフォント
+  const unresolvedDaFonts: string[] = [];
+  for (const field of form.getFields()) {
+    if (!isVariableTextField(field)) continue;
+    const name = daFontName(field.acroField.getDefaultAppearance());
+    if (!name || drFonts.get(PDFName.of(name)) !== undefined) continue;
+    const ref = findFontRefInWidgets(field, name);
+    if (ref) register(name, ref);
+    else if (!unresolvedDaFonts.includes(name)) unresolvedDaFonts.push(name);
+  }
+  return { unresolvedDaFonts };
 }
 
 // ---------------------------------------------------------------------------

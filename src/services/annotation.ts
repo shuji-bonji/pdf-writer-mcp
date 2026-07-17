@@ -37,6 +37,24 @@ import {
 import { outputDate } from '../config.js';
 import type { AddAnnotationArgs, AnnotationRect } from '../types/index.js';
 
+/**
+ * 注釈のテキストの段落区切りを CR（0Dh）に正規化する。
+ *
+ * ISO 32000-2 §12.5.6.2（R-12.5.6.2-7・shall）:
+ *   「段落を区切るときは CARRIAGE RETURN (0Dh) を使わなければならず、
+ *     例えば LINE FEED (0Ah) を使ってはならない」
+ *
+ * MCP の引数は JSON なので、利用者が書くのはまず `\n`（LF）である。そのまま
+ * `/Contents` に入れると shall 違反になり、かつ popup で改行として扱わない
+ * ビューアが出る。CRLF は CR 1 つに畳む（CR+LF を 2 段落と数えさせない）。
+ *
+ * SPEC-AUDIT Phase 2 で発見。veraPDF の PDF/UA 規則には現れない領域
+ * （文字列の中身までは見ない）ため、条文照合でしか見つからない。
+ */
+export function normalizeAnnotationText(text: string): string {
+  return text.replace(/\r\n|\n|\r/g, '\r');
+}
+
 /** #rrggbb / #rgb を pdf-lib の RGB へ */
 export function parseHexColor(hex: string): RGB {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
@@ -79,8 +97,11 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
   dict.set(PDFName.of('Type'), PDFName.of('Annot'));
   dict.set(PDFName.of('Rect'), rect);
   dict.set(PDFName.of('P'), page.ref);
-  // /Contents は日本語対応のため UTF-16BE
-  dict.set(PDFName.of('Contents'), PDFHexString.fromText(args.contents ?? ''));
+  // /Contents は日本語対応のため UTF-16BE。段落区切りは CR（§12.5.6.2・shall）
+  dict.set(
+    PDFName.of('Contents'),
+    PDFHexString.fromText(normalizeAnnotationText(args.contents ?? '')),
+  );
   if (args.author) dict.set(PDFName.of('T'), PDFHexString.fromText(args.author));
   // SOURCE_DATE_EPOCH（E-6）に従う。書式は §7.9.4 の日付文字列
   dict.set(PDFName.of('M'), PDFString.fromDate(outputDate()));

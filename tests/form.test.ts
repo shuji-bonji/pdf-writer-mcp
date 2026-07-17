@@ -11,7 +11,18 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef, PDFStream, StandardFonts } from 'pdf-lib';
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFDropdown,
+  PDFName,
+  PDFOptionList,
+  PDFRef,
+  PDFStream,
+  PDFTextField,
+  StandardFonts,
+} from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { fillForm, flattenForm } from '../src/services/editor.js';
 import { listFields } from '../src/services/form.js';
@@ -445,6 +456,123 @@ describe('宙吊り参照の掃除（pdf-lib の flatten のバグ対策）', ()
 
     const doc = await PDFDocument.load(await readFile(output));
     expect(doc.catalog.get(PDFName.of('AcroForm'))).toBeDefined();
+  });
+});
+
+/**
+ * SPEC-AUDIT Phase 3。R-12.7.4.3-7（shall）:
+ *   「/DA が指定するフォント値は、/DR から参照される既定リソース辞書の Font エントリの
+ *     リソース名と一致しなければならない」
+ * Table 224 の /DR: 「最低限 Font エントリを含まなければならない」
+ *
+ * pdf-lib の updateFieldAppearances は /DA を書くが /DR を作らない（v0.12.0 まで実測で
+ * AcroForm が `<< /Fields [...] >>` だけだった）。外観は自前で作ってあるので普通に開く分には
+ * 描画されるが、ビューアが外観を**再生成**すると /DA のフォント名を解決できず
+ * Helvetica に落ち、日本語が豆腐になる（落とし穴 0-a のビューア版）。
+ */
+describe('§12.7.4.3: /DA のフォントは AcroForm /DR /Font から解決できる', () => {
+  /** AcroForm /DR /Font のリソース名一覧 */
+  function drFontNames(doc: PDFDocument): string[] {
+    const acro = doc.catalog.lookup(PDFName.of('AcroForm')) as PDFDict;
+    const dr = acro?.lookup(PDFName.of('DR'));
+    const fonts = dr instanceof PDFDict ? dr.lookup(PDFName.of('Font')) : undefined;
+    if (!(fonts instanceof PDFDict)) return [];
+    return fonts.entries().map(([k]) => k.decodeText());
+  }
+
+  /**
+   * **可変テキストを含むフィールド**（Tx / Ch）の /DA が参照するフォント名を集める。
+   *
+   * 対象を絞るのは条文の射程がそこだからで、手心ではない。§12.7.4.3 は "Variable text" の節、
+   * Table 228 は「可変テキストを含むフィールドの共通エントリ」であり、R-12.7.4.3-7 は
+   * 可変テキストの /DA について言っている。チェックボックス / ラジオ（Btn）は可変テキストでは
+   * ないため対象外 — pdf-lib はそこに `/dummy__noop 0 Tf` というプレースホルダを書くが
+   * （appearances.js: `font?.name ?? 'dummy__noop'`、チェック印は字形でなくベクタで描くため
+   * フォントを渡さない）、Btn に /DA を要求する条項は無く、解決先も要らない。
+   */
+  function variableTextDaFonts(doc: PDFDocument): string[] {
+    const names: string[] = [];
+    for (const field of doc.getForm().getFields()) {
+      const isVariableText =
+        field instanceof PDFTextField ||
+        field instanceof PDFDropdown ||
+        field instanceof PDFOptionList;
+      if (!isVariableText) continue;
+      const da = field.acroField.getDefaultAppearance(); // 継承も解決される
+      const m = da ? /\/([^\s/]+)\s+[\d.]+\s+Tf/.exec(da) : null;
+      if (m) names.push(m[1]);
+    }
+    return names;
+  }
+
+  it.skipIf(!FONT_PATH)('埋め込みフォントが /DR /Font に登録される', async () => {
+    const input = join(dir, 'dr-embedded.pdf');
+    await makeFormPdf(input);
+    const out = join(dir, 'dr-embedded-out.pdf');
+    await fillForm({
+      inputPath: input,
+      fields: { 'user.name': '山田太郎' },
+      fontPath: FONT_PATH,
+      outputPath: out,
+    });
+
+    const doc = await PDFDocument.load(await readFile(out), { updateMetadata: false });
+    const dr = drFontNames(doc);
+    const da = variableTextDaFonts(doc);
+
+    expect(da.length, 'variable-text fields must carry /DA').toBeGreaterThan(0);
+    expect(dr, 'AcroForm /DR /Font must not be empty').not.toHaveLength(0);
+    // 本丸: 可変テキストの /DA が参照するフォント名が /DR から解決できること
+    for (const name of da) {
+      expect(dr, `/DA references /${name}; it must resolve via /DR /Font`).toContain(name);
+    }
+  });
+
+  /**
+   * ここが実装の穴だった。`updateFieldAppearances` は **dirty なフィールドしか更新しない**ため、
+   * 記入していないフィールドは入力時代の /DA（例 /Helvetica）を保つ。自分が使ったフォントだけを
+   * /DR に載せても、そちらは解決できないままになる。
+   */
+  it.skipIf(!FONT_PATH)(
+    '記入していないフィールドの /DA フォントも /DR から解決できる',
+    async () => {
+      const input = join(dir, 'dr-untouched.pdf');
+      await makeFormPdf(input); // user.name(Tx) と plan(Ch) が Helvetica の /DA を持つ
+      const out = join(dir, 'dr-untouched-out.pdf');
+      // 記入するのは user.name だけ。plan は触らない
+      await fillForm({
+        inputPath: input,
+        fields: { 'user.name': '山田太郎' },
+        fontPath: FONT_PATH,
+        outputPath: out,
+      });
+
+      const doc = await PDFDocument.load(await readFile(out), { updateMetadata: false });
+      const dr = drFontNames(doc);
+      // 記入した側は埋め込みフォント、触っていない側は Helvetica を指したまま。両方解決できること
+      expect(dr).toContain('NotoSansJP-Regular');
+      expect(dr, 'the untouched field kept /Helvetica; /DR must still resolve it').toContain(
+        'Helvetica',
+      );
+      for (const name of variableTextDaFonts(doc)) {
+        expect(dr, `/DA references /${name}; it must resolve via /DR /Font`).toContain(name);
+      }
+    },
+  );
+
+  it('標準フォント経路でも /DA と /DR が整合する', async () => {
+    const input = join(dir, 'dr-standard.pdf');
+    await makeFormPdf(input);
+    const out = join(dir, 'dr-standard-out.pdf');
+    await fillForm({ inputPath: input, fields: { 'user.name': 'Taro' }, outputPath: out });
+
+    const doc = await PDFDocument.load(await readFile(out), { updateMetadata: false });
+    const dr = drFontNames(doc);
+    const da = variableTextDaFonts(doc);
+    expect(da.length).toBeGreaterThan(0);
+    for (const name of da) {
+      expect(dr, `/DA references /${name}; it must resolve via /DR /Font`).toContain(name);
+    }
   });
 });
 

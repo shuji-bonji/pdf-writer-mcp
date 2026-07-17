@@ -7,14 +7,19 @@
  *   3. §7.9.6: 名前ツリーのキーは辞書順でなければならない
  *   4. E-6 決定論: 注釈 /M と添付の日時は SOURCE_DATE_EPOCH に従う
  *
+ * Phase 2（新正典 pdf-spec 0.4.1 での再照合・2026-07-18）で追加:
+ *   5. §12.5.6.2（R-12.5.6.2-7）: 注釈テキストの段落区切りは CR(0Dh) であり
+ *      LF(0Ah) であってはならない（shall）
+ *
  * 詳細は docs/SPEC-AUDIT.md を参照。
  */
 
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, type PDFHexString, PDFName, PDFNumber } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { normalizeAnnotationText } from '../src/services/annotation.js';
 import { addAnnotation, addBookmarks, attachFileToPdf } from '../src/services/editor.js';
 import type { AddAnnotationArgs, EditResult } from '../src/types/index.js';
 
@@ -74,6 +79,45 @@ describe('Table 166: 注釈は /AP（通常外観）を持つ', () => {
     expect(bbox).toBeInstanceOf(PDFArray);
     expect((bbox as PDFArray).lookup(2, PDFNumber).asNumber()).toBe(100); // w
     expect((bbox as PDFArray).lookup(3, PDFNumber).asNumber()).toBe(40); // h
+  });
+});
+
+/**
+ * Phase 2 の新規発見。§12.5.6.2「When separating text into paragraphs, a CARRIAGE RETURN
+ * (0Dh) shall be used and not, for example, a LINE FEED character (0Ah).」
+ *
+ * MCP の引数は JSON なので利用者が書くのは `\n`。veraPDF の 106 規則は文字列の中身を
+ * 見ないため、この違反は条文照合でしか見つからなかった。
+ */
+describe('§12.5.6.2: 注釈テキストの段落区切りは CR(0Dh)（LF であってはならない）', () => {
+  it.each([
+    ['LF', 'line1\nline2', 'line1\rline2'],
+    ['CRLF', 'line1\r\nline2', 'line1\rline2'],
+    ['CR（既に正しい）', 'line1\rline2', 'line1\rline2'],
+    ['複数段落', 'a\n\nb', 'a\r\rb'],
+  ])('%s → CR に正規化する', (_label, input, expected) => {
+    expect(normalizeAnnotationText(input)).toBe(expected);
+  });
+
+  it('/Contents に 000A(LF) が現れない', async () => {
+    const input = join(dir, 'crlf.pdf');
+    await makePlainPdf(input);
+    const doc = await load(
+      (await addAnnotation({
+        inputPath: input,
+        page: 1,
+        type: 'text',
+        rect: { x1: 20, y1: 20, x2: 120, y2: 60 },
+        contents: '一行目\n二行目',
+      })) as EditResult,
+    );
+
+    const contents = firstAnnot(doc).lookup(PDFName.of('Contents'));
+    const hex = contents?.toString() ?? '';
+    expect(hex, 'LF(000A) must not survive into /Contents').not.toMatch(/000A/i);
+    expect(hex, 'the separator must be CR(000D)').toMatch(/000D/i);
+    // 日本語（UTF-16BE）が壊れていないことも確認する
+    expect((contents as PDFHexString).decodeText()).toBe('一行目\r二行目');
   });
 });
 

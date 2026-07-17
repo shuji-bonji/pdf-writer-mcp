@@ -565,8 +565,22 @@ async function prepareFormAppearances(
   for (const t of texts) assertRenderable(t, source);
   const applied = applyMissingGlyphPolicy(texts, source, 'error');
   const loaded = await embedFontFor(doc, source, applied.texts);
-  refreshAppearances(form, loaded.font);
-  return { warnings: applied.warnings };
+  const { unresolvedDaFonts } = refreshAppearances(form, loaded.font);
+
+  const warnings = [...applied.warnings];
+  if (unresolvedDaFonts.length > 0) {
+    // 入力が既に壊れているケース（§12.7.4.3 の /DA ↔ /DR 整合が元から取れていない）。
+    // writer は自分が使ったフォントと、Widget の外観から辿れるフォントは /DR に載せたが、
+    // 実体が見つからないものは黙って直せない
+    warnings.push(
+      `The /DA of ${unresolvedDaFonts.length} field(s) names a font that is not in the AcroForm ` +
+        `/DR resources and could not be found in their appearance streams either ` +
+        `(${unresolvedDaFonts.map((f) => `/${f}`).join(', ')}). This came in with the input. ` +
+        'ISO 32000-2 §12.7.4.3 requires the /DA font to resolve via /DR; if a viewer regenerates ' +
+        "those fields' appearances it will fall back to a default font.",
+    );
+  }
+  return { warnings };
 }
 
 export async function fillForm(args: FillFormArgs): Promise<FormResult> {

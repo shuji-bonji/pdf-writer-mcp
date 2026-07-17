@@ -52,6 +52,64 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Attachment `/Params` dates described the PDF, not the attached file (SPEC-AUDIT
+  Phase 3).** ISO 32000-2 Table 45 defines `ModDate` as *"the date and time when the
+  embedded file was last modified"* and makes it **required** for associated files;
+  §14.13.2 (R-14.13.2-2) is explicit that it *"shall be the latest modification date
+  of the source file"*. `attach_file` burned in the PDF generation time instead.
+  Measured: attaching a file whose mtime is 2020-03-04 produced
+  `/Params << /CreationDate (D:20260717212926Z) /ModDate (D:20260717212926Z) >>`.
+
+  This matters: under PDF/A-3 and Japanese e-bookkeeping rules the attachment's
+  modification date *is* evidence about the data. Every attachment carried the
+  claim "this CSV was last modified the instant the PDF was made".
+
+  Dates now come from `stat()` on the source file. `SOURCE_DATE_EPOCH` still
+  overrides them with the fixed value — it is an explicit opt-in to prefer
+  reproducibility over accuracy, and clamping (the reproducible-builds convention)
+  would leave the output dependent on checkout mtimes and break the
+  "same input → same bytes" guarantee this server documents.
+
+- **Form `/DA` referenced a font that `/DR` could not resolve (SPEC-AUDIT Phase 3).**
+  R-12.7.4.3-7 (shall): the font named in `/DA` *"shall match a resource name in the
+  Font entry of the default resource dictionary (referenced from the DR entry)"*, and
+  Table 224 says `/DR` *"shall contain a Font entry"*. pdf-lib's
+  `updateFieldAppearances` writes `/DA` but never creates `/DR`. Measured: a terminal
+  field carrying `/DA (0 0 0 rg /NotoSansJP-Regular 18 Tf)` while the AcroForm was
+  just `<< /Fields [7 0 R] >>` — nothing for the name to match, so the requirement
+  was unsatisfiable.
+
+  **Symptom this would cause**: the appearance streams are generated here, so the
+  document renders fine when merely opened. But when a *viewer* regenerates an
+  appearance (e.g. the user edits the field), it cannot resolve the font, falls back
+  to Helvetica, and Japanese text turns into tofu — the viewer-side twin of the
+  known pdf-lib pitfall.
+
+  `refreshAppearances` now registers the embedded font in `/DR /Font` under the same
+  resource name `/DA` uses, leaving any existing same-named resource intact
+  (R-12.7.4.3-13).
+
+  **Why it went unnoticed**: `form.test.ts` checked that values apply, extract and
+  keep tags intact, but never inspected the AcroForm dictionary itself. veraPDF is no
+  help either — PDF/UA does not require `/DR`, so the file validates as COMPLIANT.
+
+- **Annotation text used LF where the spec requires CR (SPEC-AUDIT Phase 2).**
+  ISO 32000-2 §12.5.6.2 (R-12.5.6.2-7): *"When separating text into paragraphs, a
+  CARRIAGE RETURN (0Dh) shall be used and not, for example, a LINE FEED character
+  (0Ah)."* MCP arguments arrive as JSON, so a caller naturally writes `\n`, and
+  `add_annotation` wrote that straight into `/Contents` as `000A` (measured:
+  `<FEFF…0031000A006C…>`). `normalizeAnnotationText()` now folds `\r\n`/`\n`/`\r`
+  into a single `\r`.
+
+  **Why it went unnoticed**: veraPDF's 106 PDF/UA rules do not inspect the *inside*
+  of text strings — they check dictionaries and presence. Nothing but reading the
+  clause would have found this.
+
+  Found by re-auditing against pdf-spec-mcp 0.4.1, whose `get_requirements` now
+  returns requirements sourced from tables (2,739 of them) — the previous canon
+  returned none, so this class of requirement had never been searched
+  systematically.
+
 - **`rotate_pages` was uncallable from some MCP clients (B-13).** Passing
   `rotation: 90` always failed with `invalid_union`, so the tool could not be used
   at all from Claude Desktop.

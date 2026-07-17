@@ -29,6 +29,17 @@
 >
 > **→ pdf-spec 0.4.1 以降で再照合する価値が高い**（`get_requirements` が `source: "table"` /
 > `table` / `key` 付きで表の要件を返すようになった）。焦点は「**旧正典に見えなかったもの**」。
+>
+> ### ✅ 再照合の結果（2026-07-18・下の「Phase 2 照合結果」に詳細）
+>
+> **警告は正しかったが、結論はほぼ無傷だった。**
+> - 欠けていた Table 166 の 4 行（`ca`/`CA`/`BM`/`Lang`）は**全て Optional / PDF 2.0** で影響なし
+> - Table 182 の QuadPoints は判断を変えず、**表現のみ**「事実上適合」→「既知の意図的逸脱」に訂正
+> - **`get_requirements` が表を走査しなかった件は当たり**だった — 表由来要件で走査して
+>   **新規の shall 違反を 1 件発見**（§12.5.6.2: 段落区切りが LF のまま）
+>
+> つまり「根拠が欠けていた」のは事実だが、**手で表を読んだ Phase 1 の判断は堅かった**。
+> 危うかったのは「**探していない領域**」の方だった。
 
 ## 方針
 
@@ -42,8 +53,8 @@
 |------|------|------|------|
 | add_annotation 共通エントリ（Subtype/Rect/Contents/M/F/C/P） | §12.5.2 Table 166 | 適合（M は §7.9.4 日付文字列、C は RGB 3 成分） | — |
 | **add_annotation /AP** | Table 166 AP | **違反（shall）** — 「writer は書き込み時に外観辞書を含めなければならない。例外は退化 Rect と Popup/Projection/Link のみ」。32000-1 では Optional だったため見逃していた（PDF/UA-1 = 32000-1 ベースの veraPDF では検出されない） | **v0.9.2 是正**: text（付箋アイコン）/ highlight（Multiply ブレンド）/ square（枠 + 塗り）の Form XObject を生成。veraPDF ua1 106/106 維持・poppler での描画を目視確認 |
-| add_annotation QuadPoints（highlight） | §12.5.6.10 Table 182 | **事実上適合** — 実装は業界慣行の Z 順（左上→右上→左下→右下）。ISO 本文は counterclockwise と書くが、全主要ビューアが Z 順を要求する業界公知の齟齬であり、相互運用上は Z 順が正 | 現状維持（注記のみ） |
-| text の /Name（アイコン名） | §12.5.6.4 Table 177 | 適合（標準 7 名のみ受け付け） | — |
+| add_annotation QuadPoints（highlight） | §12.5.6.10 Table 182 | ~~事実上適合~~ → **既知の意図的逸脱**（Phase 2 で表現を訂正）。実装は業界慣行の Z 順（左上→右上→左下→右下）。ISO は counterclockwise を **shall** で要求する（R-12.5.6.10-5。新正典で表由来要件として可視化）が、全主要ビューアが Z 順を要求する業界公知の齟齬であり、条文どおりに書くと**実際に表示が壊れる** | 現状維持（相互運用を優先した意図的逸脱であることを明示） |
+| text の /Name（アイコン名） | §12.5.6.4 **Table 175**（Phase 1 は「Table 177」と誤記。Phase 2 で訂正） | 適合（R-12.5.6.4-7 の標準 7 名 Comment/Key/Note/Help/NewParagraph/Paragraph/Insert のみ受け付け） | — |
 | **add_bookmarks /Count** | §12.3.3 Table 150/151 | **違反** — ①項目 /Count は「可視な子孫数」（閉じた枝の中身は数えない）べき所を全子孫数で計算 ②ルート /Count は「開いた項目が無ければ省略しなければならない」のに常時書き込み | **v0.9.2 是正**: Table 151 の再帰手続きどおり可視数を計算。開項目なしでルート /Count 省略 |
 | add_bookmarks 構造（Title/Parent/Prev/Next/First/Last/Dest） | §12.3.3 / §12.3.2.2 | 適合（間接参照・双方向リンク・XYZ null） | — |
 | **attach_file 名前ツリー** | §7.9.6 | **違反（shall）** — キーは辞書順であるべき所、pdf-lib の attach は挿入順（遅延埋め込みのため実体化前のソートは無効なことも実測） | **v0.9.2 是正**: `doc.flush()` で実体化後にキーをソート |
@@ -140,8 +151,99 @@ writer の `assertDocMdpAllows` は注釈・メタデータ・構造・描画の
 - **pdf-spec-mcp**: ページ跨ぎの表の行が抽出から欠落する（Table 182 の QuadPoints 行、p.507→508）。
   `docs/family-standards-alignment.md`（pdf-spec 側）に記録
 
-## 未実施（Phase 2 以降）
+## Phase 2 照合結果（新正典 pdf-spec 0.4.1 での再照合・2026-07-18）
+
+冒頭の警告への回答。**Phase 1 / 1.5 の結論は、1 件を除いて新正典でも維持された**。
+焦点は「旧正典に見えなかったもの」＝ `get_requirements` が返す `source: "table"` の要件。
+
+### 欠けていた行の答え合わせ（冒頭の表に対応）
+
+| 旧正典で欠けていたもの | 新正典で確認した結果 |
+|---|---|
+| **Table 166 が 16 行**（`ca` / `CA` / `BM` / `Lang` 欠落） | **19 行を全数確認 → 影響なし**。4 行とも Optional で、`BM` / `Lang` は PDF 2.0（writer は 1.7 出力）。`ca`/`CA` の shall（"The specified value shall not be used if the annotation has an appearance stream"）は**読み手への要求**。Phase 1 の結論は維持 |
+| **Table 182 の QuadPoints 行が丸ごと欠落** | 行を確認。counterclockwise は **R-12.5.6.10-5 の shall** として可視化された。判断は変えない（全ビューアが Z 順を要求し、条文どおりだと表示が壊れる）が、**「事実上適合」→「既知の意図的逸脱」と表現を訂正**（上の表） |
+| **`get_requirements` が表の shall を 1 件も返さない** | 表由来要件で走査した結果、**新たに 1 件の違反を発見**（下記 §12.5.6.2）。「系統的には探せていなかった」という懸念は当たっていた |
+
+### 🔴 新規発見: 注釈テキストの段落区切りが LF のまま（is-a shall 違反）
+
+| 対象 | 条項 | 判定 | 対応 |
+|------|------|------|------|
+| **add_annotation `/Contents`** | §12.5.6.2（**R-12.5.6.2-7**・shall） | **違反** — 「段落を区切るときは CARRIAGE RETURN (0Dh) を使わなければならず、例えば LINE FEED (0Ah) を使ってはならない」。MCP の引数は JSON なので利用者が書くのは `\n` であり、`PDFHexString.fromText` がそれを **000A のまま**書いていた（実測: `<FEFF...0031**000A**006C...>`） | **是正**: `normalizeAnnotationText()` で `\r\n` / `\n` / `\r` → `\r` に正規化（CRLF は CR 1 つに畳む）。`spec-audit.test.ts` で固定 |
+
+**なぜ veraPDF で見つからなかったか**: PDF/UA-1 の 106 規則は**文字列の中身までは見ない**。
+辞書構造と存在は見るが「/Contents の中の改行コード」は対象外。
+**条文照合でしか見つからない類**であり、SPEC-AUDIT の存在意義そのもの。
+
+### 実測で否定した仮説（＝対応不要）
+
+条文から「違反しているのでは」と疑い、実測して**シロだった**もの。記録して再調査を防ぐ。
+
+| 疑い | 条項 | 実測結果 |
+|---|---|---|
+| `extract_pages "1,1"` が同一ページへの複数参照を作る | **R-7.7.3.3-3**（shall not: "A page tree shall not contain multiple indirect references to the same page object"） | **適合**。pdf-lib の `copyPages(src, [0,0])` は**別オブジェクトを 2 つ作る**（`/Kids = [4 0 R, 5 0 R]`）。参照は共有されない |
+| highlight の Multiply を AP 内 ExtGState でやるのは誤りで、注釈の `/BM` を使うべき | §12.5.5（R-12.5.5-10 / -12） | **適合**。AP に `/Group` が無い → **非隔離グループ**として扱われ（R-12.5.5-10）、初期バックドロップにページ内容を継承するため、group 内の Multiply が下のテキストに効く。注釈の `/BM` は **PDF 2.0** であり 1.7 出力では使えない。ExtGState 方式が唯一かつ正しい手段（Phase 1 の pdftoppm 目視とも一致） |
+| writer が空の `/Contents` 配列を作る | **R-7.7.3.3-26**（shall not: "PDF writers shall not create a Contents array containing no elements"） | **適合**。`ensure_tagged` は BDC + EMC の 2 要素を必ず入れ、他は配列を新設しない |
+
+### 変更なしを確認したもの
+
+| 対象 | 条項 | 判定 |
+|---|---|---|
+| `add_bookmarks`（/Count 可視数・ルート省略・Parent/Prev/Next/First/Last） | §12.3.3 R-12.3.3-13 / -16 / -21 ほか表由来 18 件 | 適合（v0.9.2 の是正が新正典でも正しい） |
+| `rotate_pages` /Rotate | §7.7.3.3 **R-7.7.3.3-28**（"The value shall be a multiple of 90"） | 適合（mod 360 正規化・入力は 90/180/270 のみ） |
+| text 注釈の /Name | §12.5.6.4 R-12.5.6.4-7 | 適合（標準 7 名） |
+| square 注釈の /IC・inscribed 描画 | §12.5.6.8 R-12.5.6.8-3 / -6 | 適合（`rectangle(lw/2, lw/2, w-lw, h-lw)` で Rect 内に収まる・IC は 0.0〜1.0 の 3 成分） |
+| `/AP` の /N が単一ストリーム（/AS 不要） | Table 166 `AS`（"Required if the appearance dictionary AP contains one or more subdictionaries"） | 適合（subdictionary ではないので /AS は不要） |
+
+## Phase 3 照合結果（フォーム §12.7 / 添付 §7.11・§14.13・2026-07-18）
+
+Phase 2 で残した 2 領域。**新たに 2 件の shall 違反を発見・是正**。
+どちらも「pdf-lib が書いてくれる」と信じて**中身を見ていなかった**箇所だった。
+
+### 🔴 新規発見 1: 添付の `/Params` の日時が「PDF の生成時刻」だった
+
+| 対象 | 条項 | 判定 | 対応 |
+|------|------|------|------|
+| **attach_file `/Params`** | Table 45 + **R-14.13.2-2**（shall） | **違反** — Table 45 は `ModDate` を「**埋め込まれたファイル**が最後に変更された日時」と定義し（AF では**必須**）、§14.13.2 は「ModDate の値は**ソースファイルの最終更新日時**でなければならない」と明示する。writer は `outputDate()`（＝ PDF 生成時刻）を両方に焼き込んでいた。**実測**: mtime が `2020-03-04` のファイルを添付 → `/Params << /CreationDate (D:20260717212926Z) /ModDate (D:20260717212926Z) >>` | **是正**: `attachmentDates()` が `stat()` で mtime / birthtime を読む |
+
+**実害**: PDF/A-3・電帳法では**添付データの更新日時そのものが証跡**。「この CSV は PDF を
+作った瞬間に更新された」という嘘を全添付に書いていた。
+
+**E-6（決定論）との緊張と、その解き方**: ソースの mtime を使うと git checkout ごとに
+バイト列が変わる（git は mtime を保存しない）。`SOURCE_DATE_EPOCH` は
+**「再現性を正確さより優先する」という明示的な opt-in** なので、**設定時のみ固定値で上書き**する。
+reproducible-builds.org の慣習は `min(mtime, epoch)` の clamp だが、それだと `mtime < epoch` のとき
+出力が checkout 依存のままになり、config.ts が約束する「同一入力 → 同一バイト列」を守れない。
+
+### 🔴 新規発見 2: `/DA` が参照するフォントを `/DR` から解決できない
+
+| 対象 | 条項 | 判定 | 対応 |
+|------|------|------|------|
+| **fill_form / flatten_form の外観再生成** | **R-12.7.4.3-7**（shall）+ Table 224 `DR` | **違反** — 「`/DA` が指定するフォント値は `/DR` から参照される既定リソース辞書の Font エントリのリソース名と**一致しなければならない**」。Table 224 の `/DR` は「**最低限 Font エントリを含まなければならない**」。pdf-lib の `updateFieldAppearances` は `/DA` を書くが **`/DR` を作らない**。**実測**: 終端フィールド `/DA (0 0 0 rg /NotoSansJP-Regular 18 Tf)` に対し AcroForm は `<< /Fields [7 0 R] >>` のみ → 参照先が存在せず shall は**充足不可能** | **是正**: `ensureDefaultResources()` が `/DR /Font` に埋め込みフォントを登録（同名は残す＝R-12.7.4.3-13） |
+
+**実害（落とし穴 0-a のビューア版）**: 外観ストリームは自前で作ってあるので普通に開く分には
+描画される。しかし**ビューアが外観を再生成**すると `/DA` のフォント名を解決できず既定フォント
+（Helvetica）に落ち、**日本語が豆腐になる**。CLAUDE.md 落とし穴 0-a は「pdf-lib に再生成させるな」
+だったが、**再生成の主体はビューアでもありうる**という抜けだった。
+
+**なぜ検知できなかったか**: `form.test.ts` は「値が入るか」「抽出できるか」「タグ付きが壊れないか」を
+見ていたが、**AcroForm 辞書そのものを一度も検査していなかった**。veraPDF ua1 も COMPLIANT を返す
+（PDF/UA は /DR を要求しない）。
+
+### 変更なしを確認したもの（Phase 3）
+
+| 対象 | 条項 | 判定 |
+|---|---|---|
+| 添付 `/Subtype` の MIME | **R-7.11.4.1-11**（"characters not permitted in names shall use the 2-character hexadecimal code format"） | 適合。**実測**: `text/csv` → `/text#2Fcsv` と `/` が `#2F` にエスケープされている（pdf-lib の `PDFName` が処理） |
+| 添付の MIME 既定 | **R-14.13.2-4**（"If the MIME type is not known, the value \"application/octet-stream\" shall be used"） | 適合（`DEFAULT_MIME`） |
+| 添付 `/Params` の存在 | **R-7.11.4.1-12**（AF では必須） | 適合（pdf-lib が書く。中身の日時は上記のとおり是正） |
+| フィールド `/TU` | R-12.7.4.1-12 | 適合（`tag_form_fields` が人間可読名を入れる） |
+| `NeedAppearances` | Table 224（"A PDF writer shall include this key, with a value of true, if it has not provided appearance streams for all visible widget annotations"） | 適合 — writer は**全 Widget の外観を必ず自前生成する**ので、この key を書く条件に当たらない。2.0 で deprecated でもある |
+| チェックボックス / ラジオの `/DA (… /dummy__noop 0 Tf)` | R-12.7.4.3-7 の**射程外** | 対応不要。pdf-lib はチェック印を**字形でなくベクタで描く**ためフォントを渡さず、`font?.name ?? 'dummy__noop'`（appearances.js）でプレースホルダを書く。解決先の無いフォント名だが、**§12.7.4.3 は "Variable text" の節**であり Table 228 も「可変テキストを含むフィールドの共通エントリ」。Btn は可変テキストではないので /DA を要求する条項が無く、解決先も要らない。**回帰テストの対象も Tx / Ch に限定している**（手心ではなく条文の射程） |
+
+## 未実施（Phase 4 以降）
 
 - reader の観測ロジック照合（§9 フォント = inspect_fonts バグ修正と同時に）
 - verify native 規則の条文再確認（低優先・veraPDF が権威）
 - create 系レイアウト（コンテンツストリーム演算子）— veraPDF 済みのため低優先
+- §12.7.5（フィールド種別ごとの表: Btn / Tx / Ch）の表由来要件 — Phase 3 は共通表と
+  可変テキストを優先したため未了

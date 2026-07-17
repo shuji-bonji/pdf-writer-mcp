@@ -76,6 +76,18 @@ PDF family（[reader](https://github.com/shuji-bonji/pdf-reader-mcp) = 何があ
 
 フォント埋め込みを先にやると、後から入れた値の字がサブセットに無く豆腐になる。
 
+### 0-a'. 外観を再生成するのは **ビューア** でもある（SPEC-AUDIT Phase 3・2026-07-18）
+
+0-a は「pdf-lib に再生成させるな」だったが、**抜けがあった**。
+`updateFieldAppearances(font)` は各フィールドの `/DA` に `/NotoSansJP-Regular 18 Tf` と書く一方、
+**pdf-lib は AcroForm の `/DR` を作らない**（実測: `<< /Fields [7 0 R] >>` だけ）。
+外観は自前で作ってあるので普通に開く分には描画される。だが**ビューアが外観を再生成すると**
+`/DA` のフォント名を `/DR` から解決できず Helvetica に落ち、**日本語が豆腐になる** — 0-a と同じ結末。
+
+R-12.7.4.3-7（shall）が「`/DA` のフォント名は `/DR` の Font のリソース名と一致すべし」と要求する。
+`form.ts` の `ensureDefaultResources` が `/DR /Font` に登録している。**弱めないこと**。
+`form.test.ts` の「/DA のフォントは /DR から解決できる」が回帰ガード。
+
 ### 0-b. pdf-lib の `flatten()` は宙吊り参照を残す（v0.6.0）
 
 `PDFForm.removeField` がページの `/Annots` から消しているのは **外観ストリームの参照**

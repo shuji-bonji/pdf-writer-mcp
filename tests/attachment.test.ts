@@ -6,7 +6,7 @@
  * 本サーバが足す部分（検証・MIME 推定・重複防止・警告）と併せて固定する。
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
@@ -192,6 +192,71 @@ describe('attach_file', () => {
     await expect(
       handleAttachFile({ inputPath: pdf, attachmentPath: csv, relationship: 'Related' }),
     ).rejects.toThrow(/relationship/);
+  });
+});
+
+/**
+ * SPEC-AUDIT Phase 3。ISO 32000-2 Table 45 の /Params は **埋め込まれたファイル自身**の
+ * 日時を求める（ModDate は AF では必須）。§14.13.2（R-14.13.2-2・shall）はさらに明示的で
+ * 「ModDate の値はソースファイルの最終更新日時でなければならない」。
+ *
+ * v0.12.0 まで PDF の生成時刻を焼き込んでいた（＝「この CSV は PDF を作った瞬間に
+ * 更新された」という嘘）。電帳法・PDF/A-3 では添付データの更新日時が証跡になる。
+ */
+describe('§14.13.2 / Table 45: /Params の日時はソースファイルのもの', () => {
+  /** /Params 辞書を取り出す */
+  function paramsOf(doc: PDFDocument): PDFDict {
+    const names = doc.catalog.lookup(PDFName.of('Names')) as PDFDict;
+    const ef = names.lookup(PDFName.of('EmbeddedFiles')) as PDFDict;
+    const arr = ef.lookup(PDFName.of('Names')) as PDFArray;
+    const spec = arr.lookup(1) as PDFDict;
+    const efDict = spec.lookup(PDFName.of('EF')) as PDFDict;
+    const stream = doc.context.lookup(efDict.get(PDFName.of('F'))) as PDFRawStream;
+    return stream.dict.lookup(PDFName.of('Params')) as PDFDict;
+  }
+
+  it('ModDate はソースの mtime であり、PDF の生成時刻ではない', async () => {
+    const input = await basePdf('params-moddate.pdf');
+    const payload = await attachmentFile('params-moddate.csv', 'a,b\n1,2\n');
+    // ソースの mtime を過去に固定する（生成時刻と紛れない値）
+    const when = new Date('2020-03-04T05:06:07Z');
+    await utimes(payload, when, when);
+
+    const result = (await handleAttachFile({
+      inputPath: input,
+      attachmentPath: payload,
+      relationship: 'Data',
+      returnBase64: true,
+    })) as AttachResult;
+
+    const params = paramsOf(await load(result));
+    const modDate = params.get(PDFName.of('ModDate'))?.toString() ?? '';
+    expect(modDate, 'ModDate must be the source file mtime').toMatch(/D:20200304050607/);
+    // 「生成時刻を焼き込む」退行の検知（今年の日付が入っていたら誤り）
+    const thisYear = String(new Date().getFullYear());
+    expect(modDate).not.toContain(`D:${thisYear}`);
+  });
+
+  it('SOURCE_DATE_EPOCH 設定時は再現性を優先して固定値で上書きする（E-6）', async () => {
+    const input = await basePdf('params-epoch.pdf');
+    const payload = await attachmentFile('params-epoch.csv', 'a,b\n1,2\n');
+    const when = new Date('2020-03-04T05:06:07Z');
+    await utimes(payload, when, when);
+
+    process.env.SOURCE_DATE_EPOCH = '1700000000'; // 2023-11-14T22:13:20Z
+    try {
+      const result = (await handleAttachFile({
+        inputPath: input,
+        attachmentPath: payload,
+        relationship: 'Data',
+        returnBase64: true,
+      })) as AttachResult;
+      const params = paramsOf(await load(result));
+      expect(params.get(PDFName.of('ModDate'))?.toString()).toMatch(/D:20231114221320/);
+      expect(params.get(PDFName.of('CreationDate'))?.toString()).toMatch(/D:20231114221320/);
+    } finally {
+      delete process.env.SOURCE_DATE_EPOCH;
+    }
   });
 });
 
