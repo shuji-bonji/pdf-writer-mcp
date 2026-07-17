@@ -9,16 +9,30 @@
  *   - 7.1(8) : /Metadata の /Type が /Metadata、/Subtype が /XML であること
  */
 
-import { PDFDict, type PDFDocument, PDFName, PDFRawStream, PDFString } from 'pdf-lib';
+import {
+  decodePDFRawStream,
+  PDFDict,
+  type PDFDocument,
+  PDFName,
+  PDFRawStream,
+  PDFRef,
+  PDFString,
+} from 'pdf-lib';
 import { outputDate, PACKAGE_INFO } from '../config.js';
 
 export interface XmpOptions {
   title?: string;
   author?: string;
+  /** dc:description（Info の Subject に対応） */
+  subject?: string;
+  /** pdf:Keywords（Info の Keywords に対応。空白区切りの 1 文字列） */
+  keywords?: string;
   /** PDF/UA 宣言を含める場合の part（1 | 2） */
   pdfuaPart?: number;
   /** dc:language */
   lang?: string;
+  /** xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻 */
+  createDate?: string;
 }
 
 /** XML の特殊文字をエスケープする（タイトル等に < & " が入りうる） */
@@ -92,6 +106,11 @@ export function buildXmpPacket(opts: XmpOptions): string {
       `      <dc:creator>\n        <rdf:Seq>\n          <rdf:li>${escapeXml(opts.author)}</rdf:li>\n        </rdf:Seq>\n      </dc:creator>`,
     );
   }
+  if (opts.subject) {
+    dc.push(
+      `      <dc:description>\n        <rdf:Alt>\n          <rdf:li xml:lang="x-default">${escapeXml(opts.subject)}</rdf:li>\n        </rdf:Alt>\n      </dc:description>`,
+    );
+  }
   if (opts.lang) {
     dc.push(
       `      <dc:language>\n        <rdf:Bag>\n          <rdf:li>${escapeXml(opts.lang)}</rdf:li>\n        </rdf:Bag>\n      </dc:language>`,
@@ -103,10 +122,18 @@ export function buildXmpPacket(opts: XmpOptions): string {
     );
   }
 
+  if (opts.keywords) {
+    parts.push(
+      `    <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n` +
+        `      <pdf:Keywords>${escapeXml(opts.keywords)}</pdf:Keywords>\n` +
+        `    </rdf:Description>`,
+    );
+  }
+
   parts.push(
     `    <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">\n` +
       `      <xmp:CreatorTool>${escapeXml(`${PACKAGE_INFO.name}/${PACKAGE_INFO.version}`)}</xmp:CreatorTool>\n` +
-      `      <xmp:CreateDate>${now}</xmp:CreateDate>\n` +
+      `      <xmp:CreateDate>${escapeXml(opts.createDate ?? now)}</xmp:CreateDate>\n` +
       `      <xmp:ModifyDate>${now}</xmp:ModifyDate>\n` +
       `    </rdf:Description>`,
   );
@@ -139,6 +166,89 @@ export function setXmpMetadata(doc: PDFDocument, opts: XmpOptions): void {
     bytes,
   );
   doc.catalog.set(PDFName.of('Metadata'), doc.context.register(stream));
+}
+
+export interface XmpSyncResult {
+  /** XMP を更新したか（/Metadata が無ければ false） */
+  updated: boolean;
+  /** 同一 ref に差し替えた場合の参照（増分更新の dirty 追跡用） */
+  ref?: PDFRef;
+  /** catalog 自体を書き換えたか（/Metadata が直接オブジェクトだった場合） */
+  catalogTouched: boolean;
+  warnings: string[];
+}
+
+/**
+ * B-9（SPEC-AUDIT Phase 1）: Info 辞書と XMP（/Metadata）の同期。
+ *
+ * §14.3.3 は Info を PDF 2.0 で非推奨とし、XMP を持つ文書では両者の不整合が
+ * dc:title 等の食い違い（スクリーンリーダ・アーカイブ検証の誤り）を生む。
+ * Info を更新した後に呼ぶと、Info の現在値で XMP を再生成する。
+ *
+ * 保持するもの: pdfuaid:part（PDF/UA 宣言）・dc:language・xmp:CreateDate。
+ * 既存 XMP からこれらを読み取り、新しいパケットへ引き継ぐ。
+ * 差し替えは**同一 ref への assign**で行い、catalog には触れない（増分更新に優しい）。
+ */
+export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
+  const none: XmpSyncResult = { updated: false, catalogTouched: false, warnings: [] };
+  const raw = doc.catalog.get(PDFName.of('Metadata'));
+  if (raw === undefined) return none;
+
+  // 既存 XMP の本文を取り出す（Filter 付きならデコード）
+  const resolved = doc.catalog.lookup(PDFName.of('Metadata'));
+  if (!(resolved instanceof PDFRawStream)) {
+    return {
+      ...none,
+      warnings: [
+        'The document has /Metadata but not in a readable form; XMP was left unchanged ' +
+          'and may now disagree with the Info dictionary.',
+      ],
+    };
+  }
+  let text: string;
+  try {
+    const bytes = resolved.dict.has(PDFName.of('Filter'))
+      ? decodePDFRawStream(resolved).decode()
+      : resolved.contents;
+    text = new TextDecoder().decode(bytes);
+  } catch {
+    return {
+      ...none,
+      warnings: [
+        'The existing XMP stream could not be decoded; it was left unchanged ' +
+          'and may now disagree with the Info dictionary.',
+      ],
+    };
+  }
+
+  // 引き継ぐべき既存の事実
+  const part = /<pdfuaid:part>\s*(\d+)\s*<\/pdfuaid:part>/.exec(text)?.[1];
+  const lang = /<dc:language>[\s\S]*?<rdf:li>([^<]*)<\/rdf:li>/.exec(text)?.[1];
+  const createDate = /<xmp:CreateDate>([^<]+)<\/xmp:CreateDate>/.exec(text)?.[1];
+
+  const packet = buildXmpPacket({
+    title: doc.getTitle(),
+    author: doc.getAuthor(),
+    subject: doc.getSubject(),
+    keywords: doc.getKeywords(),
+    pdfuaPart: part !== undefined ? Number(part) : undefined,
+    lang,
+    createDate,
+  });
+  const bytes = new TextEncoder().encode(packet);
+  const stream = PDFRawStream.of(
+    doc.context.obj({ Type: 'Metadata', Subtype: 'XML', Length: bytes.length }) as PDFDict,
+    bytes,
+  );
+
+  if (raw instanceof PDFRef) {
+    // 同一 ref を差し替え — catalog 不変・増分更新では this ref のみ dirty
+    doc.context.assign(raw, stream);
+    return { updated: true, ref: raw, catalogTouched: false, warnings: [] };
+  }
+  // /Metadata が直接オブジェクト（稀）— catalog を書き換えるしかない
+  doc.catalog.set(PDFName.of('Metadata'), doc.context.register(stream));
+  return { updated: true, catalogTouched: true, warnings: [] };
 }
 
 export interface PdfuaCatalogOptions {

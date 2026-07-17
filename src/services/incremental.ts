@@ -30,6 +30,7 @@ import {
   PDFName,
   PDFNumber,
   type PDFObject,
+  PDFObjectParser,
   PDFRef,
 } from 'pdf-lib';
 import { PdfWriterError } from '../errors.js';
@@ -178,7 +179,69 @@ export interface IncrementalUpdateResult {
   objectsWritten: number;
   /** 追記した相互参照の形式 */
   xrefStyle: 'table' | 'stream';
+  /** 呼び出し側の結果に載せるべき注意事項 */
+  warnings: string[];
 }
+
+/**
+ * 有効な trailer 辞書を元バイト列から自前でパースする。
+ *
+ * §7.5.6:「追記する trailer は前 trailer の（Prev を除く）**全エントリ**を含まなければ
+ * ならない」。pdf-lib の trailerInfo は Root / Encrypt / Info / ID しか保持しないため、
+ * 稀なキー（hybrid の XRefStm、second-class name 等）を落とさないよう原文から読む。
+ * パースできなくても致命ではない（標準エントリは trailerInfo から書ける）ので null を返す。
+ */
+function parsePreviousTrailer(
+  doc: PDFDocument,
+  original: Uint8Array,
+  startxref: number,
+  style: 'table' | 'stream',
+): PDFDict | null {
+  try {
+    const region = original.subarray(startxref);
+    const text = Buffer.from(region).toString('latin1');
+    let dictStart: number;
+    if (style === 'table') {
+      const at = text.indexOf('trailer');
+      if (at < 0) return null;
+      dictStart = text.indexOf('<<', at);
+    } else {
+      // "N G obj" に続く相互参照ストリームの辞書部
+      dictStart = text.indexOf('<<');
+    }
+    if (dictStart < 0) return null;
+    const parser = PDFObjectParser.forBytes(region.subarray(dictStart), doc.context);
+    const obj = parser.parseObject();
+    return obj instanceof PDFDict ? obj : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 引き継がない trailer キー。
+ * Prev / XRefStm は位置依存（§7.5.6 が Prev の除外を明示）。
+ * Size / Root / Info / ID は本モジュールが明示的に書き直す。
+ * Type / W / Index / Length / Filter / DecodeParms / DL は相互参照ストリームの
+ * ストリーム固有キーであり、trailer エントリとして引き継ぐものではない。
+ * Encrypt は暗号化 PDF 自体を上流で拒否している。
+ */
+const TRAILER_EXCLUDE = new Set([
+  'Prev',
+  'XRefStm',
+  'Size',
+  'Root',
+  'Info',
+  'ID',
+  'Encrypt',
+  'Type',
+  'W',
+  'Index',
+  'Length',
+  'Filter',
+  'DecodeParms',
+  'DL',
+]);
 
 interface Entry {
   num: number;
@@ -297,6 +360,21 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
   // §14.4: ID 第 2 要素は更新のたびに変えなければならない（shall）
   const updatedId = updateFileId(context, ti.ID, original, chunks);
 
+  // §7.5.6: 前 trailer の全エントリ（除外リスト以外）を引き継ぐ
+  const warnings: string[] = [];
+  const prevTrailer = parsePreviousTrailer(doc, original, prevStartXref, style);
+  const carryOver: Array<[PDFName, PDFObject]> = [];
+  if (prevTrailer) {
+    for (const [key, value] of prevTrailer.entries()) {
+      if (!TRAILER_EXCLUDE.has(key.decodeText())) carryOver.push([key, value]);
+    }
+  } else {
+    warnings.push(
+      'The previous trailer could not be parsed; only the standard entries ' +
+        '(Size/Prev/Root/Info/ID) were carried into the incremental update (ISO 32000-2 §7.5.6).',
+    );
+  }
+
   if (style === 'table') {
     // --- 古典 xref テーブル + trailer ---
     const xrefOffset = cursor;
@@ -311,6 +389,7 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
     push(latin1(table));
 
     const trailer = context.obj({}) as PDFDict;
+    for (const [key, value] of carryOver) trailer.set(key, value);
     trailer.set(PDFName.of('Size'), PDFNumber.of(context.largestObjectNumber + 1));
     trailer.set(PDFName.of('Prev'), PDFNumber.of(prevStartXref));
     trailer.set(PDFName.of('Root'), ti.Root);
@@ -347,6 +426,7 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
     }
 
     const dict = context.obj({}) as PDFDict;
+    for (const [key, value] of carryOver) dict.set(key, value);
     dict.set(PDFName.of('Type'), PDFName.of('XRef'));
     dict.set(PDFName.of('Size'), PDFNumber.of(xrefNum + 1));
     dict.set(PDFName.of('W'), context.obj([1, 4, 2]) as PDFArray);
@@ -375,5 +455,5 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
     at += c.length;
   }
 
-  return { bytes: out, objectsWritten: sorted.length, xrefStyle: style };
+  return { bytes: out, objectsWritten: sorted.length, xrefStyle: style, warnings };
 }

@@ -149,6 +149,16 @@ export const createTableShape = {
   ...commonCreateShape,
 } as const;
 
+/** 署名保持の増分更新に対応したツールが共有する preserveSignatures フィールド */
+const zPreserveSignatures = z
+  .boolean()
+  .optional()
+  .describe(
+    '署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で編集する。既定 false。' +
+      '元のバイト列には一切触れないため /ByteRange が保たれる。' +
+      '認証署名（DocMDP）の許可レベルに反する変更は拒否される。',
+  );
+
 export const setMetadataShape = {
   inputPath: zPath.describe('編集対象 PDF の絶対パス。'),
   title: z.string().optional().describe('タイトル。'),
@@ -156,6 +166,7 @@ export const setMetadataShape = {
   subject: z.string().optional().describe('サブタイトル・件名。'),
   keywords: z.array(z.string()).optional().describe('キーワードの配列。'),
   creator: z.string().optional().describe('作成アプリケーション名。'),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 
@@ -236,6 +247,7 @@ export const addBookmarksShape = {
       'しおりの配列。各要素は { title, page, open?, children? }。' +
         'page は 1 始まり。children で階層化でき、最大 8 階層・合計 2000 件まで。',
     ),
+  preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 

@@ -5,7 +5,7 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 21 ファイル（258 ケース）・typecheck / biome OK。**v0.9.2**（2026-07-17。SPEC-AUDIT Phase 1 = 編集系の条文照合と是正。`docs/SPEC-AUDIT.md`） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 15 = **18 ツール**・テスト 22 ファイル（264 ケース）・typecheck / biome OK。**v0.10.0**（2026-07-17。B-7b 第1弾 = preserveSignatures を 3 ツールへ + trailer 全引き継ぎ / B-9 = XMP 同期） |
 
 ## 現状サマリ
 
@@ -101,18 +101,23 @@
         **pdf-spec-mcp による条文照合済み → 是正は v0.9.1**（§7.5.6 / §7.5.5 / §7.5.8.1 適合を確認。
         照合で発見した 2 件を v0.9.1 で是正: §14.4 の ID 第 2 要素更新（shall）、
         §12.8.2.2 の DocMDP P<3 拒否ガード。CHANGELOG 0.9.1 参照）
-  - [ ] **B-7b. 増分更新の展開** — タグ付き文書対応（構造木の差分追記 = dirty 追跡の一般化）、
-        set_metadata / add_bookmarks 等の他ツールへの `preserveSignatures` 展開、
-        **§7.5.6 の trailer 全エントリ引き継ぎ**（pdf-lib の trailerInfo は Root/Encrypt/Info/ID
-        のみ保持。hybrid の XRefStm・second-class name が落ちる — 前 trailer の自前パースが要る）
+  - [x] **B-7b. 増分更新の展開（第1弾）**（v0.10.0・2026-07-17）—
+        `preserveSignatures` を **set_metadata / add_bookmarks** に展開（共通ヘルパ
+        `saveWithPreservedSignatures` / `assertDocMdpAllows` / `touchModificationDate`）。
+        **§7.5.6 trailer 全エントリ引き継ぎ**を実装（PDFObjectParser で前 trailer を自前パース、
+        除外 = 位置依存 + 再計算キー）。実測: 実署名 PDF への 2 段増分（メタデータ → しおり）で
+        verify_signatures = **VALID**。DocMDP はメタデータ・しおり変更を全レベルで拒否（§12.8.2.2）
+  - [ ] **B-7b'. 増分更新の展開（残）** — タグ付き文書対応（構造木の差分追記 = dirty 追跡の
+        一般化）、attach_file / stamp_page_numbers 等さらに他ツールへの展開
   - [ ] **B-7c. `ensure_tagged`**（タグ木の生成・修復）— struct-append / tag_form_fields の一般化
   - [ ] **B-7d. `edit_text`**（本文編集・リフロー）— コンテンツストリーム再生成。最重量級
 - [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
       ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
-- [ ] **B-9. set_metadata の XMP 併記更新** — SPEC-AUDIT Phase 1 で発見（§14.3.3）。
-      XMP（/Metadata）を持つ文書（tagged 出力等）で Info 辞書のみ更新すると dc:title 等と
-      不整合になる。Info 更新時に XMP が存在すれば対応プロパティ（dc:title / dc:creator /
-      dc:description / pdf:Keywords）も書き換える。xmp.ts の生成器を更新器に拡張する
+- [x] **B-9. set_metadata の XMP 併記更新**（v0.10.0・2026-07-17）— `syncXmpWithInfo`（xmp.ts）。
+      Info の現在値から XMP を再生成し、pdfuaid:part / dc:language / xmp:CreateDate は既存から保持。
+      **同一 ref への assign** で差し替えるため catalog 不変（増分更新と両立）。
+      dc:description（Subject）と pdf:Keywords を XMP 生成器に追加。
+      実測: タグ付き文書のタイトル変更後も veraPDF ua1 **COMPLIANT (106/106)**
 
 ## C. 既知の制約との対応
 

@@ -27,7 +27,7 @@
 | attach_file 構造（EF/UF/Params/AF/AFRelationship） | §7.11.3–4 / §14.13 | 適合（pdf-lib 委譲。AFRelationship は有効値の部分集合） | — |
 | fill_form / flatten_form | §12.7 | 適合 — /V は型別 setter、外観は自前フォントで再生成（Widget の Table 166 AP 義務も充足）。NeedAppearances（2.0 で非推奨）不使用 | — |
 | rotate_pages | §7.7.3.3 Table 31 | 適合（mod 360 正規化済み・90 の倍数） | — |
-| set_metadata | §14.3.3 | 留意 2 件: ①Info 辞書は PDF 2.0 で deprecated（本サーバは 1.7 出力のため適合。2.0 対応時は XMP 主体へ） ②**ギャップ**: XMP を持つ文書（tagged 出力等）で Info のみ更新すると dc:title 等と不整合になる | ②は **B-9** としてタスク化（XMP 併記更新） |
+| set_metadata | §14.3.3 | 留意 2 件: ①Info 辞書は PDF 2.0 で deprecated（本サーバは 1.7 出力のため適合。2.0 対応時は XMP 主体へ） ②**ギャップ**: XMP を持つ文書（tagged 出力等）で Info のみ更新すると dc:title 等と不整合になる | ②は **v0.10.0 で是正**（`syncXmpWithInfo`。pdfuaid/言語/作成日時は保持、同一 ref 差し替え。veraPDF ua1 維持を実測） |
 | フォント埋め込み（ToUnicode/W/CIDFont） | §9.6–9.10 | 機械照合済み扱い — veraPDF 7.21.x（タグ付き経路）+ render/extract 回帰テストが同一コードパスを固定 | — |
 | 決定論（E-6・内部規約） | — | 漏れ 2 件 — 注釈 /M と添付日時が `new Date()` 直書き | **v0.9.2 是正**: `outputDate()` に統一 + 再現性テスト |
 

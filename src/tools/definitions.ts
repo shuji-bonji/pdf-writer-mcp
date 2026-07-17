@@ -86,7 +86,9 @@ export const tools: ToolDefinition[] = [
     title: 'Set PDF Metadata',
     description:
       '既存 PDF のメタデータ(Info 辞書)を更新する。指定したフィールドのみ変更し、他は保持する。' +
-      'title / author / subject / keywords / creator のうち最低 1 つが必要。',
+      'title / author / subject / keywords / creator のうち最低 1 つが必要。' +
+      'XMP(/Metadata)を持つ文書では dc:title 等も同期して不整合を防ぐ。' +
+      '署名済み PDF には preserveSignatures: true で署名を保持したまま更新できる。',
     shape: setMetadataShape,
     annotations: base,
   },
@@ -132,7 +134,8 @@ export const tools: ToolDefinition[] = [
     name: 'add_bookmarks',
     title: 'Add Bookmarks (Outline)',
     description:
-      'PDF にしおり(アウトライン)を設定する。既存のしおりは置換される。children で入れ子にできる。',
+      'PDF にしおり(アウトライン)を設定する。既存のしおりは置換される。children で入れ子にできる。' +
+      '署名済み PDF には preserveSignatures: true で署名を保持したまま設定できる。',
     shape: addBookmarksShape,
     annotations: base,
   },

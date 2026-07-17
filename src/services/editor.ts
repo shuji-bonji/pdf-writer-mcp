@@ -65,6 +65,7 @@ import { formatPageNumber, stampPage } from './page-number.js';
 import { assertRenderable } from './renderers/text.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
+import { syncXmpWithInfo } from './xmp.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
 export function containsSignature(bytes: Uint8Array): boolean {
@@ -134,17 +135,121 @@ export async function loadForEdit(
 }
 
 // ---------------------------------------------------------------------------
+// 増分更新（preserveSignatures）の共通部品
+// ---------------------------------------------------------------------------
+
+/**
+ * DocMDP（認証署名）の許可レベル検査（ISO 32000-2 §12.8.2.2）。
+ * 注釈は P=3 でのみ許可。メタデータ・しおり等の変更はどの P でも許可されない
+ * （P=2 はフォーム記入と署名、P=3 は + 注釈のみ）。
+ */
+function assertDocMdpAllows(doc: PDFDocument, change: 'annotation' | 'metadata-or-outline'): void {
+  const p = findDocMdpPermission(doc);
+  if (p === undefined) return; // 承認署名のみ — 増分更新は合法（「署名後の変更あり」にはなる）
+  if (change === 'annotation' && p >= 3) return;
+  throw new PdfWriterError(
+    `This PDF carries a certification signature (DocMDP) with permission level P=${p} — ` +
+      (change === 'annotation'
+        ? p === 1
+          ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
+          : 'only form fill-in and signing are permitted; annotations are not.'
+        : 'metadata and outline changes are not among the permitted change types at any level.') +
+      ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
+    'SIGNED_PDF',
+    {
+      retryable: true,
+      hint: 'ISO 32000-2 §12.8.2.2: P=2 permits form fill-in; P=3 additionally permits annotations.',
+      next_actions: [NEXT_ACTIONS.allowBreakingSignatures()],
+    },
+  );
+}
+
+/** ModificationDate を更新し、既存 Info オブジェクトなら dirty に積む */
+function touchModificationDate(doc: PDFDocument, since: number, dirty: PDFRef[]): void {
+  doc.setModificationDate(outputDate());
+  const info = doc.context.trailerInfo.Info;
+  if (info instanceof PDFRef && info.objectNumber <= since) dirty.push(info);
+}
+
+/** 増分更新でビルドして保存する（前方バイト一致 = 署名保持） */
+async function saveWithPreservedSignatures(
+  doc: PDFDocument,
+  originalBytes: Uint8Array,
+  opts: CommonEditOptions,
+  dirtyRefs: PDFRef[],
+  since: number,
+  what: string,
+): Promise<EditResult> {
+  const update = buildIncrementalUpdate({
+    original: originalBytes,
+    doc,
+    dirtyRefs,
+    sinceObjectNumber: since,
+  });
+  logger.info(
+    'Editor',
+    `${what} via incremental update (${update.objectsWritten} object(s), ${update.xrefStyle} xref, ` +
+      `+${update.bytes.length - originalBytes.length} bytes); signatures preserved`,
+  );
+  const saved = await saveRawBytes(update.bytes, doc.getPageCount(), opts);
+  const result: EditResult = { ...saved, incremental: true };
+  if (update.warnings.length > 0) {
+    result.warnings = [...(result.warnings ?? []), ...update.warnings];
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Tier A ツール本体（ページ操作は page-ops.ts へ）
 // ---------------------------------------------------------------------------
 
 export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    assertDocMdpAllows(doc, 'metadata-or-outline');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+  const dirty: PDFRef[] = [];
+
   if (args.title !== undefined) doc.setTitle(args.title);
   if (args.author !== undefined) doc.setAuthor(args.author);
   if (args.subject !== undefined) doc.setSubject(args.subject);
   if (args.keywords !== undefined) doc.setKeywords(args.keywords);
   if (args.creator !== undefined) doc.setCreator(args.creator);
-  return saveEdited(doc, args);
+
+  // B-9（SPEC-AUDIT）: XMP を持つ文書では Info と /Metadata を同期させる
+  const sync = syncXmpWithInfo(doc);
+  const warnings = [...sync.warnings];
+  if (sync.updated) {
+    warnings.push(
+      'The document carries XMP metadata (/Metadata); it was regenerated to stay ' +
+        'consistent with the updated Info dictionary (dc:title etc.).',
+    );
+    if (sync.ref && sync.ref.objectNumber <= since) dirty.push(sync.ref);
+    if (sync.catalogTouched && doc.context.trailerInfo.Root instanceof PDFRef) {
+      dirty.push(doc.context.trailerInfo.Root);
+    }
+  }
+
+  if (preserve) {
+    touchModificationDate(doc, since, dirty);
+    const result = await saveWithPreservedSignatures(
+      doc,
+      bytes,
+      args,
+      dirty,
+      since,
+      'Updated metadata',
+    );
+    if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
+    return result;
+  }
+
+  const result = await saveEdited(doc, args);
+  if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
+  return result;
 }
 
 export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> {
@@ -152,9 +257,26 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
   if (total > LIMITS.BOOKMARK_MAX_TOTAL) {
     throw invalidArg(`too many bookmarks (${total}, max ${LIMITS.BOOKMARK_MAX_TOTAL})`);
   }
-  const { doc } = await loadForEdit(args.inputPath, args);
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    assertDocMdpAllows(doc, 'metadata-or-outline');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+
   const added = setBookmarks(doc, args.bookmarks);
   logger.info('Editor', `Set ${added} bookmark(s)`);
+
+  if (preserve) {
+    // setBookmarks は catalog /Outlines を書き換える（新規オブジェクト群は自動追従）
+    const dirty: PDFRef[] = [];
+    if (doc.context.trailerInfo.Root instanceof PDFRef) {
+      dirty.push(doc.context.trailerInfo.Root);
+    }
+    touchModificationDate(doc, since, dirty);
+    return saveWithPreservedSignatures(doc, bytes, args, dirty, since, `Set ${added} bookmark(s)`);
+  }
   return saveEdited(doc, args);
 }
 
@@ -177,25 +299,8 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
       );
     }
 
-    // 認証署名（DocMDP）の許可レベル検査（ISO 32000-2 §12.8.2.2）:
-    // 注釈の追加が許されるのは P=3 のみ。P=1（変更禁止）/ P=2（フォームまで）では
-    // 増分更新が合法でも認証署名の検証が「許可されない変更」として失敗する。
-    const docMdpP = findDocMdpPermission(doc);
-    if (docMdpP !== undefined && docMdpP < 3) {
-      throw new PdfWriterError(
-        `This PDF carries a certification signature (DocMDP) with permission level P=${docMdpP} — ` +
-          (docMdpP === 1
-            ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
-            : 'only form fill-in and signing are permitted; annotations are not.') +
-          ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
-        'SIGNED_PDF',
-        {
-          retryable: true,
-          hint: 'ISO 32000-2 §12.8.2.2: annotation changes require DocMDP P=3.',
-          next_actions: [NEXT_ACTIONS.allowBreakingSignatures()],
-        },
-      );
-    }
+    // 注釈の追加が許されるのは DocMDP P=3 のみ（承認署名なら制約なし）
+    assertDocMdpAllows(doc, 'annotation');
 
     // 容器ストリーム等の「登録されない番号」との衝突を防いでから採番を始める
     reserveExistingObjectNumbers(doc, bytes);
@@ -207,25 +312,9 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
     //   /Annots が直接配列 or 新設 → ページオブジェクトを再定義
     const annotsRaw = added.page.node.get(PDFName.of('Annots'));
     const dirtyRefs: PDFRef[] = [annotsRaw instanceof PDFRef ? annotsRaw : added.page.ref];
+    touchModificationDate(doc, since, dirtyRefs);
 
-    // ModificationDate の更新も増分に含める（Info が既存なら再定義、無ければ新規扱い）
-    doc.setModificationDate(outputDate());
-    const info = doc.context.trailerInfo.Info;
-    if (info instanceof PDFRef && info.objectNumber <= since) dirtyRefs.push(info);
-
-    const update = buildIncrementalUpdate({
-      original: bytes,
-      doc,
-      dirtyRefs,
-      sinceObjectNumber: since,
-    });
-    logger.info(
-      'Editor',
-      `Added annotation via incremental update (${update.objectsWritten} object(s), ` +
-        `${update.xrefStyle} xref, +${update.bytes.length - bytes.length} bytes); signatures preserved`,
-    );
-    const saved = await saveRawBytes(update.bytes, doc.getPageCount(), args);
-    return { ...saved, incremental: true };
+    return saveWithPreservedSignatures(doc, bytes, args, dirtyRefs, since, 'Added annotation');
   }
 
   const added = addAnnotationDict(doc, args);

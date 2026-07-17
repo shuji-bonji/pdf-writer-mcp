@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-07-17
+
+Incremental updates grow up (B-7b) and `set_metadata` learns XMP (B-9).
+
+### Added
+
+- **`preserveSignatures` for `set_metadata` and `add_bookmarks`** — the
+  signature-preserving incremental writer introduced in v0.9.0 for
+  annotations is now shared plumbing (`saveWithPreservedSignatures`) and
+  wired into two more tools. Measured against a really-signed PDF: two
+  stacked increments (metadata update, then bookmarks) keep
+  `verify_signatures: VALID` with byte-identical prefixes at every step.
+  DocMDP note: per ISO 32000-2 §12.8.2.2, metadata/outline changes are not
+  a permitted change type at *any* certification level, so certified
+  documents are always refused (annotations remain allowed at P=3).
+- **`set_metadata` now keeps XMP in sync (B-9)** — on documents that carry
+  `/Metadata` (e.g. tagged output), updating the Info dictionary used to
+  leave `dc:title` etc. stale (found in SPEC-AUDIT Phase 1, §14.3.3). The
+  XMP packet is now regenerated from the updated Info values while
+  preserving the PDF/UA declaration (`pdfuaid:part`), `dc:language` and
+  `xmp:CreateDate`. The stream is replaced at the *same object ref*, so the
+  catalog stays untouched and the change rides incremental updates
+  naturally. New XMP fields: `dc:description` (Subject) and `pdf:Keywords`.
+  Measured: a tagged PDF re-titled via `set_metadata` stays veraPDF
+  **COMPLIANT (106/106)**.
+
+### Fixed
+
+- **§7.5.6 trailer carry-over** — the incremental trailer now includes
+  *all* entries of the previous trailer (except position-dependent and
+  recomputed keys), not just Root/Info/ID: the previous trailer is parsed
+  from the original bytes with pdf-lib's `PDFObjectParser`, closing the
+  known v0.9.x gap (rare keys such as second-class names survive updates;
+  hybrid `XRefStm` is deliberately not carried). If the previous trailer
+  cannot be parsed, a warning is reported instead of failing.
+
 ## [0.9.2] - 2026-07-17
 
 SPEC-AUDIT Phase 1: the editing tools were audited clause-by-clause against

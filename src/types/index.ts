@@ -94,7 +94,7 @@ export interface CommonEditOptions {
   allowBreakingSignatures?: boolean;
 }
 
-export interface SetMetadataArgs extends CommonEditOptions {
+export interface SetMetadataArgs extends CommonEditOptions, PreservableEditOptions {
   /** 編集対象の PDF パス */
   inputPath: string;
   title?: string;
@@ -157,7 +157,7 @@ export interface BookmarkInput {
   children?: BookmarkInput[];
 }
 
-export interface AddBookmarksArgs extends CommonEditOptions {
+export interface AddBookmarksArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
   bookmarks: BookmarkInput[];
 }
@@ -287,6 +287,15 @@ export interface FlattenFormArgs extends CommonEditOptions {
   fontPath?: string;
   /** タグ付き PDF でもフラット化を許すか（PDF/UA 準拠が壊れる）。既定 false */
   allowBreakingTags?: boolean;
+}
+
+/** 署名保持の増分更新に対応した編集ツールの共通オプション */
+export interface PreservableEditOptions {
+  /**
+   * 署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で編集する。
+   * 既定 false。認証署名（DocMDP）の許可レベルに反する変更は拒否される。
+   */
+  preserveSignatures?: boolean;
 }
 
 export interface TagFormFieldsArgs extends CommonEditOptions {
