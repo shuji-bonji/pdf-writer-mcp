@@ -147,6 +147,21 @@ export async function loadForEdit(
  * DocMDP（認証署名）の許可レベル検査（ISO 32000-2 §12.8.2.2）。
  * 注釈は P=3 でのみ許可。メタデータ・しおり等の変更はどの P でも許可されない
  * （P=2 はフォーム記入と署名、P=3 は + 注釈のみ）。
+ *
+ * **DSS / DTS の例外について（B-11・family 内で条文解釈を揃えるための注記）**:
+ * §12.8.2.2 は P の全値に対して例外を置いている — **DSS（文書セキュリティストア・§12.8.4.3）と
+ * 文書タイムスタンプ（DTS・§12.8.5）の追加に必要なデータ「のみ」を含む増分更新は、
+ * 文書への変更とみなしてはならない**（R-12.8.2.2.2-5・shall not。Table 257 の P 行が
+ * 選択肢の列挙より前に置いているため 1/2/3 のいずれにも効く）。
+ * P=1 の本文も「any changes shall invalidate the signature **with the exception of subsequent
+ * DSS and/or document timestamp incremental updates**」と明示する（R-12.8.2.2.1-6）。
+ *
+ * **本サーバに実害は無い** — writer は DSS も DTS も書かないため、ここで拒否する変更
+ * （注釈・メタデータ・しおり・構造・描画・添付）はいずれも例外に当たらない。
+ * それでも明記するのは、verify #5 が「P=1 の LTV を誤検知する」と指摘しており、
+ * **family 内で同じ条文の解釈がずれると trust の判定が割れる**ため。
+ * 将来 writer が DSS/DTS を扱うなら、この関数は「DSS/DTS のみの増分は常に許可」を
+ * 先に判定する必要がある。
  */
 function assertDocMdpAllows(
   doc: PDFDocument,

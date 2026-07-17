@@ -22,7 +22,7 @@
  *   （PDF プロセッサは光学的内容の構造を無視する = 隠すべき内容が出る／出すべき内容が消える）。
  */
 
-import { PDFDict, type PDFDocument, PDFName, PDFStream } from 'pdf-lib';
+import { PDFDict, type PDFDocument, PDFName, PDFObjectCopier, PDFStream } from 'pdf-lib';
 
 /** catalog にキーが（値の解決なしに）存在するか */
 function hasKey(doc: PDFDocument, key: string): boolean {
@@ -242,6 +242,146 @@ export function usesOptionalContent(doc: PDFDocument): boolean {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// B-10b: 引き継ぎ
+// ---------------------------------------------------------------------------
+
+/**
+ * ページ複製の出力へ引き継ぐ catalog エントリ（B-10b）。
+ *
+ * **「引き継げるか」ではなく「引き継いで嘘にならないか」で選んでいる。**
+ * 監査（SPEC-AUDIT Phase 1.5）の初版計画は「Metadata / Names / AF / **MarkInfo** を引き継ぐ」
+ * だったが、これはそのままでは実行できない — 詳細は `carryDocumentLevel` の注記を参照。
+ *
+ * ここに**無い**もの（＝意図的に引き継がない）と理由:
+ *   - `StructTreeRoot` / `MarkInfo`: 構造木の再構築が要る（B-10c）。MarkInfo だけ運ぶと
+ *     「タグ付きだ」と名乗って構造木が無い文書になる（嘘）
+ *   - `Metadata`(XMP): 準拠宣言を含むと嘘になるため条件付き。`carryXmp` で別途処理
+ *   - `AcroForm`: /Fields が元文書のフィールド辞書を指す。複製後のオブジェクトへの
+ *     張り替えが要る（B-10c 相当）
+ *   - `OCProperties`: /OCGs が元の OCG を指す。同上
+ *   - `PageLabels` / `Dests` / `OpenAction` / `Outlines`: **ページ番号・ページ参照に依存する**。
+ *     extract / delete / reorder / merge はページ集合と順序を変えるため、そのまま運ぶと
+ *     宙吊りか誤った位置を指す
+ */
+const CARRIED_KEYS = ['Names', 'AF', 'Lang', 'ViewerPreferences', 'OutputIntents'] as const;
+
+/** XMP パケットが準拠宣言（PDF/UA・PDF/A）を含むか */
+function declaresConformance(xmp: string): boolean {
+  return /pdfuaid|pdfaid/i.test(xmp);
+}
+
+export interface CarryResult {
+  /** 引き継いだ catalog キー */
+  carried: string[];
+  /**
+   * **入力は持っていたが、出力に既にあったので採らなかった** catalog キー（merge の 2 件目以降）。
+   *
+   * これを呼び出し側が報告しないと黙って消える。`docLevelLossWarnings` は
+   * 「その機能が出力にあるか」しか見ないため、**入力 1 の添付さえ運ばれていれば
+   * 入力 2 の添付が消えても黙ってしまう**（機能単位であってファイル単位ではない）。
+   */
+  skipped: string[];
+  warnings: string[];
+}
+
+/**
+ * 文書レベルの catalog エントリを src から dst へ引き継ぐ（B-10b）。
+ *
+ * `copyPages()` はページツリー配下しか複製しないので、ここで catalog の中身を運ぶ。
+ * オブジェクトの複製は pdf-lib の `PDFObjectCopier` に委譲する（参照グラフを辿って
+ * 深くコピーしてくれる。添付ストリームのような間接参照の塊も 1 回で運べる）。
+ *
+ * **設計判断: 引き継げるものを全部引き継ぐのではなく、「引き継いで嘘にならないもの」だけ運ぶ。**
+ * 監査の初版計画にあった `MarkInfo` は運ばない — `MarkInfo/Marked=true` は
+ * 「この文書はタグ付き PDF である」という**宣言**であり、StructTreeRoot（B-10c 待ち）が
+ * 無いまま運ぶと構造木の無いタグ付き文書という矛盾になる。
+ * 同じ理由で XMP も、`pdfuaid`/`pdfaid` の準拠宣言を含む場合は運ばない —
+ * 運ぶと veraPDF がその flavour で検証して**落ちるようになり、黙って落とす今より悪化する**
+ * （偽の準拠主張は「準拠が消える」より有害）。理由は warnings で説明する。
+ *
+ * B-10c で構造木を運べるようになったら、MarkInfo と準拠宣言つき XMP もここへ移せる。
+ */
+export function carryDocumentLevel(src: PDFDocument, dst: PDFDocument): CarryResult {
+  const copier = PDFObjectCopier.for(src.context, dst.context);
+  const carried: string[] = [];
+  const skipped: string[] = [];
+  const warnings: string[] = [];
+
+  for (const key of CARRIED_KEYS) {
+    const name = PDFName.of(key);
+    const value = src.catalog.get(name);
+    if (value === undefined) continue;
+    if (dst.catalog.get(name) !== undefined) {
+      // 先勝ち（merge の 2 件目以降）。**呼び出し側が報告しないと黙って消える**
+      skipped.push(key);
+      continue;
+    }
+    dst.catalog.set(name, copier.copy(src.context.lookup(value) ?? value));
+    carried.push(key);
+  }
+
+  const xmp = carryXmp(src, dst, copier);
+  if (xmp.carried) carried.push('Metadata');
+  if (xmp.skipped) skipped.push('Metadata');
+  warnings.push(...xmp.warnings);
+
+  return { carried, skipped, warnings };
+}
+
+/**
+ * XMP を引き継ぐ。ただし準拠宣言（pdfuaid / pdfaid）を含む場合は運ばず理由を説明する。
+ * 構造木も PDF/A の要件も引き継げていない以上、その宣言は偽になるため。
+ */
+function carryXmp(
+  src: PDFDocument,
+  dst: PDFDocument,
+  copier: PDFObjectCopier,
+): { carried: boolean; skipped: boolean; warnings: string[] } {
+  const raw = src.catalog.get(PDFName.of('Metadata'));
+  if (raw === undefined) return { carried: false, skipped: false, warnings: [] };
+  if (dst.catalog.get(PDFName.of('Metadata')) !== undefined) {
+    return { carried: false, skipped: true, warnings: [] };
+  }
+  const stream = src.context.lookup(raw);
+  if (!(stream instanceof PDFStream)) return { carried: false, skipped: false, warnings: [] };
+
+  let packet = '';
+  try {
+    packet = Buffer.from(stream.getContents()).toString('utf8');
+  } catch {
+    return { carried: false, skipped: false, warnings: [] };
+  }
+
+  if (declaresConformance(packet)) {
+    return {
+      carried: false,
+      skipped: false,
+      warnings: [
+        'The input XMP declares conformance (pdfuaid/pdfaid) that this output can no longer ' +
+          'meet — the structure tree is not carried over yet — so it was dropped rather than ' +
+          'copied. Copying it would make the file claim PDF/UA or PDF/A conformance it does not ' +
+          'have, which is worse than losing the claim: a validator would then check it against ' +
+          'that flavour and fail. Use ensure_tagged + set_metadata on the output to rebuild an ' +
+          'honest declaration.',
+      ],
+    };
+  }
+
+  dst.catalog.set(PDFName.of('Metadata'), copier.copy(stream));
+  return { carried: true, skipped: false, warnings: [] };
+}
+
+/** merge の「先勝ち」で採らなかった要素を報告する（黙って消させない） */
+export function firstWinsWarning(tool: string, skipped: string[], inputLabel: string): string {
+  return (
+    `${tool} kept the ${skipped.map((k) => `/${k}`).join(', ')} of the first input and did not ` +
+    `merge the one(s) in ${inputLabel}. Only the first input's values survive. ` +
+    "For attachments this means the later files' embedded data is gone — merge them into the " +
+    'output with attach_file if you need them.'
+  );
+}
+
 export interface DocLevelLossOptions {
   /** 報告に載せるツール名（例: 'merge_pdfs'） */
   tool: string;
@@ -287,10 +427,11 @@ export function docLevelLossWarnings(opts: DocLevelLossOptions): string[] {
 
   if (warnings.length > 0) {
     warnings.push(
-      'These are lost because page copying rebuilds the document from the pages alone; only the ' +
-        'Info dictionary is carried over today. If you need them, apply the page operation first ' +
-        'and re-apply the document-level step afterwards (e.g. attach_file / ensure_tagged / ' +
-        'add_bookmarks / set_metadata on the output).',
+      'These are lost because page copying rebuilds the document from the pages alone. ' +
+        'Attachments, /AF, /Lang, /ViewerPreferences and /OutputIntents are carried over; ' +
+        'the rest either need the structure tree (B-10c) or depend on page numbers and ' +
+        'page references that these operations change. Re-apply the document-level step to ' +
+        'the output if you need them (e.g. ensure_tagged / add_bookmarks / set_metadata).',
     );
   }
   return warnings;

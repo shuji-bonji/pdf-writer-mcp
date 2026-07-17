@@ -5,8 +5,8 @@
 | 作成日 | 2026-07-16 |
 | 最終更新 | 2026-07-17（v0.6.0 時点） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 24 ファイル（275 ケース）・typecheck / biome OK。**v0.12.0**（2026-07-17）。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能** |
-| 次の最優先 | 🔴 **B-10 の再照合**（下記「推奨順序」の 2）。**B-10a は完了**（2026-07-18・未リリース）。1 + 2 をまとめて 1 リリースにする方針は不変 |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能** |
+| 次の最優先 | **B-10c**（構造木の引き継ぎ）— これが入ると MarkInfo と準拠宣言つき XMP も運べるようになり、`AcroForm` / `OCProperties` の参照張り替え・**添付の本当のマージ**（名前衝突の解決込み）も同じ回で扱える |
 
 ## 次セッションの進め方（2026-07-18 追記・pdf-spec のセッションから）
 
@@ -86,7 +86,14 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 - [x] **A-1. docs のコミット & push**（2026-07-16）
 - [x] **A-2. CI 整備（GitHub Actions）** — typecheck + vitest（Node 20/22）+ build。Noto Sans JP を取得し `TEST_FONT_PATH` を設定
 - [x] **A-3. npm 公開** — v0.3.1 公開済み（Trusted Publisher / OIDC・provenance 付き）
-- [ ] **A-4. コミット署名の運用決定** — サンドボックス経由のコミット 4 件が未署名（署名鍵は手元のみ）。方針: ①AI は stage のみ・手元で `git commit -S`（推奨）／②後で `git rebase --exec ... -S`（force push・provenance が指すコミットが消える点に注意）／③許容
+- [x] **A-4. コミット署名の運用決定**（2026-07-18 決定）— **方針②を採用**。
+      **push は必ず手元（shuji）が行う**という前提のもと、**タグと同期するコミットだけを
+      `git rebase` / `git commit --amend -S` で署名する**。
+      AI はサンドボックスから未署名でコミットしてよい（署名鍵は手元のみ・identity は
+      `-c user.name/user.email` で既存 author を引き継ぐ）。
+      注意（起票時のまま有効）: amend / rebase は**コミットハッシュを変える**ため、
+      **既に push 済みのコミットに対して行うと provenance が指すコミットが消える**。
+      署名は「タグを打つ前・push 前」に済ませること
 - [ ] **A-5. 壊れたバージョンの deprecate** — 手元での実行待ち（下記コマンド）。0.2.0 の deprecate 文が「0.3.0 以降を」と壊れた版を案内しているため要修正
 - [x] **A-6. biome 導入**（2026-07-16）— verify と同じ設定・スクリプトを追加し CI/publish に `npm run check` を組み込み。既存コードも整形済み（指摘 0）。あわせて verify の biome 版不整合（`^2.3.14` 指定 × 実体 2.5.4）を解消し、両リポジトリとも **2.5.4 に固定**（整形結果は minor 更新で変わるため、キャレット指定は手元と CI のズレを生む）
 
@@ -98,7 +105,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 
 - [x] **B-5a. 編集系 Tier A 第1波**（v0.2.0）
 - [x] **B-5b. 編集系 Tier A 第2波**（v0.4.0）: `add_bookmarks` / `add_annotation`
-- [ ] **B-5c. 編集系 Tier B**（着手中）
+- [x] **B-5c. 編集系 Tier B**（完了・子項目 5 件すべて済み）
   - [x] `attach_file`（v0.6.0・2026-07-16）— `/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`。
     PDF/A-3（ISO 19005-3）§6.8 準拠の形。`relationship` 省略時は Unspecified になるため警告する。
     MIME は拡張子から推定、同名は拒否（名前ツリーのキーは一意）、タグ付き PDF に添付しても veraPDF ua1 は COMPLIANT。
@@ -150,7 +157,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
         create 系に警告を追加（フォント埋め込みが PDF/UA の必要条件）
 
 - [ ] **B-4. 画像埋め込み・ヘッダー / フッター**（ページ番号は B-5c の `stamp_page_numbers` に統合）
-- [ ] **B-7. Tier C**（**着手済み** v0.9.0〜）— pdf-engine-core と合流。
+- [x] **B-7. Tier C**（**完了** v0.9.0〜v0.12.0。B-7d は M-8 経路へ委譲）— pdf-engine-core と合流。
       技術的ハードルの整理は [Issue #2](https://github.com/shuji-bonji/pdf-writer-mcp/issues/2)。
       決着（2026-07-17）: **署名付与は別 MCP（pdf-signature-mcp）に決定**（specs/05 §7-3）。
       エンジン言語は **TS（writer 内 PoC）で確立**（ADR-11）。
@@ -226,9 +233,26 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
         使っていれば shall 違反として報告する。
         副産物: 監査は 4 要素（StructTreeRoot / MarkInfo / XMP / Names）を挙げていたが、
         **/AcroForm（Widget が孤児になりフォームが機能しなくなる）と /OCProperties も落ちていた**
-  - [ ] **B-10b. 引き継ぎ**（単一文書内の操作）— Metadata / Names / AF / MarkInfo を catalog からコピー
+  - [x] **B-10b. 引き継ぎ**（2026-07-18・未リリース）— `carryDocumentLevel`（doc-level.ts）。
+        複製は pdf-lib の `PDFObjectCopier` に委譲（参照グラフを辿るので添付ストリームも 1 回で運べる）。
+        **選定基準を「引き継げるか」→「引き継いで嘘にならないか」に改めた**（起票時の計画は誤りだった。
+        SPEC-AUDIT の IMPORTANT 参照）:
+        - 引き継ぐ: **`Names`/EmbeddedFiles + `AF`（＝電帳法データが生き残る・最大の収穫）**・
+          `Lang`・`ViewerPreferences`・`OutputIntents`
+        - `Metadata`(XMP) は**準拠宣言（pdfuaid/pdfaid）を含まない場合のみ**。含む場合は運ばない —
+          **偽の準拠主張は準拠の消失より有害**（宣言があると veraPDF がその flavour で検証して落ちる）
+        - **`MarkInfo` は運ばない** — 構造木が無いのに「タグ付きだ」と名乗る嘘になる
+        - `AcroForm` / `OCProperties`（参照の張り替えが要る）と `PageLabels` / `Dests` /
+          `OpenAction` / `Outlines`（**ページ番号・ページ参照に依存**）は B-10c 以降
+        - merge は**先勝ち**。採らなかったものは `firstWinsWarning` が**ファイル名を名指しで**報告する。
+          当初「B-10a の警告が実測して報告する」と書いたが**誤り**だった — 警告は「機能が出力にあるか」
+          しか見ないので、入力 1 の添付が運ばれれば入力 2 の添付が消えても黙る（機能単位であって
+          ファイル単位ではない）。**引き継ぎを増やしたせいで警告が消える退行**を作りかけた
+        - **未了**: 添付の**本当のマージ**（名前衝突の解決込み。起票時の計画にあった）は B-10c 以降
   - [ ] **B-10c. 構造木の引き継ぎ** — extract/delete/reorder は「残ページ分の構造要素」の再構築が要る。
-        merge は ParentTree のキー空間統合が要る。重いので b の後に判断
+        merge は ParentTree のキー空間統合が要る。重いので b の後に判断。
+        **これが入ると MarkInfo と準拠宣言つき XMP も運べるようになる**（嘘でなくなるため）。
+        `AcroForm` / `OCProperties` の参照張り替えも同じ回で扱うのが自然
 - [x] **B-13. `rotate_pages` が Claude Desktop から呼べない**（2026-07-18・B-10a の試用中に発見／未リリース）
       症状: `rotation: 90` を渡すと**必ず** `invalid_union` で失敗し、どう呼んでも成功しない。
       **writer 側に非は無かった** — `dist/index.js` を直接 spawn して `tools/list` を叩いた結果、
@@ -250,9 +274,14 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       教訓: **誤診しかけた** — `z.toJSONSchema` を既定 target で試して「SDK が anyOf を落とす」と
       断定したが、SDK の実際の呼び方（draft-7）を確認していなかった。
       層をまたぐ不具合は**各層に実際に何が渡っているかを 1 つずつ観測する**こと
-- [ ] **B-11. DocMDP コメントに DSS/DTS 例外を明記** — verify #5 の指摘（§12.8.2.2 は P=1 でも
-      DSS / 文書タイムスタンプの増分更新を例外とする）。writer は DSS/DTS を扱わないため実害無しだが、
-      family 内で条文解釈を揃える
+- [x] **B-11. DocMDP コメントに DSS/DTS 例外を明記**（2026-07-18・未リリース）— verify #5 の指摘を
+      条文で裏取りし、**そのとおりだった**。しかも例外は **P の全値に効く** —
+      Table 257 の `P` 行が選択肢の列挙より**前**に「DSS / DTS の追加に必要なデータのみを含む
+      増分更新は文書への変更と**みなしてはならない**」（R-12.8.2.2.2-5・shall not）と置いている。
+      P=1 の本文も "any changes shall invalidate the signature **with the exception of subsequent
+      DSS and/or document timestamp incremental updates**"（R-12.8.2.2.1-6）と明示。
+      writer は DSS/DTS を書かないため実害は無いが、**family 内で解釈がずれると trust の判定が割れる**
+      ため `assertDocMdpAllows`（editor.ts）に明記した。コードの挙動は変えていない
 - [ ] **B-12. `replace_text`（見た目保存型の限定置換）** — B-7d の分割で残った軽量機能（Tier B 相当）。
       既存 Tj/TJ の文字列を**同じフォントで差し替える**のみ。リフローしない・座標を変えない。
       幅が変わる場合は警告（または拒否）。実需: 請求書の日付・版番号・氏名の差し替え。

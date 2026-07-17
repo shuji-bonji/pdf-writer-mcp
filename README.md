@@ -48,6 +48,13 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BC
 | `extract_pages` | Extract pages in the requested order (doubles as reordering) |
 | `delete_pages` | Remove pages (deleting every page is rejected) |
 | `reorder_pages` | Reorder by an explicit permutation of all pages |
+
+> **The five tools above rebuild the document from its pages.** Attachments (`/Names
+> /EmbeddedFiles`, `/AF`), `/Lang`, `/ViewerPreferences` and `/OutputIntents` are carried
+> over; the tagged structure tree, XMP and anything tied to page numbers or page
+> references (bookmarks, page labels, named destinations) are not. **Whatever is lost is
+> reported in `warnings`** — nothing disappears silently. `rotate_pages` edits in place and
+> is unaffected.
 | `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline. Supports `preserveSignatures` |
 | `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it. With `preserveSignatures: true`, a **signed PDF keeps its signatures**: the annotation is appended as an ISO 32000 incremental update, leaving the original bytes untouched — on tagged PDFs the structure-tree changes ride the same increment (v0.11.0) |
@@ -193,6 +200,8 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 - [x] Incremental updates extended to `set_metadata` / `add_bookmarks`, full trailer carry-over (§7.5.6), XMP kept in sync with Info (v0.10.0)
 - [x] Incremental updates on tagged PDFs — generalised dirty tracking over the structure tree; `tag_form_fields` gains `preserveSignatures` (v0.11.0)
 - [x] Incremental updates across every editing tool, and `ensure_tagged` — PDF/UA scaffold & repair (v0.12.0)
+- [x] Page operations report and carry over document-level information; three shall violations found by re-auditing against ISO 32000-2 (v0.13.0)
+- [ ] Carrying the structure tree through page operations (which also unlocks MarkInfo, conformance-declaring XMP, `/AcroForm` and merging attachments across inputs)
 - [ ] Tier C remainder — `edit_text` (body text editing/reflow)
 - [ ] Publish-pipeline skill (write → read back with pdf-reader → gate with pdf-verify)
 - [ ] Images with alt text (`Figure` + `/Alt`)

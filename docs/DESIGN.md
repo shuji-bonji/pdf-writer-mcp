@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.12.0（B-7b'' = 増分更新の全編集ツール展開完了 / B-7c = `ensure_tagged`。19 ツール） |
+| バージョン | 0.13.0（B-10a/b = ページ操作の文書レベル情報の報告と引き継ぎ / B-13 / SPEC-AUDIT Phase 2-4 の shall 違反 3 件是正。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-17 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |

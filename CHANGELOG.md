@@ -2,9 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.13.0] - 2026-07-18
+
+Page operations stop destroying document-level information silently (B-10a) and start
+carrying over what they safely can (B-10b). Re-auditing against the corrected ISO
+corpus (pdf-spec-mcp 0.4.1) turned up **three shall violations that veraPDF cannot
+see**, all now fixed. **19 tools** (unchanged).
 
 ### Added
+
+- **Page operations now carry over the document-level information they safely can (B-10b).**
+  `carryDocumentLevel` copies `/Names /EmbeddedFiles`, `/AF`, `/Lang`,
+  `/ViewerPreferences` and `/OutputIntents` from the input catalog, delegating object
+  duplication to pdf-lib's `PDFObjectCopier`. **Attachments surviving is the headline**:
+  the machine-readable payload of a PDF/A-3 document (an invoice CSV/XML kept for
+  statutory e-bookkeeping) is no longer destroyed by `extract_pages` or `merge_pdfs`.
+
+  **What is deliberately *not* carried, and why.** The selection criterion is not "can
+  this be copied" but **"is copying it still true"**:
+  - `/MarkInfo` is **not** carried. `Marked true` declares "this is a Tagged PDF"; with
+    no `/StructTreeRoot` (that needs B-10c) the output would claim to be tagged while
+    having no structure tree.
+  - `/Metadata` (XMP) is carried **only when it declares no conformance**. Copying XMP
+    with `pdfuaid`/`pdfaid` into a document that lost its structure tree would assert
+    PDF/UA or PDF/A conformance it does not have — and that is *worse* than losing the
+    claim, because a validator then checks the file against that flavour and fails it.
+    When the claim is present the XMP is dropped and the reason is reported.
+  - `/AcroForm` and `/OCProperties` reference objects in the source document and need
+    their references rewired (B-10c).
+  - `/PageLabels`, `/Dests`, `/OpenAction` and `/Outlines` depend on page numbers or
+    page references, which these operations change.
+
+  `merge_pdfs` takes the first input's values and **says so**, naming the files whose
+  values it did not merge. That report is not optional bookkeeping: the B-10a warnings
+  ask "is this feature present in the output", so once the first input's attachments are
+  carried, they would happily stay silent about the second input's attachments being
+  dropped — carrying more would have *removed* a warning that mattered. Truly merging
+  attachments across inputs (with name-collision handling) is still future work.
+
+  Because the B-10a warnings measure the output rather than assuming what page copying
+  destroys, they fell silent for the newly carried entries on their own.
+
+- **`assertDocMdpAllows` now documents the DSS/DTS exception (B-11).** verify's issue #5
+  was right, and the exception is broader than the issue implied: it applies to **every**
+  `P` value, not just `P=1`. Table 257 states before the list of choices that incremental
+  updates containing only the data needed to add a DSS or a document timestamp *"shall
+  not be considered as changes to the document"* (R-12.8.2.2.2-5), and the `P=1` prose
+  repeats it (R-12.8.2.2.1-6). This server writes neither DSS nor DTS, so nothing changes
+  functionally — the note exists so the family does not drift into two readings of the
+  same clause, which would make trust's verdicts disagree.
 
 - **Page operations now report the document-level information they drop (B-10a).**
   `merge_pdfs`, `split_pdf`, `extract_pages`, `delete_pages` and `reorder_pages`

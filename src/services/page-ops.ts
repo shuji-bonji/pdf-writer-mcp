@@ -20,8 +20,10 @@ import type { CommonEditOptions, EditResult, SplitResult } from '../types/index.
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
 import {
+  carryDocumentLevel,
   type DocLevelSurvey,
   docLevelLossWarnings,
+  firstWinsWarning,
   mergeSurveys,
   surveyDocLevel,
 } from './doc-level.js';
@@ -46,8 +48,15 @@ function copyDocumentInfo(src: PDFDocument, dst: PDFDocument): void {
   if (creationDate !== undefined) dst.setCreationDate(creationDate);
 }
 
-/** src の指定ページ（1 始まり配列・指定順）だけを持つ新規文書を作る */
-async function copyIntoNewDoc(src: PDFDocument, pages1: number[]): Promise<PDFDocument> {
+/**
+ * src の指定ページ（1 始まり配列・指定順）だけを持つ新規文書を作る。
+ * 文書レベルの catalog エントリは B-10b の `carryDocumentLevel` が引き継ぐ
+ * （引き継げないものは B-10a の警告が実測して報告する）。
+ */
+async function copyIntoNewDoc(
+  src: PDFDocument,
+  pages1: number[],
+): Promise<{ dst: PDFDocument; warnings: string[] }> {
   const dst = await PDFDocument.create();
   const copied = await dst.copyPages(
     src,
@@ -55,7 +64,8 @@ async function copyIntoNewDoc(src: PDFDocument, pages1: number[]): Promise<PDFDo
   );
   for (const p of copied) dst.addPage(p);
   copyDocumentInfo(src, dst);
-  return dst;
+  const carry = carryDocumentLevel(src, dst);
+  return { dst, warnings: carry.warnings };
 }
 
 /**
@@ -67,8 +77,9 @@ async function saveWithDocLevelWarnings(
   opts: CommonEditOptions,
   tool: string,
   before: DocLevelSurvey,
+  carryWarnings: string[] = [],
 ): Promise<EditResult> {
-  const warnings = docLevelLossWarnings({ tool, before, after: dst });
+  const warnings = [...carryWarnings, ...docLevelLossWarnings({ tool, before, after: dst })];
   const result = await saveEdited(dst, opts);
   if (warnings.length > 0) {
     logger.info('PageOps', `${tool}: document-level info was not carried over (see warnings)`);
@@ -86,16 +97,28 @@ export async function mergePdfs(
   let first: PDFDocument | null = null;
   // 採取だけ持ち回る（doc を全部抱えるとメモリを食うため）
   const surveys: DocLevelSurvey[] = [];
+  const carryWarnings: string[] = [];
   for (const p of inputPaths) {
     const { doc: src } = await loadForEdit(p, opts);
     if (first === null) first = src;
     surveys.push(surveyDocLevel(src));
     const copied = await dst.copyPages(src, src.getPageIndices());
     for (const page of copied) dst.addPage(page);
+    // B-10b: 文書レベルの引き継ぎは**先勝ち**。
+    // 採らなかったものはここで報告する — docLevelLossWarnings は「その機能が出力にあるか」しか
+    // 見ないため、入力 1 の添付さえ運ばれていれば入力 2 の添付が消えても黙ってしまう
+    // （機能単位であってファイル単位ではない）
+    const carry = carryDocumentLevel(src, dst);
+    for (const w of carry.warnings) {
+      if (!carryWarnings.includes(w)) carryWarnings.push(w);
+    }
+    if (carry.skipped.length > 0) {
+      carryWarnings.push(firstWinsWarning('merge_pdfs', carry.skipped, `"${p}"`));
+    }
   }
   if (first !== null) copyDocumentInfo(first, dst);
   logger.info('PageOps', `Merged ${inputPaths.length} PDFs (${dst.getPageCount()} pages)`);
-  return saveWithDocLevelWarnings(dst, opts, 'merge_pdfs', mergeSurveys(surveys));
+  return saveWithDocLevelWarnings(dst, opts, 'merge_pdfs', mergeSurveys(surveys), carryWarnings);
 }
 
 export async function extractPages(
@@ -106,8 +129,8 @@ export async function extractPages(
   const { doc: src } = await loadForEdit(inputPath, opts);
   const pageNums = parsePageSpec(pages, src.getPageCount());
   const before = surveyDocLevel(src);
-  const dst = await copyIntoNewDoc(src, pageNums);
-  return saveWithDocLevelWarnings(dst, opts, 'extract_pages', before);
+  const { dst, warnings } = await copyIntoNewDoc(src, pageNums);
+  return saveWithDocLevelWarnings(dst, opts, 'extract_pages', before, warnings);
 }
 
 export async function deletePages(
@@ -124,8 +147,8 @@ export async function deletePages(
   const keep: number[] = [];
   for (let n = 1; n <= total; n++) if (!del.has(n)) keep.push(n);
   const before = surveyDocLevel(src);
-  const dst = await copyIntoNewDoc(src, keep);
-  return saveWithDocLevelWarnings(dst, opts, 'delete_pages', before);
+  const { dst, warnings } = await copyIntoNewDoc(src, keep);
+  return saveWithDocLevelWarnings(dst, opts, 'delete_pages', before, warnings);
 }
 
 export async function reorderPages(
@@ -149,8 +172,8 @@ export async function reorderPages(
     seen.add(n);
   }
   const before = surveyDocLevel(src);
-  const dst = await copyIntoNewDoc(src, order);
-  return saveWithDocLevelWarnings(dst, opts, 'reorder_pages', before);
+  const { dst, warnings } = await copyIntoNewDoc(src, order);
+  return saveWithDocLevelWarnings(dst, opts, 'reorder_pages', before, warnings);
 }
 
 export async function rotatePages(
@@ -191,9 +214,10 @@ export async function splitPdf(
   let warnings: string[] = [];
   for (const [i, range] of ranges.entries()) {
     const pageNums = parsePageSpec(range, total, `ranges[${i}]`);
-    const dst = await copyIntoNewDoc(src, pageNums);
+    const { dst, warnings: carryWarnings } = await copyIntoNewDoc(src, pageNums);
     if (i === 0) {
-      warnings = docLevelLossWarnings({ tool: 'split_pdf', before, after: dst });
+      const lost = docLevelLossWarnings({ tool: 'split_pdf', before, after: dst });
+      warnings = [...carryWarnings, ...lost];
     }
     const outputPath = join(outputDir, `${base}${i + 1}.pdf`);
     const saved = await saveEdited(dst, { outputPath });
