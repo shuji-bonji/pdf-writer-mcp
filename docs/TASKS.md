@@ -101,12 +101,34 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 - [x] **A-3. npm 公開** — v0.3.1 公開済み（Trusted Publisher / OIDC・provenance 付き）
 - [x] **A-4. コミット署名の運用決定**（2026-07-18 決定）— **方針②を採用**。
       **push は必ず手元（shuji）が行う**という前提のもと、**タグと同期するコミットだけを
-      `git rebase` / `git commit --amend -S` で署名する**。
+      `git commit --amend -S` で署名する**。
       AI はサンドボックスから未署名でコミットしてよい（署名鍵は手元のみ・identity は
       `-c user.name/user.email` で既存 author を引き継ぐ）。
-      注意（起票時のまま有効）: amend / rebase は**コミットハッシュを変える**ため、
-      **既に push 済みのコミットに対して行うと provenance が指すコミットが消える**。
-      署名は「タグを打つ前・push 前」に済ませること
+
+      ### 🔴 鉄則: 署名は **push・tag の前**。push 済みには絶対に amend / rebase しない
+
+      **手順**（この順を崩さない）:
+      1. AI が未署名でコミット
+      2. **手元で `git commit --amend -S --no-edit`（push 前・tag 前）**
+      3. `git push` → `git tag vX.Y.Z` → `git push origin vX.Y.Z`
+
+      **v0.13.0 で実際に踏みかけた**（2026-07-18・記録として残す）:
+      リリースコミット `d6bebf9` を push・tag・publish した**後**に署名しようとして
+      `git rebase --exec 'git commit --amend -S' -i d6bebf9^` を実行 → ハッシュが `2354da8` に
+      変わり **main が origin/main と分岐**した（ahead 2 / behind 1）。
+      ここで force push していたら、**npm provenance が指す `d6bebf9` が main の履歴から消えていた**。
+      なお `2354da8` の tree は `d6bebf9` と**完全に同一**（署名し直しただけ）で、
+      公開履歴を書き換える価値は無かった。
+
+      **復旧**（force push せずに解決できる）:
+      ```
+      git rebase --onto origin/main <署名し直したコピー> main   # 後続コミットだけを載せ直す
+      git push                                                  # fast-forward
+      ```
+      署名し直したコピーはどのブランチからも参照されなくなり reflog に残るだけ。実害ゼロ。
+
+      **v0.13.0 のリリースコミットは未署名のまま確定**（窓が閉じた後だったため）。
+      署名は v0.13.1 以降から。**AI はこの手順を破る提案をしないこと** — 実際に破った。
 - [ ] **A-5. 壊れたバージョンの deprecate** — 手元での実行待ち（下記コマンド）。0.2.0 の deprecate 文が「0.3.0 以降を」と壊れた版を案内しているため要修正
 - [x] **A-6. biome 導入**（2026-07-16）— verify と同じ設定・スクリプトを追加し CI/publish に `npm run check` を組み込み。既存コードも整形済み（指摘 0）。あわせて verify の biome 版不整合（`^2.3.14` 指定 × 実体 2.5.4）を解消し、両リポジトリとも **2.5.4 に固定**（整形結果は minor 更新で変わるため、キャレット指定は手元と CI のズレを生む）
 
