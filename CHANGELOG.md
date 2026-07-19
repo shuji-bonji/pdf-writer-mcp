@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.1] - 2026-07-19
+
+Hotfix for a v0.13.0 regression that produces **broken PDFs**. If you are on 0.13.0,
+upgrade before running any page operation on a PDF that came from outside this tool.
+
+### Fixed
+
+- **Page operations no longer corrupt the output when the input carries XMP metadata
+  (W-1).** `carryDocumentLevel` / `carryXmp` resolved the catalog reference with
+  `lookup()` *before* handing it to pdf-lib's `PDFObjectCopier.copy()`. `copy()` returns
+  the same kind of object it is given, so the copy of a resolved stream is a **stream
+  value, not a new indirect reference** — and that value was then written straight into
+  the catalog. This violates **R-7.3.8.1-5** ("All streams shall be indirect objects")
+  and **R-7.7.2-22** (Table 29 `Metadata`: shall be an indirect reference), and in
+  practice it breaks the file: when the catalog lives inside an object stream, the
+  embedded stream bytes destroy the parse of the whole object stream, so `qpdf` reports
+  `unable to find /Root dictionary` (exit 2).
+
+  Affected: `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` /
+  `reorder_pages` on any input whose XMP does **not** declare PDF/UA or PDF/A
+  conformance — i.e. **most PDFs produced by Word, LibreOffice, scanners and browsers**.
+  This tool's own tagged output declares conformance and is therefore not carried, which
+  is why in-house testing never hit it.
+
+  The fix passes the **reference** to `copy()` (and registers the copy when the input
+  held a direct object), so every carried catalog entry is now indirect.
+
+- **Regression tests now read the output back with an independent implementation.** The
+  existing test "XMP without a conformance claim is carried" was green throughout,
+  because it verified the output with pdf-lib only — pdf-lib's parser is lenient enough
+  to report `/Metadata` as present in a catalog that qpdf and poppler refuse to read.
+  The doc-level tests now assert that the carried entries are `PDFRef`s and run
+  `qpdf --check` over the output of every carry path (skipped when qpdf is unavailable).
+
 ## [0.13.0] - 2026-07-18
 
 Page operations stop destroying document-level information silently (B-10a) and start

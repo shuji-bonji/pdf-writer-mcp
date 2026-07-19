@@ -34,6 +34,13 @@
 
 ### W-1 🔴 carryDocumentLevel が XMP ストリームを catalog に直接埋め込み、出力を破壊する（v0.13.0 リグレッション）
 
+> [!NOTE]
+> **是正済み（2026-07-19・v0.13.1）**: `doc-level.ts` に `copyForCatalog()` を新設し、
+> ref は ref のまま `PDFObjectCopier.copy()` へ渡すようにした（直接オブジェクトは `register()`
+> で間接に格上げ）。回帰テストは `doc-level.test.ts` に ①carry したキーが `PDFRef` である
+> ②`qpdf --check` で carry 全経路（extract / delete / reorder / merge）を読み戻す、の 2 段。
+> 修正を戻すと qpdf が exit 2 で落ちることを実測して、テストが空振りでないことを確認した。
+
 | 項目 | 内容 |
 |------|------|
 | 条項 | **R-7.3.8.1-5**「All streams **shall** be indirect objects」＋ **R-7.7.2-22**（Table 29 `Metadata`: shall be an indirect reference） |

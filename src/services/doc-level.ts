@@ -22,7 +22,15 @@
  *   （PDF プロセッサは光学的内容の構造を無視する = 隠すべき内容が出る／出すべき内容が消える）。
  */
 
-import { PDFDict, type PDFDocument, PDFName, PDFObjectCopier, PDFStream } from 'pdf-lib';
+import {
+  PDFDict,
+  type PDFDocument,
+  PDFName,
+  type PDFObject,
+  PDFObjectCopier,
+  PDFRef,
+  PDFStream,
+} from 'pdf-lib';
 
 /** catalog にキーが（値の解決なしに）存在するか */
 function hasKey(doc: PDFDocument, key: string): boolean {
@@ -286,6 +294,28 @@ export interface CarryResult {
 }
 
 /**
+ * catalog に載せる値を dst へ複製する（W-1 の是正）。
+ *
+ * **`PDFObjectCopier.copy()` は「渡された型と同じ型」を返す**。つまり ref を
+ * `lookup()` で解決してから渡すと、複製された**実体**が返り、それを `catalog.set()`
+ * すると catalog の値が直接オブジェクトになる。ストリームでこれをやると
+ * **R-7.3.8.1-5「All streams shall be indirect objects」**（および Table 29 の
+ * `Metadata`: shall be an indirect reference = R-7.7.2-22）に違反するだけでなく、
+ * catalog がオブジェクトストリーム内に置かれる構成ではストリームの生バイトが
+ * オブジェクトストリームに埋まってパースが崩壊し、**出力 PDF が壊れる**
+ * （実測: `qpdf: unable to find /Root dictionary`。v0.13.0 のリグレッション）。
+ *
+ * したがって **ref は ref のまま copy に渡す**（dst に登録済みの新しい ref が返る）。
+ * 入力が直接オブジェクトだった場合も、ここで `register()` して間接に格上げする —
+ * 直接オブジェクトのままでも Table 29 上は合法なキーが多いが、一貫させておけば
+ * 「解決してから渡す」誤りが再発しても壊れない。
+ */
+function copyForCatalog(value: PDFObject, copier: PDFObjectCopier, dst: PDFDocument): PDFRef {
+  if (value instanceof PDFRef) return copier.copy(value);
+  return dst.context.register(copier.copy(value));
+}
+
+/**
  * 文書レベルの catalog エントリを src から dst へ引き継ぐ（B-10b）。
  *
  * `copyPages()` はページツリー配下しか複製しないので、ここで catalog の中身を運ぶ。
@@ -317,7 +347,7 @@ export function carryDocumentLevel(src: PDFDocument, dst: PDFDocument): CarryRes
       skipped.push(key);
       continue;
     }
-    dst.catalog.set(name, copier.copy(src.context.lookup(value) ?? value));
+    dst.catalog.set(name, copyForCatalog(value, copier, dst));
     carried.push(key);
   }
 
@@ -368,7 +398,9 @@ function carryXmp(
     };
   }
 
-  dst.catalog.set(PDFName.of('Metadata'), copier.copy(stream));
+  // 検査は解決した実体で行うが、**複製に渡すのは元の値（通常は ref）**。
+  // 解決後の stream を渡すと catalog に直接オブジェクトのストリームが埋まる（W-1）。
+  dst.catalog.set(PDFName.of('Metadata'), copyForCatalog(raw, copier, dst));
   return { carried: true, skipped: false, warnings: [] };
 }
 

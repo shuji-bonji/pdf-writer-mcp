@@ -10,9 +10,11 @@
  * 「引き継いだのに警告する」退行も同時に防いでいる）。
  */
 
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
 import {
   type PDFArray,
@@ -21,6 +23,7 @@ import {
   type PDFHexString,
   PDFName,
   type PDFRawStream,
+  PDFRef,
   PDFString,
 } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -34,6 +37,8 @@ import {
   rotatePages,
   splitPdf,
 } from '../src/services/page-ops.js';
+
+const execFileAsync = promisify(execFile);
 
 let dir: string;
 
@@ -77,6 +82,73 @@ async function makeAttachedPdf(name: string): Promise<string> {
 }
 
 const joined = (warnings: string[] | undefined): string => (warnings ?? []).join('\n');
+
+/**
+ * 独立実装（qpdf）で読み戻せることを確認する。
+ *
+ * W-1（v0.13.0）は **pdf-lib だけでは検出できなかった** — pdf-lib のパーサは
+ * catalog に直接埋まったストリームを寛容に読み飛ばし、`/Metadata` の存在を
+ * 報告してしまう。qpdf は `unable to find /Root dictionary` で落ちる。
+ * 厳格バリデータでの読み戻しを受け入れ条件にする（green-tests-can-be-vacuous）。
+ *
+ * qpdf が無い環境では検査をスキップする（CI/開発機の必須依存にはしない）。
+ */
+let qpdfAvailable: boolean | undefined;
+async function hasQpdf(): Promise<boolean> {
+  if (qpdfAvailable === undefined) {
+    qpdfAvailable = await execFileAsync('qpdf', ['--version']).then(
+      () => true,
+      () => false,
+    );
+  }
+  return qpdfAvailable;
+}
+
+async function expectQpdfClean(bytes: Uint8Array, name: string): Promise<void> {
+  if (!(await hasQpdf())) return;
+  const path = join(dir, name);
+  await writeFile(path, bytes);
+  // qpdf --check は警告でも exit 3 を返す。壊れている（= 構造が読めない）ときは exit 2。
+  const { code, output } = await execFileAsync('qpdf', ['--check', path]).then(
+    () => ({ code: 0, output: '' }),
+    (e: { code?: number; stdout?: string; stderr?: string }) => ({
+      code: e.code ?? -1,
+      output: `${e.stdout ?? ''}${e.stderr ?? ''}`,
+    }),
+  );
+  expect(code, `qpdf --check ${name} (exit ${code}):\n${output}`).toBeLessThan(2);
+}
+
+/** 準拠宣言を含まない XMP・添付・/Lang をまとめて持つ、carry 経路を全部通る入力 */
+async function makeCarryRichPdf(name: string): Promise<string> {
+  const doc = await PDFDocument.create();
+  doc.addPage([400, 300]);
+  doc.addPage([400, 300]);
+  const xmp = doc.context.stream(
+    '<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>' +
+      '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF ' +
+      'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
+      '<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+      `<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${name}</rdf:li></rdf:Alt></dc:title>` +
+      '</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>',
+    { Type: 'Metadata', Subtype: 'XML' },
+  );
+  doc.catalog.set(PDFName.of('Metadata'), doc.context.register(xmp));
+  doc.catalog.set(PDFName.of('Lang'), PDFString.of('ja'));
+  const base = join(dir, `${name}-base.pdf`);
+  await writeFile(base, await doc.save());
+
+  const payload = join(dir, `${name}-payload.csv`);
+  await writeFile(payload, 'date,amount\n2026-07-19,1000\n');
+  const out = join(dir, `${name}.pdf`);
+  await attachFileToPdf({
+    inputPath: base,
+    attachmentPath: payload,
+    outputPath: out,
+    relationship: 'Data',
+  });
+  return out;
+}
 
 async function loadPdf(path: string): Promise<PDFDocument> {
   return PDFDocument.load(await readFile(path), { updateMetadata: false });
@@ -319,11 +391,44 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     await writeFile(path, await doc.save());
 
     const result = await extractPages(path, '1', { returnBase64: true });
-    const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
-      updateMetadata: false,
-    });
+    const bytes = Buffer.from(result.base64 as string, 'base64');
+    const out = await PDFDocument.load(bytes, { updateMetadata: false });
     expect(surveyDocLevel(out).has('metadata')).toBe(true);
     expect(joined(result.warnings)).not.toMatch(/XMP metadata/);
+
+    // W-1 回帰: catalog の /Metadata は**間接参照**でなければならない
+    // （R-7.3.8.1-5 / R-7.7.2-22）。v0.13.0 はここに複製されたストリーム実体を
+    // 直接埋めていて、pdf-lib は寛容に読めるが qpdf / poppler は /Root を見失った。
+    expect(out.catalog.get(PDFName.of('Metadata'))).toBeInstanceOf(PDFRef);
+
+    // 独立実装での読み戻し（pdf-lib だけでは W-1 を検出できなかった）
+    await expectQpdfClean(bytes, 'carry-xmp-plain-out.pdf');
+  });
+
+  it('準拠宣言なし XMP + 添付 + /Lang を持つ入力でも出力が壊れない（W-1 回帰・全 carry 経路）', async () => {
+    const input = await makeCarryRichPdf('carry-rich');
+
+    for (const [label, run] of [
+      ['extract_pages', () => extractPages(input, '1', { returnBase64: true })],
+      ['delete_pages', () => deletePages(input, '2', { returnBase64: true })],
+      ['reorder_pages', () => reorderPages(input, [2, 1], { returnBase64: true })],
+      ['merge_pdfs', () => mergePdfs([input, input], { returnBase64: true })],
+    ] as const) {
+      const result = await run();
+      const bytes = Buffer.from(result.base64 as string, 'base64');
+      const out = await PDFDocument.load(bytes, { updateMetadata: false });
+      const survey = surveyDocLevel(out);
+      expect(survey.has('metadata'), `${label}: XMP carried`).toBe(true);
+      expect(survey.has('embeddedFiles'), `${label}: attachment carried`).toBe(true);
+      expect(
+        out.catalog.get(PDFName.of('Metadata')),
+        `${label}: /Metadata indirect`,
+      ).toBeInstanceOf(PDFRef);
+      expect(out.catalog.get(PDFName.of('Names')), `${label}: /Names indirect`).toBeInstanceOf(
+        PDFRef,
+      );
+      await expectQpdfClean(bytes, `carry-rich-${label}.pdf`);
+    }
   });
 });
 

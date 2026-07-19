@@ -4,9 +4,9 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.13.0（B-10a/b = ページ操作の文書レベル情報の報告と引き継ぎ / B-13 / SPEC-AUDIT Phase 2-4 の shall 違反 3 件是正。19 ツール） |
+| バージョン | 0.13.1（B-10b-fix = carry した catalog エントリを間接参照で書く W-1 hotfix。0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4 の shall 違反 3 件是正。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
-| 最終更新 | 2026-07-17 |
+| 最終更新 | 2026-07-19 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |
 
 > **本書のバージョン行は `package.json` と同期させること。** リリース手順（CLAUDE.md）に

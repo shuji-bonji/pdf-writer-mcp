@@ -3,35 +3,39 @@
 | 項目 | 内容 |
 |------|------|
 | 作成日 | 2026-07-16 |
-| 最終更新 | 2026-07-19（v0.13.0 公開後・SPEC-REAUDIT 反映） |
+| 最終更新 | 2026-07-19（v0.13.1 = B-10b-fix 実装後） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15） |
-| 次の最優先 | 🔴 **B-10b-fix（W-1）= v0.13.1 hotfix**。公開中の v0.13.0 が、準拠宣言なしの XMP を持つ入力（Word 等の外部 PDF ほぼ全部）へのページ操作で**壊れた PDF を出力する**。これだけは「次は reader」という family の進行順合意（2026-07-17）の**例外**として先に直す。その後は合意どおり reader → M-8。B-10c は引き続き急がない |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・リリース待ち）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト |
+| 次の最優先 | ✅ **B-10b-fix（W-1）は実装済み（v0.13.1・リリース待ち）**。ホストでのテスト全緑確認 → コミット署名 → push → tag → npm publish → **npx で公開版を叩いて検証**（A-4）。その後は family の進行順合意どおり reader へ戻る。writer の残りは B-14（W-2/3/4 フォント条文適合）・W-5・B-10c で、いずれも急がない |
 
 ## 次にやること（2026-07-19 更新・SPEC-REAUDIT 反映）
 
-### 0. 🔴 B-10b-fix（W-1）= v0.13.1 hotfix — 唯一の「reader より先」
+### 0. ✅ B-10b-fix（W-1）= v0.13.1 hotfix（2026-07-19 実装済み・リリース待ち）
 
 **根拠と実測**: `docs/SPEC-REAUDIT-2026-07-19.md` W-1。`services/doc-level.ts` の
-`carryXmp()`（371 行）と汎用経路（320 行）が、ref を `lookup()` で**解決してから**
-`PDFObjectCopier.copy()` に渡すため、返り値が**新しい間接参照ではなく複製オブジェクト実体**になり、
-catalog の `/Metadata` に**ストリームが直接オブジェクト**として埋まる
+`carryXmp()` と汎用経路が、ref を `lookup()` で**解決してから**
+`PDFObjectCopier.copy()` に渡していたため、返り値が**新しい間接参照ではなく複製オブジェクト実体**になり、
+catalog の `/Metadata` に**ストリームが直接オブジェクト**として埋まっていた
 （R-7.3.8.1-5「All streams shall be indirect objects」/ R-7.7.2-22 違反）。
 出力は qpdf で **`unable to find /Root dictionary`（exit 2）** — 壊れた PDF。
 
 - 対象: merge / split / extract / delete / reorder × 「準拠宣言（pdfuaid/pdfaid）を**含まない**
-  XMP を持つ入力」。writer 自前の tagged 出力は宣言持ちで carry されないため内輪のテストでは踏まない
-- 修正: **ref のまま `copier.copy(raw)` に渡す**（PDFRef を渡せば dst 登録済みの新 ref が返る）。
-  一貫性のため 320 行の汎用経路も ref 運搬に揃える
-- テスト: **qpdf --check の読み戻しを追加**（`doc-level.test.ts` は pdf-lib 読み戻しのみで
-  この破損を見逃した — pdf-lib は壊れた catalog を寛容に読む。独立実装での検証が必須）
-- 同乗候補（数行）: **W-5** = Info/XMP の日時を同一 `Date` に貫通（R-14.3.4-2/-5。
-  create 系 = output.ts 89–91 行と xmp.ts 80 行、set_metadata = touchModificationDate と
-  syncXmpWithInfo が別々に `outputDate()` を呼んでいる）
-- リリース手順は A-4 の鉄則どおり（署名は push・tag の**前**）
+  XMP を持つ入力」。writer 自前の tagged 出力は宣言持ちで carry されないため内輪のテストでは踏まなかった
+- **修正**: `copyForCatalog()` を新設し **ref のまま `copier.copy()` に渡す**
+  （直接オブジェクト入力は `dst.context.register()` で間接に格上げ。carry する全キーで一貫）
+- **テスト**: `doc-level.test.ts` に ① carry したキーが `PDFRef` であること
+  ② **`qpdf --check` による独立実装での読み戻し**（extract / delete / reorder / merge の全経路）。
+  qpdf 不在時はスキップ。修正を戻すと exit 2 で落ちることを実測済み
+- **今回の本質はテストの是正**: 既存テスト「準拠宣言の無い XMP は引き継ぐ」は
+  pdf-lib での読み戻しのみだったため緑を保っていた（pdf-lib は壊れた catalog を寛容に読み、
+  `/Metadata` の存在を報告してしまう）。**委譲先の出力は独立実装で開く**
+- 同乗させなかったもの: **W-5**（Info/XMP の日時を同一 `Date` に貫通。R-14.3.4-2/-5）。
+  hotfix の差分を carry 経路に閉じるため次版へ送った
+- 残りの手順（ホスト作業）: テスト全緑確認 → `git commit -S` → push → tag → publish → **npx 検証**。
+  署名は push・tag の**前**（A-4 の鉄則）
 
-> **🔴 v0.13.1 の後は writer ではない。** family の進行順（`mcps/pdf-family-role-architecture.md` /
-> 2026-07-17 合意）に従い、**pdf-reader-mcp** が先。writer は v0.13.0 で一区切りついた。
+> **v0.13.1 の後は writer ではない。** family の進行順（`mcps/pdf-family-role-architecture.md` /
+> 2026-07-17 合意）に従い、**pdf-reader-mcp** へ戻る。
 
 ### 1. ~~reader の High バグ 2 件 + M-2~~ ✅ / ~~M-8~~ ✅ / ~~verify #4~~ ✅（2026-07-18〜19 に全て完了）
 
@@ -285,11 +289,18 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
         使っていれば shall 違反として報告する。
         副産物: 監査は 4 要素（StructTreeRoot / MarkInfo / XMP / Names）を挙げていたが、
         **/AcroForm（Widget が孤児になりフォームが機能しなくなる）と /OCProperties も落ちていた**
-  - [ ] **B-10b-fix 🔴（W-1）**: carry が XMP ストリームを catalog に**直接オブジェクト**で
-        埋め込み、**出力 PDF を破壊する**（v0.13.0 リグレッション。qpdf が /Root 解決不能）。
-        原因 = ref を `lookup()` で解決してから `PDFObjectCopier.copy()` に渡している
-        （doc-level.ts 320 / 371 行）。**v0.13.1 hotfix**。詳細は「次にやること 0.」と
-        `docs/SPEC-REAUDIT-2026-07-19.md` W-1
+  - [x] **B-10b-fix 🔴（W-1）**（2026-07-19・**v0.13.1**）: carry が XMP ストリームを catalog に
+        **直接オブジェクト**で埋め込み、**出力 PDF を破壊していた**（v0.13.0 リグレッション。
+        qpdf が /Root 解決不能 = exit 2）。原因 = ref を `lookup()` で解決してから
+        `PDFObjectCopier.copy()` に渡していた（copy は**渡された型と同じ型を返す**ため、
+        新しい ref ではなく複製された実体が返る）。是正 = `copyForCatalog()` を新設し、
+        **ref は ref のまま copy に渡す**（直接オブジェクト入力は `register()` で間接に格上げ）。
+        R-7.3.8.1-5 / R-7.7.2-22。
+        **テスト側の是正が本体**: 既存テスト「準拠宣言の無い XMP は引き継ぐ」は
+        **pdf-lib での読み戻しのみ**で緑を保っていた（pdf-lib は壊れた catalog を寛容に読む）。
+        `qpdf --check` による**独立実装での読み戻し**を carry 全経路に追加し、
+        修正を戻すと exit 2 で落ちることを実測（[[green-tests-can-be-vacuous]] の再演）。
+        qpdf 不在環境ではスキップ
   - [x] **B-10b. 引き継ぎ**（2026-07-18・未リリース）— `carryDocumentLevel`（doc-level.ts）。
         複製は pdf-lib の `PDFObjectCopier` に委譲（参照グラフを辿るので添付ストリームも 1 回で運べる）。
         **選定基準を「引き継げるか」→「引き継いで嘘にならないか」に改めた**（起票時の計画は誤りだった。
