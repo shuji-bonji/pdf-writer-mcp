@@ -18,7 +18,7 @@ import {
   PDFRef,
   PDFString,
 } from 'pdf-lib';
-import { outputDate, PACKAGE_INFO } from '../config.js';
+import { documentDate, outputDate, PACKAGE_INFO } from '../config.js';
 
 export interface XmpOptions {
   title?: string;
@@ -33,6 +33,13 @@ export interface XmpOptions {
   lang?: string;
   /** xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻 */
   createDate?: string;
+  /**
+   * この文書に焼き込む「現在時刻」（W-5）。Info 辞書側と**同一の `Date` を渡すこと**。
+   * 省略時は `outputDate()` を独自に呼ぶが、その場合 Info 側と秒境界を跨ぐと
+   * R-14.3.4-2/-5 の「fully equivalent」を破りうる。`setXmpMetadata` /
+   * `syncXmpWithInfo` は `documentDate(doc)` を渡すので通常は意識しなくてよい。
+   */
+  now?: Date;
 }
 
 /** XML の特殊文字をエスケープする（タイトル等に < & " が入りうる） */
@@ -76,10 +83,9 @@ const PDFUA_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
     </rdf:Description>`;
 
 export function buildXmpPacket(opts: XmpOptions): string {
-  // SOURCE_DATE_EPOCH（E-6）設定時は Info 辞書側と同じ固定時刻になる
-  const now = outputDate()
-    .toISOString()
-    .replace(/\.\d{3}Z$/, 'Z');
+  // W-5: 呼び出し側が渡した Date（= Info 辞書に書くのと同じ瞬間）を使う。
+  // SOURCE_DATE_EPOCH（E-6）設定時はどちらの経路でも同じ固定時刻になる
+  const now = (opts.now ?? outputDate()).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const parts: string[] = [];
 
   if (opts.pdfuaPart !== undefined) {
@@ -155,7 +161,7 @@ ${parts.join('\n')}
  * また PDF/UA の XMP は暗号化・圧縮しない慣行に従い、フィルタを掛けない。
  */
 export function setXmpMetadata(doc: PDFDocument, opts: XmpOptions): void {
-  const packet = buildXmpPacket(opts);
+  const packet = buildXmpPacket({ now: documentDate(doc), ...opts });
   const bytes = new TextEncoder().encode(packet);
   const stream = PDFRawStream.of(
     doc.context.obj({
@@ -234,6 +240,7 @@ export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
     pdfuaPart: part !== undefined ? Number(part) : undefined,
     lang,
     createDate,
+    now: documentDate(doc),
   });
   const bytes = new TextEncoder().encode(packet);
   const stream = PDFRawStream.of(

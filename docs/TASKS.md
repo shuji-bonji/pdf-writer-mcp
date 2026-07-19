@@ -3,10 +3,10 @@
 | 項目 | 内容 |
 |------|------|
 | 作成日 | 2026-07-16 |
-| 最終更新 | 2026-07-19（v0.13.1 = B-10b-fix 実装後） |
+| 最終更新 | 2026-07-20（v0.14.0 = B-14 + W-5 実装後） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・リリース待ち）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト |
-| 次の最優先 | ✅ **B-10b-fix（W-1）は実装済み（v0.13.1・リリース待ち）**。ホストでのテスト全緑確認 → コミット署名 → push → tag → npm publish → **npx で公開版を叩いて検証**（A-4）。その後は family の進行順合意どおり reader へ戻る。writer の残りは B-14（W-2/3/4 フォント条文適合）・W-5・B-10c で、いずれも急がない |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・公開済み・npx 検証 PASS）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト。**v0.14.0**（2026-07-20・リリース待ち）= B-14（W-2/3/4）+ W-5 |
+| 次の最優先 | ✅ **B-14 + W-5 は実装済み（v0.14.0・リリース待ち）**。ホストでのテスト全緑確認 → コミット署名 → push → tag → npm publish → **npx で公開版を叩いて検証**（A-4）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）はこれで全消化**。writer に残るのは B-10c / B-12 / B-15 / B-4 / B-8 で、いずれも急がない |
 
 ## 次にやること（2026-07-19 更新・SPEC-REAUDIT 反映）
 
@@ -355,20 +355,34 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       幅が変わる場合は警告（または拒否）。実需: 請求書の日付・版番号・氏名の差し替え。
       **リフローが要るなら M-8 経路（reader → Skill → create 系再生成）を使う**、と説明で誘導する。
       難所: Tj のコード列 → 文字の逆引き（標準フォント = WinAnsi は容易 / Identity-H は ToUnicode 経由）
-- [ ] **B-14. フォント埋め込みの条文適合**（2026-07-19 起票 — SPEC-REAUDIT W-2/W-3/W-4。
-      詳細・実測証拠は `docs/SPEC-REAUDIT-2026-07-19.md`）
-  - [ ] **W-2 🔴**: CFF (.otf) が **CIDFontType2 + FontFile2** で埋め込まれる（実測: ストリーム先頭
+- [x] **B-14. フォント埋め込みの条文適合**（2026-07-19 起票 → **2026-07-20 完了・v0.14.0**。
+      詳細・実測証拠は `docs/SPEC-REAUDIT-2026-07-19.md`。実装は `services/font-conformance.ts` で、
+      **`doc.save()` の直前**に pdf-lib が書いた辞書を開き直して是正する）
+  - [x] **W-2 🔴**: CFF (.otf) が **CIDFontType2 + FontFile2** で埋め込まれていた（実測: ストリーム先頭
         `OTTO`）。Table 124（R-9.9.1-33/-34）違反 — FontFile2 は TrueType program（glyf/loca 必須）。
-        是正: CFF 系は **CIDFontType0 + FontFile3 `/Subtype /OpenType`**（cmap 必須 = R-9.9.1-42）か
-        bare CFF（`CIDFontType0C`・R-9.9.1-13 単一 CIDFont）。pdf-lib の `isCFF()` 分岐が
-        false 側に落ちている — 分岐修正 or 埋め込み後の辞書後処理。
-        **受け入れ確認: poppler の `Mismatch between font type` 警告の消滅**（C 表参照）
-  - [ ] **W-3**: サブセット名に `ABCDEF+` タグが無い（実測 `/NotoSansJP-Regular-7572`）。
-        R-9.9.2-2/-3（タグ = 大文字 6 文字 + `+`・別サブセットは別タグ）。**B-8/PDF-A 待ちは誤り** —
-        ISO 32000-2 本体の shall。BaseFont / FontName の埋め込み後書き換えで可
-  - [ ] **W-4**: FontFile2 に `Length1` が無い（Table 125 で TrueType は Required。
-        pdf-lib はコード上どこにも書かない — ソース確認済み）。.otf は W-2 是正後 FontFile3 に
-        なるため、**残るのは .ttf 入力経路**。フォントストリーム辞書に 1 エントリ追加
+        是正: **CIDFontType0 + FontFile3 `/Subtype /OpenType`**（cmap の有無を実測して確認。
+        無ければ触らず報告）＋ `/CIDToGIDMap` 削除（Table 115 で CIDFontType2 専用）。
+        **想定外の難所 = グリフ選択**: CIDFontType0 は `CID → charset → GID`（R-9.7.4.2-4）で
+        CIDFontType2 の `CID → GID` とは別経路。CID-keyed CFF をサブセットすると charset は
+        「新 GID → 元の GID」を保つ（実測: gid1→cid1, gid2→cid18, … gid9→cid1478）ので、
+        **辞書名だけ直すと条文どおりに解決する処理系が別のグリフを描く**。
+        CFF の charset を identity に書き換えて解決（ROS が `Adobe-Identity-0` = CID に外部
+        コレクション上の意味が無いことを確認してから。バイト長不変。sfnt チェックサムは再計算）。
+        **受け入れ確認: poppler の `Mismatch between font type` 警告が消滅**（実測）
+  - [x] **W-3**: サブセット名に `ABCDEF+` タグが無かった（実測 `/NotoSansJP-Regular-7572`）。
+        R-9.9.2-2/-3。タグは**フォントプログラムのハッシュ**から決めるので決定論的出力（E-6）を
+        壊さない。pdf-lib の乱数サフィックスは「元の PostScript 名」を壊すので落とす
+  - [x] **W-4**: FontFile2 に `Length1` が無かった（Table 125 で TrueType は Required）。
+        .otf は W-2 是正後 FontFile3 になるため、**残るのは .ttf 入力経路**。実測で一致を確認
+  - [x] **W-5**（同乗）: Info と XMP の日時が別々の `outputDate()` 呼び出しだった
+        （R-14.3.4-2/-5 の「fully equivalent」を秒境界で破りうる）。`documentDate(doc)` で
+        **1 文書 = 1 インスタンス**に一本化
+  - **テストの教訓**: 検査は全て **qpdf / poppler での読み戻し**（pdf-lib は自分が書いた辞書を
+        そのまま読み返すので、この層の誤りを原理的に検出できない）。なお初版のテストは
+        `skipIf` の条件を `beforeAll` で立てたフラグにしていたため**全 7 件がスキップされたまま緑**
+        だった（`skipIf` は定義時に評価される）。同期検出に変更済み。
+        修正を外すと 8 件中 6 件が落ちることも実測
+
 - [ ] **B-15. `fill_form` への preserveSignatures 展開**（2026-07-19 起票・機能ギャップ）
       R-12.8.2.2.1-7: DocMDP **P≥2 はフォーム記入を明示的に許す**のに、増分更新を持たない
       fill_form では署名済みフォームに記入できない（署名ガードで拒否）。B-7b'' のヘルパで
@@ -395,7 +409,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 | `.ttc` 非対応 | B-2 |
 | サブセット名接頭辞なし | B-8 |
 | 署名済み PDF の編集で署名が無効化 | B-7（`incremental_save`）。暫定は署名ガードで防御済み |
-| poppler の `Mismatch between font type` 警告 | ~~無害。対応不要~~ → **B-14/W-2 の症状だった**（2026-07-19 格上げ）。CFF を CIDFontType2+FontFile2 で埋めている Table 124 違反の観測。描画は主要ビューアの実体スニッフィングで保たれているが、条文上は要是正。警告消滅が B-14 の受け入れ確認 |
+| poppler の `Mismatch between font type` 警告 | ~~無害。対応不要~~ → **B-14/W-2 の症状だった**（2026-07-19 格上げ）→ **v0.14.0 で消滅**（2026-07-20 実測）。「無害」と記録した既知事項が実は shall 違反だった例として残す |
 
 ## D. family 連携（`mcps/pdf-family-role-architecture.md` 由来・writer 外だが writer に影響）
 

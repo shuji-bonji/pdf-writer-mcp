@@ -19,7 +19,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PDFDocument, PDFName, PDFRef } from 'pdf-lib';
-import { outputDate } from '../config.js';
+import { documentDate } from '../config.js';
 import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
@@ -194,7 +194,7 @@ function assertDocMdpAllows(
 
 /** ModificationDate を更新し、既存 Info オブジェクトなら dirty に積む */
 function touchModificationDate(doc: PDFDocument, since: number, dirty: PDFRef[]): void {
-  doc.setModificationDate(outputDate());
+  doc.setModificationDate(documentDate(doc));
   const info = doc.context.trailerInfo.Info;
   if (info instanceof PDFRef && info.objectNumber <= since) dirty.push(info);
 }

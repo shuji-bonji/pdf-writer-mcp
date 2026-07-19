@@ -6,7 +6,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { PDFDocument, SaveOptions } from 'pdf-lib';
-import { outputDate, PACKAGE_INFO } from '../config.js';
+import { documentDate, PACKAGE_INFO } from '../config.js';
 import type {
   CommonCreateOptions,
   CommonEditOptions,
@@ -14,6 +14,7 @@ import type {
   EditResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { normalizeEmbeddedFonts } from './font-conformance.js';
 
 /**
  * 編集済み PDF の保存・base64 化。
@@ -29,7 +30,10 @@ export async function saveEdited(
   opts: CommonEditOptions,
   saveOptions?: SaveOptions,
 ): Promise<EditResult> {
-  doc.setModificationDate(outputDate());
+  doc.setModificationDate(documentDate(doc));
+
+  // B-14: 編集系でもフォントを埋める経路がある（stamp_page_numbers / add_watermark）
+  await normalizeEmbeddedFonts(doc);
 
   const bytes = await doc.save(saveOptions);
   const result: EditResult = {
@@ -86,9 +90,13 @@ export async function finalizePdf(
   if (opts.title) doc.setTitle(opts.title);
   if (opts.author) doc.setAuthor(opts.author);
   doc.setProducer(`${PACKAGE_INFO.name}/${PACKAGE_INFO.version}`);
-  const now = outputDate();
+  const now = documentDate(doc);
   doc.setCreationDate(now);
   doc.setModificationDate(now);
+
+  // B-14: pdf-lib が書いたフォント辞書を条文に合わせて是正する（save の直前に置くこと。
+  // pdf-lib はフォントを flush 時に初めて context へ書き出すため）
+  await normalizeEmbeddedFonts(doc);
 
   const bytes = await doc.save();
 

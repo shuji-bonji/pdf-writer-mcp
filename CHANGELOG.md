@@ -2,6 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] - 2026-07-20
+
+**B-14: embedded fonts now conform to ISO 32000-2.** All four items below are things
+**veraPDF cannot see** — PDF/UA-1 does not check that a font program matches the format its
+dictionary claims — which is why the output kept validating 106/106 while being wrong.
+They were found by re-auditing against the specification (`docs/SPEC-REAUDIT-2026-07-19.md`),
+not by any validator.
+
+### Fixed
+
+- **🔴 CFF (`.otf`) fonts are no longer embedded as TrueType (W-2).** This tool pre-subsets with
+  harfbuzz and hands the result to pdf-lib, whose `isCFF()` check does not recognise an OTTO
+  container — so a font program whose first four bytes are literally `OTTO` was written as
+  `/Subtype /CIDFontType2` with `/FontFile2`. **Table 124** requires a `FontFile2` program to
+  conform to the TrueType Reference Manual and to include `glyf`, `head`, `hhea`, `hmtx`,
+  `loca` and `maxp` (R-9.9.1-33 / -34); a CFF-based OpenType font has neither `glyf` nor `loca`.
+  **R-9.7.4.2-3** additionally requires the `FontFile3` of a CIDFont embedding CFF to be
+  `CIDFontType0C` or `OpenType`.
+
+  Such fonts are now written as `/Subtype /CIDFontType0` + `/FontFile3` with
+  `/Subtype /OpenType`, per the Table 124 entry for OpenType ("a CIDFontType0 CIDFont
+  dictionary, if the embedded font program contains a `CFF ` table … in addition to the
+  `CFF ` table, the font program shall include the `cmap` table" — harfbuzz keeps `cmap`, and
+  its absence is now reported rather than silently claimed). `/CIDToGIDMap` is dropped, since
+  Table 115 defines it for CIDFontType2 only.
+
+  **This also fixes the glyph mapping, which is the part that could have broken rendering.**
+  CIDFontType0 selects glyphs through `CID → charset → GID` (R-9.7.4.2-4), not `CID → GID`.
+  Subsetting a CID-keyed CFF leaves a charset that maps new GIDs back to the *original* GIDs
+  (measured on Noto Sans JP: gid1→cid1, gid2→cid18, … gid9→cid1478), while pdf-lib writes
+  `CID = GID` into the content stream. Renaming the dictionary alone would therefore have made
+  conformant processors draw **different glyphs**. The CFF charset is rewritten to the identity
+  mapping (verified safe: the font declares the `Adobe-Identity-0` collection, where CID values
+  carry no meaning beyond glyph order), and the sfnt checksums are recomputed.
+
+  Side effect: poppler's long-standing `Syntax Warning: Mismatch between font type and embedded
+  font file` is gone. It was recorded in `docs/TASKS.md` as *"harmless, no action needed"* —
+  it was in fact the symptom of this violation.
+
+- **Subset font names now carry the required tag (W-3).** **R-9.9.2-2 / -3** require the
+  `BaseFont` and `FontName` of a subset to be "a tag followed by a plus sign followed by the
+  PostScript name of the font from which the subset was created", where the tag is
+  **exactly six uppercase letters** and distinct subsets in one file get distinct tags.
+  pdf-lib appends a random numeric suffix instead (`NotoSansJP-Regular-7572`), which is both
+  the wrong shape and a corrupted original name. Names are now `ABCDEF+NotoSansJP-Regular`,
+  with the tag derived from a hash of the font program — deterministic, so identical input
+  still yields identical bytes (`SOURCE_DATE_EPOCH`, E-6).
+
+- **`FontFile2` streams now carry `Length1` (W-4).** Table 125 marks it **Required** for
+  TrueType font programs; pdf-lib never writes it. Applies to `.ttf` input.
+
+- **The Info dictionary and XMP can no longer disagree about time (W-5).** **R-14.3.4-2 / -5**
+  require the two to be "fully equivalent" (shall). Both sides called `outputDate()`
+  *separately*, so a document generated across a second boundary got mismatched timestamps —
+  a violation that reproduces only by luck. A single timestamp is now resolved once per
+  document and shared by both paths.
+
+### Notes
+
+- The correction runs just before `save()` (`services/font-conformance.ts`), because pdf-lib
+  writes font dictionaries only when the document is flushed. It re-opens what pdf-lib wrote
+  rather than trusting it — the same habit that Phase 3 of the spec audit established.
+- Regression tests read the output back with **qpdf** and **poppler**, not pdf-lib: the checks
+  here are precisely the ones a self-consistent reader cannot make. A first draft of the test
+  file gated every case on a flag set in `beforeAll`, which `skipIf` evaluates too early — all
+  seven cases skipped and the suite still reported green. Fixed, and the reason is recorded in
+  the test.
+
 ## [0.13.1] - 2026-07-19
 
 Hotfix for a v0.13.0 regression that produces **broken PDFs**. If you are on 0.13.0,

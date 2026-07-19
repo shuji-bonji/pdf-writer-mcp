@@ -6,6 +6,7 @@
 | 対象 | pdf-writer-mcp **v0.13.0**（公開済み） |
 | 手段 | pdf-spec-mcp 0.4.4（get_requirements / get_tables / get_section / search_spec）+ 実測（実際に生成した PDF を qpdf --qdf で展開して辞書を目視・qpdf --check・pdf-lib ソース読解） |
 | 前回 | `docs/SPEC-AUDIT.md` Phase 1〜4（正典は 0.4.1。0.4.2〜0.4.4 の修正は**新規テキストゼロ・重複除去と再帰属のみ**のため、Phase 2〜4 の結論の根拠テキスト自体は変わっていない） |
+| 状態 | **新規発見 5 件は全て是正済み**（W-1 = v0.13.1 / W-2〜W-5 = v0.14.0） |
 | 結論 | **Phase 1〜4 の結論は 0.4.4 正典でも維持**。ただし本監査で**新規発見 5 件**（High 2・Medium 2・Low 1）。うち 1 件は条文照合ではなく「正典で当たりをつけて実測で開いた」ことで見つかった**出力破壊バグ**（W-1） |
 
 ## 結論サマリ
@@ -56,6 +57,17 @@
 
 ### W-2 🔴 CFF (.otf) を CIDFontType2 + FontFile2 で埋め込んでいる
 
+> [!NOTE]
+> **是正済み（2026-07-20・v0.14.0 / B-14）**: `services/font-conformance.ts` で
+> **CIDFontType0 + FontFile3 `/Subtype /OpenType`** に是正（Table 124 の OpenType 欄・
+> cmap の存在は実測して確認）。`/CIDToGIDMap` も削除（Table 115 で CIDFontType2 専用）。
+> **本件で一番危なかったのは辞書名ではなくグリフ選択**: CIDFontType0 は
+> `CID → charset → GID`（R-9.7.4.2-4）なので、CID-keyed CFF の charset（新 GID → 元の GID）を
+> 放置したまま名前だけ直すと**条文どおりに解決する処理系が別のグリフを描く**。
+> charset を identity に潰して解決した（ROS が `Adobe-Identity-0` であることを確認してから）。
+> 受け入れ: poppler の `Mismatch between font type` 警告消滅・veraPDF 106/106 維持・
+> ラスタライズ結果不変（是正前後で PNG バイト一致を実測）。
+
 | 項目 | 内容 |
 |------|------|
 | 条項 | **R-9.9.1-33**（Table 124 `FontFile2`: 「font program **shall** conform to the TrueType Reference Manual」）＋ **R-9.9.1-34**（「**shall** include these tables: "glyf", "head", "hhea", "hmtx", "loca", and "maxp"」） |
@@ -66,16 +78,30 @@
 
 ### W-3 サブセット名に `ABCDEF+` タグが無い
 
+> [!NOTE]
+> **是正済み（2026-07-20・v0.14.0 / B-14）**: `ABCDEF+NotoSansJP-Regular` 形式に。
+> タグはフォントプログラムのハッシュ由来で決定論的（E-6 を壊さない）。
+> pdf-lib の乱数サフィックス（`-7572`）は「元の PostScript 名」を壊すので落とした。
+
 - **R-9.9.2-2**: サブセットの BaseFont / FontName は「**タグ + `+` + 元の PostScript 名**」で始まらなければならない（shall）。**R-9.9.2-3**: タグは**大文字 6 文字ちょうど**、同一フォントの別サブセットは別タグ（shall）。
 - 実測: `/BaseFont /NotoSansJP-Regular-7572`（pdf-lib が付ける `-数字` サフィックス。形式不適合）。writer は harfbuzz で**必ず事前サブセット**するため、全埋め込みが該当する。
 - 従来この件は「サブセット名接頭辞なし → B-8（PDF/A 対応時に正規化）」として PDF/A の課題に紐づけていたが、**ISO 32000-2 本体の shall** である以上、B-8 を待つ理由がない。是正は埋め込み後に BaseFont / FontName / (CIDSystemInfo との整合) を書き換える後処理で可能。なお **R-9.9.2-4**（.notdef はサブセットに定義されていること）は harfbuzz が glyph 0 を常に保持するため適合。
 
 ### W-4 FontFile2 の Length1 欠落（.ttf 入力時）
 
+> [!NOTE]
+> **是正済み（2026-07-20・v0.14.0 / B-14）**: デコード後バイト長を `Length1` に。
+> qpdf でストリーム実体長と一致することを実測。
+
 - Table 125 `Length1`: 「(**Required** for Type 1 and TrueType font programs) The length in bytes of … the entire TrueType font program, after it has been decoded」。
 - pdf-lib `CustomFontEmbedder.embedFontStream` は `Subtype`（CFF 時のみ）以外の追加エントリを書かない — **Length1 はコード上どこにも存在しない**（ソース確認）。.otf は W-2 是正後 FontFile3 になり Length1 不要だが、**.ttf 入力の経路には残る**。是正はフォントストリーム辞書への 1 エントリ追加。
 
 ### W-5 Info ↔ XMP の日時等価が秒境界レースに依存
+
+> [!NOTE]
+> **是正済み（2026-07-20・v0.14.0）**: `config.ts` の `documentDate(doc)` で
+> **1 文書 = 1 インスタンス**に一本化。単体テストで「同一インスタンスが返る」ことを固定した
+> （結合テストだけだと秒境界を跨がない限り修正前でも通ってしまうため）。
 
 - **R-14.3.4-2 / -5**（shall）: 作成日時・更新日時を Info と XMP の両方に書くときは「**fully equivalent**」でなければならない。
 - 現状: create 系は `finalizePdf`（output.ts 89–91 行）が `outputDate()` を呼んで Info に書き、`buildXmpPacket`（xmp.ts 80 行）が**別途** `outputDate()` を呼んで XMP に書く。`set_metadata` も `touchModificationDate` と `syncXmpWithInfo` で同型。実測した固定値では一致（`D:20260719091131Z` ⇔ `2026-07-19T09:11:31Z`）するが、2 回の呼び出しが**秒境界を跨ぐと不一致**になる。`SOURCE_DATE_EPOCH` 設定時は常に同値。
