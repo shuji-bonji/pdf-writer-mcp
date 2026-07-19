@@ -3,49 +3,66 @@
 | 項目 | 内容 |
 |------|------|
 | 作成日 | 2026-07-16 |
-| 最終更新 | 2026-07-17（v0.6.0 時点） |
+| 最終更新 | 2026-07-19（v0.13.0 公開後・SPEC-REAUDIT 反映） |
 | 基準 | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案） |
-| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能** |
-| 次の最優先 | **writer ではない。** family の進行順に従い **reader の High バグ 2 件 → M-8** が先（下記「次にやること」参照）。writer 側の次は B-10c だが**急がない** — B-10a/b で「黙って壊す」は解消済みで、残るのは**申告済みの損失 + 回避策あり**（出力に `ensure_tagged`） |
+| 現状 | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15） |
+| 次の最優先 | 🔴 **B-10b-fix（W-1）= v0.13.1 hotfix**。公開中の v0.13.0 が、準拠宣言なしの XMP を持つ入力（Word 等の外部 PDF ほぼ全部）へのページ操作で**壊れた PDF を出力する**。これだけは「次は reader」という family の進行順合意（2026-07-17）の**例外**として先に直す。その後は合意どおり reader → M-8。B-10c は引き続き急がない |
 
-## 次にやること（2026-07-18 更新・v0.13.0 リリース時点）
+## 次にやること（2026-07-19 更新・SPEC-REAUDIT 反映）
 
-> **🔴 次は writer ではない。** family の進行順（`mcps/pdf-family-role-architecture.md` /
+### 0. 🔴 B-10b-fix（W-1）= v0.13.1 hotfix — 唯一の「reader より先」
+
+**根拠と実測**: `docs/SPEC-REAUDIT-2026-07-19.md` W-1。`services/doc-level.ts` の
+`carryXmp()`（371 行）と汎用経路（320 行）が、ref を `lookup()` で**解決してから**
+`PDFObjectCopier.copy()` に渡すため、返り値が**新しい間接参照ではなく複製オブジェクト実体**になり、
+catalog の `/Metadata` に**ストリームが直接オブジェクト**として埋まる
+（R-7.3.8.1-5「All streams shall be indirect objects」/ R-7.7.2-22 違反）。
+出力は qpdf で **`unable to find /Root dictionary`（exit 2）** — 壊れた PDF。
+
+- 対象: merge / split / extract / delete / reorder × 「準拠宣言（pdfuaid/pdfaid）を**含まない**
+  XMP を持つ入力」。writer 自前の tagged 出力は宣言持ちで carry されないため内輪のテストでは踏まない
+- 修正: **ref のまま `copier.copy(raw)` に渡す**（PDFRef を渡せば dst 登録済みの新 ref が返る）。
+  一貫性のため 320 行の汎用経路も ref 運搬に揃える
+- テスト: **qpdf --check の読み戻しを追加**（`doc-level.test.ts` は pdf-lib 読み戻しのみで
+  この破損を見逃した — pdf-lib は壊れた catalog を寛容に読む。独立実装での検証が必須）
+- 同乗候補（数行）: **W-5** = Info/XMP の日時を同一 `Date` に貫通（R-14.3.4-2/-5。
+  create 系 = output.ts 89–91 行と xmp.ts 80 行、set_metadata = touchModificationDate と
+  syncXmpWithInfo が別々に `outputDate()` を呼んでいる）
+- リリース手順は A-4 の鉄則どおり（署名は push・tag の**前**）
+
+> **🔴 v0.13.1 の後は writer ではない。** family の進行順（`mcps/pdf-family-role-architecture.md` /
 > 2026-07-17 合意）に従い、**pdf-reader-mcp** が先。writer は v0.13.0 で一区切りついた。
 
-### 1. reader の High バグ 2 件 + M-2（別セッション・バグ修正）
+### 1. ~~reader の High バグ 2 件 + M-2~~ ✅ / ~~M-8~~ ✅ / ~~verify #4~~ ✅（2026-07-18〜19 に全て完了）
 
-**今この瞬間、誤答している。** レポート: `pdf-reader-mcp/docs/spec-conformance-review-2026-07-17.md`
+2026-07-18 起票時の「reader が先」の中身は**全部済んだ**: reader High-1/High-2 は修正済み・
+M-8 `extract_structured_text` は reader v0.8.0〜v0.9.0 として公開済み・verify #4 `evaluate_policy` は
+v0.7.0 として公開済み。spec ⇄ reader / spec ⇄ verify の相互監査も完了（各リポジトリの
+reviews / docs 参照）。**writer の再監査（本リポジトリ `docs/SPEC-REAUDIT-2026-07-19.md`）で
+family の「最新 spec で三方を再監査」は一巡した。**
 
-- **High-1**: `inspect_fonts` が Type0 フォントで `isEmbedded` 常に false
-  （FontDescriptor を DescendantFonts の CIDFont 側で見ていない）— **日本語 PDF に直撃・実証済み**
-- **High-2**: `read_images` の pdfjs ImageKind 誤マッピング（正: 1=Gray1bpp, 2=RGB, 3=RGBA）
-- **M-2**: `validate_tagged` / `validate_metadata` の deprecation 予告（verify へ移管済み）
+### 2. v0.13.1 の後の writer の進行順（2026-07-19 提案）
 
-**なぜ writer の B-10c より先か**: reader は学習データ工場で「読み戻し」と「ラベル付け」を担う。
-**誤答する reader はラベルを汚染する**。一方 writer 側に残るのは**申告済みの損失 + 回避策あり**
-（B-10a/b で「黙って壊す」は解消済み）。**B-10a/b が B-10c の緊急度を下げた**。
+全体計画（memory / specs/00 付記）は「**課題消化 → writer 完成 → family 連携使用 → 紹介サイト**」。
+writer 側の推奨順:
 
-### 2. M-8 = `extract_structured_text`（さらに別セッション・新ツール）
+1. **B-14（フォント埋め込みの条文適合 = 再監査 W-2/W-3/W-4）** — 全 create 系 + フォントを
+   扱う編集系に効く既存出力の品質問題。B-2/B-3（フォント機能の拡張）に**先行させる**
+   （拡張を先にやると違反経路が増えるだけ）
+2. **B-10c**（構造木の引き継ぎ）— 引き金は従来どおり「pdf-publish が tagged 経路で
+   ページ操作を挟みたくなったとき」。実装時は SPEC-REAUDIT の shall チェックリスト
+   （ID 一意・RoleMap/ClassMap マージ・PageLabels index 0・OCGs 完全性）を受け入れ基準にする
+3. B-12（`replace_text`）/ B-2（`.ttc`）/ B-3（フォント分け）/ B-4（画像）— 順不同。
+   B-2 実装時は W-3/W-4 の是正を同時に満たすこと（SPEC-REAUDIT の B-2 節）
+4. B-8（PDF/A）— pdf-spec のコーパス外（ISO 19005 なし）。検証手段の設計から必要
 
-仕様: `Document-Note/mcps/PDFfamily/specs/08-structured-text-and-reflow.md`（**Draft v0.1・未実装**）
-**主対象は pdf-reader-mcp**（pdf-spec ではない。writer の再生成側は実装済みで追加作業ゼロ）。
+## SPEC-AUDIT の到達点（Phase 1〜4 完了 + **Phase 5 = 0.4.4 正典での再監査完了 2026-07-19**）
 
-「直す」ではなく「**決める**」作業 — ツール名・出力形・family 実装規約への適合・Skill 層との
-境界を先に固める必要がある。**1 と混ぜないこと**（両方が雑になる。High-1 を設計議論の人質にしない）。
-なお「Type0 修正と M-8 は同一ファイル」は**並行作業を避ける**理由であって同時にやる理由ではない。
-1 → 2 の順なら衝突しない。M-8 が入ると **B-7d（`edit_text`）が M-8 経路で成立する**。
-
-### 3. その後: verify #4（AI 判定の決定論化）/ writer B-10c
-
-### writer 側の残り（急がない）
-
-**B-10c**（構造木の引き継ぎ）が入ると MarkInfo・準拠宣言つき XMP・`/AcroForm` /
-`/OCProperties` の参照張り替え・**添付の本当のマージ**（名前衝突の解決込み）が同じ回で片付く。
-前倒しの引き金は「`pdf-publish` が tagged 経路でページ操作を挟みたくなったとき」。
-その他: B-2（`.ttc`）/ B-3（フォント分け）/ B-4（画像）/ B-8（PDF/A）/ B-12（`replace_text`）。
-
-## SPEC-AUDIT の到達点（2026-07-18・Phase 1〜4 完了）
+> Phase 5（全ツール再照合 + 未着手タスクの事前照合）は独立レポート
+> **`docs/SPEC-REAUDIT-2026-07-19.md`** にある。結論: Phase 1〜4 は維持・新規 5 件
+> （W-1 = B-10b-fix 🔴 / W-2〜W-4 = B-14 / W-5 = v0.13.1 同乗候補）。
+> 教訓の追加分: **「無害」と分類した警告は条文で裏を取るまで無害ではない** /
+> **読み戻しは独立実装（qpdf --check）で**。
 
 **正典が変わった。** pdf-spec-mcp が **0.4.1** になり、抽出が大きく直った。
 **`docs/SPEC-AUDIT.md` の冒頭の警告を必ず読むこと** — Phase 1 / 1.5 は欠けた正典に対して
@@ -247,7 +264,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
            抽出（M-8）を足せば、reader → Skill → writer の create 系再生成で成立する**
         → よって writer 側の残作業は **replace_text（見た目保存型・リフローしない限定置換）のみ**。
           これは Tier C ではなく **Tier B 相当の軽量機能**（B-12 として別掲）
-- [ ] **B-10. ページ操作系の文書レベルオブジェクト引き継ぎ**（🔴 **最優先** — SPEC-AUDIT Phase 1.5 で発見）
+- [ ] **B-10. ページ操作系の文書レベルオブジェクト引き継ぎ**（SPEC-AUDIT Phase 1.5 で発見。現在の 🔴 は下の **B-10b-fix**）
       `copyPages` を使う 5 ツール（merge / split / extract / delete / reorder）が
       **StructTreeRoot / MarkInfo / Metadata(XMP) / Names(添付) を黙って破棄**している（実測）。
       rotate は in-place のため無傷。仕様違反ではない（タグ無し PDF は合法）が、
@@ -268,6 +285,11 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
         使っていれば shall 違反として報告する。
         副産物: 監査は 4 要素（StructTreeRoot / MarkInfo / XMP / Names）を挙げていたが、
         **/AcroForm（Widget が孤児になりフォームが機能しなくなる）と /OCProperties も落ちていた**
+  - [ ] **B-10b-fix 🔴（W-1）**: carry が XMP ストリームを catalog に**直接オブジェクト**で
+        埋め込み、**出力 PDF を破壊する**（v0.13.0 リグレッション。qpdf が /Root 解決不能）。
+        原因 = ref を `lookup()` で解決してから `PDFObjectCopier.copy()` に渡している
+        （doc-level.ts 320 / 371 行）。**v0.13.1 hotfix**。詳細は「次にやること 0.」と
+        `docs/SPEC-REAUDIT-2026-07-19.md` W-1
   - [x] **B-10b. 引き継ぎ**（2026-07-18・未リリース）— `carryDocumentLevel`（doc-level.ts）。
         複製は pdf-lib の `PDFObjectCopier` に委譲（参照グラフを辿るので添付ストリームも 1 回で運べる）。
         **選定基準を「引き継げるか」→「引き継いで嘘にならないか」に改めた**（起票時の計画は誤りだった。
@@ -322,8 +344,32 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       幅が変わる場合は警告（または拒否）。実需: 請求書の日付・版番号・氏名の差し替え。
       **リフローが要るなら M-8 経路（reader → Skill → create 系再生成）を使う**、と説明で誘導する。
       難所: Tj のコード列 → 文字の逆引き（標準フォント = WinAnsi は容易 / Identity-H は ToUnicode 経由）
-- [ ] **B-8. PDF/A 変換** — サブセット名 `ABCDEF+` 接頭辞の正規化を含む（外部ツール連携検討）
+- [ ] **B-14. フォント埋め込みの条文適合**（2026-07-19 起票 — SPEC-REAUDIT W-2/W-3/W-4。
+      詳細・実測証拠は `docs/SPEC-REAUDIT-2026-07-19.md`）
+  - [ ] **W-2 🔴**: CFF (.otf) が **CIDFontType2 + FontFile2** で埋め込まれる（実測: ストリーム先頭
+        `OTTO`）。Table 124（R-9.9.1-33/-34）違反 — FontFile2 は TrueType program（glyf/loca 必須）。
+        是正: CFF 系は **CIDFontType0 + FontFile3 `/Subtype /OpenType`**（cmap 必須 = R-9.9.1-42）か
+        bare CFF（`CIDFontType0C`・R-9.9.1-13 単一 CIDFont）。pdf-lib の `isCFF()` 分岐が
+        false 側に落ちている — 分岐修正 or 埋め込み後の辞書後処理。
+        **受け入れ確認: poppler の `Mismatch between font type` 警告の消滅**（C 表参照）
+  - [ ] **W-3**: サブセット名に `ABCDEF+` タグが無い（実測 `/NotoSansJP-Regular-7572`）。
+        R-9.9.2-2/-3（タグ = 大文字 6 文字 + `+`・別サブセットは別タグ）。**B-8/PDF-A 待ちは誤り** —
+        ISO 32000-2 本体の shall。BaseFont / FontName の埋め込み後書き換えで可
+  - [ ] **W-4**: FontFile2 に `Length1` が無い（Table 125 で TrueType は Required。
+        pdf-lib はコード上どこにも書かない — ソース確認済み）。.otf は W-2 是正後 FontFile3 に
+        なるため、**残るのは .ttf 入力経路**。フォントストリーム辞書に 1 エントリ追加
+- [ ] **B-15. `fill_form` への preserveSignatures 展開**（2026-07-19 起票・機能ギャップ）
+      R-12.8.2.2.1-7: DocMDP **P≥2 はフォーム記入を明示的に許す**のに、増分更新を持たない
+      fill_form では署名済みフォームに記入できない（署名ガードで拒否）。B-7b'' のヘルパで
+      成立するはず。違反ではないが、「署名済み申請書に記入して返す」という実需の中心
+- [ ] **B-8. PDF/A 変換** — 外部ツール連携検討。**ISO 19005 は pdf-spec のコーパスに無い**ため
+      条文照合ベースの受け入れ基準が作れない（検証手段の設計から必要。SPEC-REAUDIT B-8 節）。
+      ※サブセット名正規化は B-14/W-3 へ移動（32000-2 本体の義務のため PDF/A を待たない）
       ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
+- [ ] **B-16. PDF 2.0 出力対応時の必須項目メモ**（起票のみ）— Table 15: trailer `/ID` は
+      **PDF 2.0 で Required**（各バイト列 16 バイト以上・初回は両要素同値 = R-14.4-6）。
+      現状の 1.7 出力では不書きで適合（実測: create 系は /ID を書かない）。
+      2.0 対応時は E-6 決定論と `SOURCE_DATE_EPOCH` 由来ハッシュで両立させる
 - [x] **B-9. set_metadata の XMP 併記更新**（v0.10.0・2026-07-17）— `syncXmpWithInfo`（xmp.ts）。
       Info の現在値から XMP を再生成し、pdfuaid:part / dc:language / xmp:CreateDate は既存から保持。
       **同一 ref への assign** で差し替えるため catalog 不変（増分更新と両立）。
@@ -338,7 +384,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 | `.ttc` 非対応 | B-2 |
 | サブセット名接頭辞なし | B-8 |
 | 署名済み PDF の編集で署名が無効化 | B-7（`incremental_save`）。暫定は署名ガードで防御済み |
-| poppler の `Mismatch between font type` 警告 | 無害。対応不要 |
+| poppler の `Mismatch between font type` 警告 | ~~無害。対応不要~~ → **B-14/W-2 の症状だった**（2026-07-19 格上げ）。CFF を CIDFontType2+FontFile2 で埋めている Table 124 違反の観測。描画は主要ビューアの実体スニッフィングで保たれているが、条文上は要是正。警告消滅が B-14 の受け入れ確認 |
 
 ## D. family 連携（`mcps/pdf-family-role-architecture.md` 由来・writer 外だが writer に影響）
 
