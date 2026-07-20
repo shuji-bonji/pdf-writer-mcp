@@ -6,7 +6,7 @@
 | 最終更新   | 2026-07-20（v0.14.0 = B-14 + W-5 実装後）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 基準       | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案）                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 現状       | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・公開済み・npx 検証 PASS）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト。**v0.14.0**（2026-07-20・**公開済み・npx 検証 PASS**）= B-14（W-2/3/4）+ W-5 |
-| 次の最優先 | なし。**v0.14.0 公開済み・npx 検証 PASS**（3 経路 qpdf exit 0 / veraPDF 106-106 / poppler 警告消滅 / 旧版 0.13.1 とラスタライズがバイト一致）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）は全消化**。残るのは B-10c / B-12 / B-15 / B-4 / B-8 で、いずれも急がない。family の進行順は**④ Skill の見直し + 実連携**へ                                                                                                                                                                                                                                                                                                                                                                                       |
+| 次の最優先 | 🔴 **B-17**（`stripInline` が `snake_case` の `_` を消す。`exit 0`・無警告・コードスパンでも防げない）。2026-07-20 の ④ 実連携で発見（`specs/11-kickoff-measurements.md`）。**v0.14.0 公開済み・npx 検証 PASS**（3 経路 qpdf exit 0 / veraPDF 106-106 / poppler 警告消滅 / 旧版 0.13.1 とラスタライズがバイト一致）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）は全消化**。B-17 の次は、リフロー経路を採るかの判断待ちで **B-18 / B-19**。残る B-10c / B-12 / B-15 / B-4 / B-8 は急がない                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## 次にやること（2026-07-19 更新・SPEC-REAUDIT 反映）
 
@@ -386,11 +386,71 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       dc:description（Subject）と pdf:Keywords を XMP 生成器に追加。
       実測: タグ付き文書のタイトル変更後も veraPDF ua1 **COMPLIANT (106/106)**
 
+### ④ 実連携（2026-07-20 起票）— リフロー経路の往復が閉じない
+
+出典: `Document-Note/mcps/PDFfamily/specs/11-kickoff-measurements.md` §3。
+④ で「writer で書く → reader `extract_structured_text` で読み戻す」を回したところ、
+**往復が不動点にならない**ことが 3 件出た。M-8 は「リフローは reader→Skill→writer で
+やる」と決めた経路なので、**writer 側が情報を落とすと経路そのものが成立しない**。
+
+- [ ] 🔴 **B-17. `stripInline` の `_` 処理が CommonMark に反し、`snake_case` を破壊する**
+      `services/renderers/markdown.ts` の `stripInline()` は
+      `.replace(/__([^_]+)__/g,'$1')` と `.replace(/_([^_]+)_/g,'$1')` を
+      **左右の文字を見ずに**適用する。CommonMark は `*` の語中強調は許すが `_` は許さない
+      （`snake_case` を守るための規則）。writer は両者を同一に扱っているため、
+      1 行に `_` が偶数個あると識別子が壊れる。
+      **`exit 0`・`warnings` なしで起きる**ため、読み戻して入力と照合しない限り気づけない。
+      さらに**バッククォートで囲んでも防げない** — コードスパンの復元（line 27）が
+      `_` の処理（line 26）より**後**にあるため、利用者側の回避手段が無い。
+      実測（`_pdf-family-e2e/r1-repro.pdf`・v0.14.0）:
+
+      | 入力 | 出力 | 判定 |
+      |---|---|---|
+      | `a_b`（`_` 1 個） | `a_b` | 保存される |
+      | `identify_conformance and validate_conformance` | `identifyconformance and validateconformance` | **破壊** |
+      | `` `identify_conformance` and `validate_conformance` `` | 同上 | **破壊**（コードスパン無効） |
+      | `extract_structured_text` | `extractstructuredtext` | **破壊** |
+      | `*emphasised*` | `emphasised` | 正常（機能自体は動く） |
+      | `foo*bar*baz` | `foobarbaz` | `*` の語中強調は CommonMark でも有効 = 正 |
+
+      **修正方針**: `_` の開始・終了判定に CommonMark の left/right-flanking 条件を入れる
+      （最小実装なら「前後が英数字なら強調とみなさない」）。あわせてコードスパンを
+      先に切り出して保護する。**着手時に CommonMark §6.2 の条文を必ず引くこと** —
+      本起票時は spec ページの当該節本文を取得できておらず、規則の要旨のみで書いている
+      （一次情報未確認）。
+      ※ §C の「インライン装飾が字面のみ（B-3）」とは**別の問題**。あちらは
+      「装飾を再現しない」という仕様、これは「装飾でない文字を消す」という欠陥
+
+- [ ] 🟠 **B-18. リストの `/Lbl` と `ListNumbering` を出力しない**
+      `markdown.ts:135` のコメントどおり**意図的な選択**（「Lbl は marker を本文に含めているため
+      作らない」）。構造木は `L → LI → LBody` のみで、`•` や `1.` は LBody の本文に焼き込まれる。
+      **条文上は適合**: ISO 32000-2 §14.8.4.8.2 Table 370 の LI の行は
+      「LI structure elements **often include** Lbl … to mark up a list item's label (if any)」
+      という **NOTE** であって `shall` ではない。`ListNumbering`（§14.8.5.5）も「may be used」。
+      veraPDF PDF/UA-1 も 106/106 で通る。
+      **しかしリフローでは問題になる**: ラベルが本文と機械的に分離できないため、
+      再生成側が自前の記号を付けると `• • 項目` / `1. 1. 第一項目` に二重化する。
+      `Lbl` を分離し `ListNumbering` で順序/非順序を明示すれば往復が閉じる。
+      **意図的な設計の再考であり、バグ修正ではない** — リフロー経路を採るなら必要、
+      という条件つきの起票
+
+- [ ] 🟡 **B-19. `title` と本文先頭見出しが両方 H1 になる**
+      `builder.ts:105` がタイトルを `H1` として描画し、`markdown.ts:84` のコメントどおり
+      本文の見出しも「開始レベルは 1」として正規化されるため、`# 見出し` が 2 つ目の H1 になる。
+      **これも意図的**（PDF/UA 7.4.2 の「H1 始まり・レベル飛ばし禁止」を満たすための設計）で、
+      veraPDF は通る（実測 106/106）。
+      リフロー時に見出しが重複するため、`title` と本文 `#` が同義のとき何が起きるかを
+      決める必要がある（本文側を H2 起点にする / タイトルを構造木に入れない / 現状維持で
+      Skill 側が注意する、のいずれか）。**往復のたびに H1 が増えるかは未追試**
+
 ## C. 既知の制約との対応
 
 | 制約                                         | 対応タスク                                                                                                                                                                |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | インライン装飾が字面のみ                     | B-3                                                                                                                                                                       |
+| `snake_case` の `_` が消える（装飾でない文字の欠落・`exit 0` 無警告） | **B-17** 🔴。B-3 とは別問題（仕様ではなく欠陥）                                                                                                    |
+| リストの `/Lbl`・`ListNumbering` を出さない  | B-18（条文上は適合。リフロー経路を採るなら必要）                                                                                                                          |
+| `title` と本文先頭見出しが両方 H1            | B-19（PDF/UA 7.4.2 を満たすための意図的設計）                                                                                                                             |
 | `.ttc` 非対応                                | B-2                                                                                                                                                                       |
 | サブセット名接頭辞なし                       | B-8                                                                                                                                                                       |
 | 署名済み PDF の編集で署名が無効化            | B-7（`incremental_save`）。暫定は署名ガードで防御済み                                                                                                                     |
