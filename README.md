@@ -183,9 +183,13 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 
 ## Known limitations
 
+- 🔴 **Underscores in `snake_case` are silently dropped** (`create_markdown_pdf`, B-17, unfixed). An even number of `_` on one line is treated as Markdown emphasis and stripped: `identify_conformance and validate_conformance` → `identifyconformance and validateconformance`. **Backticks do not protect it** (code spans are restored *after* `_` handling) and **no warning is emitted**. For technical documents containing function or tool names, read the output back and diff it against your input. CommonMark allows intraword emphasis with `*` but not with `_`; this implementation treats both alike.
 - **Inline styling**: bold/italic affect size and glyph text only, not typeface — a single font is embedded per document.
 - **`.ttc` fonts** require extracting a single face (see above).
-- **Subset name prefix**: the conventional `ABCDEF+` prefix is not applied, so some tools report the font as non-subset. No effect on rendering or extraction; relevant only for strict PDF/A work.
+- **`title` and the first body heading both become H1** (B-19). This satisfies PDF/UA 7.4.2 (start at H1, skip no levels) and passes veraPDF, but headings duplicate if you read the structure tree back and regenerate.
+- **List `/Lbl` is not emitted** (B-18). Bullets and numbers are baked into the body text. ISO 32000-2 §14.8.4.8.2 makes `Lbl` a NOTE (`often include`), not a requirement, so this conforms — but regenerating from a read-back duplicates the markers.
+
+> **Resolved**: the subset name prefix (`ABCDEF+`) **is applied as of v0.14.0 (W-3)**. The earlier limitation stating otherwise no longer holds.
 
 ## Roadmap
 
