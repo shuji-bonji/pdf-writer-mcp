@@ -15,18 +15,105 @@ import { assertRenderable } from './text.js';
 const HEADING_SIZE: Record<number, number> = { 1: 20, 2: 16, 3: 13, 4: 12, 5: 11, 6: 11 };
 const BLOCK_GAP = 6;
 
-/** インラインのマークダウン記号を除去して字面だけ残す */
-function stripInline(s: string): string {
-  return s
+/**
+ * 語を構成する文字（`_` の語中判定用）。
+ *
+ * CommonMark は `*` の語中強調を許すが `_` は許さない（`snake_case` を守るため）。
+ * 0.17 の changelog:
+ *   "To prevent intra-word emphasis, we used to check to see if the delimiter was
+ *    followed/preceded by an ASCII alphanumeric. We now do something more elegant:
+ *    whereas an opening `*` must be left-flanking, an opening `_` must be
+ *    left-flanking *and not right-flanking*."
+ *
+ * ここでは flanking の完全実装ではなく、その前身である「隣が語構成文字なら強調でない」を
+ * 採る。ただし **ASCII に限定しない** — 0.17 は ASCII 英数のみを見ていたため
+ * キリル文字などの語中 `_` を強調と誤認した（changelog に明記）。同じ理由で
+ * 日本語の識別子（`日本語_変数名`）も壊れるので、Unicode の文字・数字で判定する。
+ *
+ * 保守的な側に倒してあり、CommonMark が強調と解釈する一部の記号隣接ケースを
+ * 取りこぼす可能性がある。**その失敗は `_` が字面に残るだけ**で、
+ * 取りこぼしの逆（強調でない `_` を消す）は文字の欠落になる。前者を選ぶ。
+ */
+const WORD_CHAR = /[\p{L}\p{N}_]/u;
+
+function isWordChar(ch: string | undefined): boolean {
+  return ch !== undefined && WORD_CHAR.test(ch);
+}
+
+/**
+ * `_` / `__` による強調のみ、語中でない場合に限って除去する。
+ * 開始の直前と終了の直後が語構成文字なら、強調ではないので手を触れない。
+ */
+function stripUnderscoreEmphasis(s: string, delim: '_' | '__'): string {
+  const len = delim.length;
+  let out = '';
+  let i = 0;
+
+  while (i < s.length) {
+    if (s.startsWith(delim, i) && !isWordChar(s[i - 1])) {
+      // 終端候補を探す（区切り自身は本文に含めない）
+      let j = i + len;
+      while (j < s.length) {
+        if (s.startsWith(delim, j)) {
+          const inner = s.slice(i + len, j);
+          const after = s[j + len];
+          if (inner.length > 0 && !inner.includes(delim) && !isWordChar(after)) {
+            out += inner;
+            i = j + len;
+            break;
+          }
+        }
+        j++;
+      }
+      if (j < s.length && s.startsWith(delim, j)) continue;
+    }
+    out += s[i];
+    i++;
+  }
+  return out;
+}
+
+/**
+ * インラインのマークダウン記号を除去して字面だけ残す。
+ * テストから直接叩けるよう export している（B-17 の回帰テスト）。
+ */
+export function stripInline(s: string): string {
+  // コードスパンを先に退避する。中身は装飾解釈の対象外（CommonMark 6.1 が
+  // コードスパンをインライン解析より先に切り出すのと同じ順序）。
+  // これをやらないと `` `identify_conformance` `` の `_` が下の処理で消える。
+  // 区切りには NUL を使う。本文に現れうる形（` 0 ` など）を目印にすると
+  // 「第 3 章」のような記述を復元対象と誤認するため。
+  // 入力側の NUL は先に落として衝突を防ぐ（PDF 本文に NUL は現れない）。
+  const SENTINEL = '\u0000';
+  const codeSpans: string[] = [];
+  let work = s.split(SENTINEL).join('');
+
+  work = work.replace(/`([^`]+)`/g, (_m, body: string) => {
+    codeSpans.push(body);
+    return `${SENTINEL}${codeSpans.length - 1}${SENTINEL}`;
+  });
+
+  work = work
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/~~([^~]+)~~/g, '$1')
-    .trim();
+    .replace(/~~([^~]+)~~/g, '$1');
+
+  // `__` を先に処理する（`_` が先だと `__x__` の外側 1 文字ずつを食う）
+  work = stripUnderscoreEmphasis(work, '__');
+  work = stripUnderscoreEmphasis(work, '_');
+
+  // 復元は分割で行う。正規表現に制御文字を書くと biome の
+  // noControlCharactersInRegex にかかるため。入力側の NUL を先に落としてあるので、
+  // 分割後の奇数番目は必ず自分で埋めた添字になる。
+  const parts = work.split(SENTINEL);
+  let out = parts[0] ?? '';
+  for (let k = 1; k < parts.length; k += 2) {
+    out += codeSpans[Number(parts[k])] ?? '';
+    out += parts[k + 1] ?? '';
+  }
+  return out.trim();
 }
 
 function renderCodeBlock(engine: LayoutEngine, code: string): void {

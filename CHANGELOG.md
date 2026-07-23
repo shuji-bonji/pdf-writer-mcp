@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] - 2026-07-23
+
+### Fixed
+
+- **🔴 `create_markdown_pdf` no longer deletes underscores from `snake_case` (B-17).**
+  `stripInline()` stripped `_`-emphasis without checking whether the delimiter was intraword,
+  so any line containing an even number of `_` lost them:
+  `identify_conformance and validate_conformance` came out as
+  `identifyconformance and validateconformance`. It happened with **exit 0 and no warnings**,
+  and **backticks did not help** — code spans were restored *after* `_` handling, so
+  `` `identify_conformance` `` was mangled too. There was no workaround available to callers.
+
+  CommonMark permits intraword emphasis with `*` but not with `_`, precisely to protect
+  `snake_case`. The spec repository's `changelog.txt` (0.17) records the rule and its history:
+
+  > To prevent intra-word emphasis, we used to check to see if the delimiter was
+  > followed/preceded by an ASCII alphanumeric. We now do something more elegant:
+  > whereas an opening `*` must be left-flanking, an opening `_` must be
+  > left-flanking *and not right-flanking*.
+
+  The fix takes the earlier ASCII-alphanumeric formulation but **widens it to Unicode**
+  (`/[\p{L}\p{N}_]/u`). The same changelog entry notes that the ASCII-only test misfired on
+  Cyrillic words containing `_`; Japanese identifiers such as `日本語_変数名` break for the
+  same reason. Code spans are now extracted before any decoration handling and restored last,
+  with NUL-delimited placeholders so that ordinary text like `第 3 章` cannot be mistaken for one.
+
+  This is a deliberately conservative approximation of the flanking rules rather than a full
+  implementation. Erring on the conservative side leaves a literal `_` visible; erring the other
+  way deletes a character. **Visible artefact beats silent data loss.**
+
+  `*` behaviour is unchanged. Regression tests in `tests/strip-inline.test.ts` (16 cases);
+  the pre-fix implementation fails 6 of them.
+
 ## [0.14.0] - 2026-07-20
 
 **B-14: embedded fonts now conform to ISO 32000-2.** All four items below are things

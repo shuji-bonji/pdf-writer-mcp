@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.14.0（B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
+| バージョン | 0.14.1（B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-20 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |
