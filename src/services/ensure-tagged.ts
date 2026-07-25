@@ -31,7 +31,7 @@ import {
   PDFString,
 } from 'pdf-lib';
 import { isTagged } from './struct-append.js';
-import { setXmpMetadata } from './xmp.js';
+import { infoCreationDateIso, setXmpMetadata } from './xmp.js';
 
 export interface EnsureTaggedOutcome {
   /** 入力が既にタグ付きだったか */
@@ -129,6 +129,8 @@ function applyDocumentRequirements(
     keywords: doc.getKeywords(),
     pdfuaPart: 1,
     lang: lang ?? undefined,
+    // W-6: 既存 PDF の編集経路なので、作成日時は Info /CreationDate から引き継ぐ
+    createDate: infoCreationDateIso(doc),
   });
   outcome.addedRequirements.push('XMP(pdfuaid:part, dc:title)');
   // setXmpMetadata は catalog に新しい参照を設定する → catalog が dirty

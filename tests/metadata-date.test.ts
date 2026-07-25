@@ -18,13 +18,18 @@
  *    「1 と 2 を繋ぐ配線が外れていないか」を見るために置いている。
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
+import { PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { documentDate } from '../src/config.js';
-import { handleCreateTextPdf } from '../src/tools/handlers.js';
+import {
+  handleCreateTextPdf,
+  handleEnsurePdfa,
+  handleEnsureTagged,
+  handleSetMetadata,
+} from '../src/tools/handlers.js';
 
 let dir: string;
 
@@ -37,11 +42,15 @@ afterAll(async () => {
 });
 
 /** Info の CreationDate / ModDate と、XMP の xmp:CreateDate / xmp:ModifyDate を取り出す */
-async function readDates(base64: string): Promise<{
+async function readDates(base64: string): ReturnType<typeof readDatesFromBytes> {
+  return readDatesFromBytes(Buffer.from(base64, 'base64'));
+}
+
+async function readDatesFromBytes(bytes: Uint8Array): Promise<{
   info: { creation?: Date; modification?: Date };
   xmp: { create?: string; modify?: string };
 }> {
-  const doc = await PDFDocument.load(Buffer.from(base64, 'base64'), { updateMetadata: false });
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
   const metadata = doc.catalog.lookup(PDFName.of('Metadata'));
   const packet =
     metadata instanceof PDFRawStream ? new TextDecoder().decode(metadata.contents) : '';
@@ -106,6 +115,87 @@ describe('W-5: Info と XMP の日時が一致する（R-14.3.4-2/-5）', () => 
       if (previous === undefined) delete process.env.SOURCE_DATE_EPOCH;
       else process.env.SOURCE_DATE_EPOCH = previous;
     }
+  });
+
+  it('W-6: ensure_pdfa の XMP 新設で Info /CreationDate を引き継ぐ（R-14.3.4-4）', async () => {
+    // 過去の固定日時にするのが本体 — now フォールバック（修正前の挙動）では絶対に一致しない。
+    // 発見経緯 = 制約テーブル PoC CT-META-4（_constraint-table-poc/REPORT.md §6.2）
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    doc.setCreationDate(new Date('2020-01-02T03:04:05Z'));
+    const inputPath = join(dir, 'w6-info-only.pdf');
+    await writeFile(inputPath, await doc.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'w6-info-only-out.pdf');
+    await handleEnsurePdfa({ inputPath, outputPath });
+    const { info, xmp } = await readDatesFromBytes(await readFile(outputPath));
+
+    expect(xmp.create).toBe('2020-01-02T03:04:05Z');
+    // Info 側は不変で、両者は同一時点（R-14.3.4 の等価はインスタント一致）
+    expect(toXmpForm(info.creation as Date)).toBe(xmp.create);
+  });
+
+  it('W-6: タイムゾーン付き Info 日付も同一時点として引き継ぐ（表記でなくインスタント）', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    const info = doc.context.lookup(doc.context.trailerInfo.Info, PDFDict);
+    info.set(PDFName.of('CreationDate'), PDFString.of("D:20200102120000+09'00'"));
+    const inputPath = join(dir, 'w6-tz.pdf');
+    await writeFile(inputPath, await doc.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'w6-tz-out.pdf');
+    await handleEnsurePdfa({ inputPath, outputPath });
+    const { xmp } = await readDatesFromBytes(await readFile(outputPath));
+
+    // +09:00 の 12:00 は UTC の 03:00。XMP は Z 表記になるが同一時点
+    expect(Date.parse(xmp.create as string)).toBe(Date.parse('2020-01-02T03:00:00Z'));
+  });
+
+  it('W-6: 既存 XMP に xmp:CreateDate が無ければ syncXmpWithInfo が Info から補う', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    doc.setCreationDate(new Date('2020-01-02T03:04:05Z'));
+    // xmp:CreateDate を持たない最小の XMP を手組みで持たせる（setXmpMetadata は W-6 是正後
+    // Info から補ってしまうので、このテストの入力には使えない）
+    const packet =
+      '<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n' +
+      '<x:xmpmeta xmlns:x="adobe:ns:meta/">\n' +
+      '  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n' +
+      '    <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">\n' +
+      '      <xmp:ModifyDate>2020-01-02T03:04:05Z</xmp:ModifyDate>\n' +
+      '    </rdf:Description>\n' +
+      '  </rdf:RDF>\n' +
+      '</x:xmpmeta>\n' +
+      '<?xpacket end="w"?>';
+    const bytes = new TextEncoder().encode(packet);
+    const stream = PDFRawStream.of(
+      doc.context.obj({ Type: 'Metadata', Subtype: 'XML', Length: bytes.length }) as PDFDict,
+      bytes,
+    );
+    doc.catalog.set(PDFName.of('Metadata'), doc.context.register(stream));
+    const inputPath = join(dir, 'w6-xmp-no-createdate.pdf');
+    await writeFile(inputPath, await doc.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'w6-xmp-no-createdate-out.pdf');
+    await handleSetMetadata({ inputPath, title: 'W-6 backfill', outputPath });
+    const { xmp } = await readDatesFromBytes(await readFile(outputPath));
+
+    expect(xmp.create).toBe('2020-01-02T03:04:05Z');
+  });
+
+  it('W-6: ensure_tagged の XMP 書き換えでも Info /CreationDate を引き継ぐ', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 200]);
+    doc.setCreationDate(new Date('2020-01-02T03:04:05Z'));
+    doc.setTitle('W-6 tagged');
+    const inputPath = join(dir, 'w6-tagged.pdf');
+    await writeFile(inputPath, await doc.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'w6-tagged-out.pdf');
+    await handleEnsureTagged({ inputPath, outputPath, lang: 'en' });
+    const { xmp } = await readDatesFromBytes(await readFile(outputPath));
+
+    expect(xmp.create).toBe('2020-01-02T03:04:05Z');
   });
 
   it('SOURCE_DATE_EPOCH 設定時は固定値になる（E-6 の決定論を壊していない）', async () => {

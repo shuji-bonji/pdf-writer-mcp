@@ -2,7 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.15.1] - 2026-07-25
+## [0.15.2] - 2026-07-26
+
+### Fixed
+
+- **W-6: XMP written for an existing document now inherits the creation date from the Info
+  dictionary (ISO 32000-2, 14.3.4).** When `ensure_pdfa` or `ensure_tagged` wrote an XMP
+  stream for a document that had an Info `/CreationDate`, the new `xmp:CreateDate` was set to
+  the current time instead of the document's actual creation date. The same fallback existed
+  in `syncXmpWithInfo` when the existing XMP lacked `xmp:CreateDate`. These paths now resolve
+  the creation date as: existing XMP `xmp:CreateDate` → Info `/CreationDate` (converted with
+  pdf-lib's timezone-aware date parser; equivalence is instant-equality, not string equality)
+  → current time. Writing a non-equivalent date into the second location violates the
+  condition of R-14.3.4-4 — "may add the information to the other, **as long as both are
+  fully equivalent**".
+
+  The backfill deliberately lives at the *callers that read an existing PDF*
+  (`declarePdfa` / `ensure_tagged` / `syncXmpWithInfo`), **not** inside `setXmpMetadata`:
+  in the creation flow, pdf-lib's `PDFDocument.create()` auto-fills Info `/CreationDate`
+  with the real clock, so a general backfill would override the document's single `documentDate`
+  (W-5) and break `SOURCE_DATE_EPOCH` determinism (E-6) — the first attempt did exactly that
+  and was caught by the E-6 test.
+
+  Found by the constraint-table PoC (pdf-spec-mcp#12): the mapped clause CT-META-4 fired on
+  `ensure_pdfa`'s own output. Regression tests (4) read the output back independently (raw XMP
+  text vs the Info dictionary) and pin **past** dates, so the pre-fix "now" fallback can
+  never satisfy them; the unpatched build was confirmed to fail them, and a veraPDF A/B
+  showed no conformance change from the fix.
 
 ### Documentation
 

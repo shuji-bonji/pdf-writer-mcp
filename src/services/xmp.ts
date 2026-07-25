@@ -42,7 +42,15 @@ export interface XmpOptions {
   pdfaConformance?: string;
   /** dc:language */
   lang?: string;
-  /** xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻 */
+  /**
+   * xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻。
+   *
+   * **既存 PDF を読む経路では省略しないこと**（W-6）: `declarePdfa` / `ensure_tagged` は
+   * `infoCreationDateIso()` で Info /CreationDate から補い、`syncXmpWithInfo` は
+   * 既存 XMP → Info の順で解決する。**新規作成経路（`applyPdfuaCatalog`）は省略が正しい** —
+   * そこで Info を読むと pdf-lib が `create()` 時に自動で入れた実時刻を拾ってしまい、
+   * W-5 の documentDate（SOURCE_DATE_EPOCH の決定論を含む）を壊す。
+   */
   createDate?: string;
   /**
    * この文書に焼き込む「現在時刻」（W-5）。Info 辞書側と**同一の `Date` を渡すこと**。
@@ -51,6 +59,29 @@ export interface XmpOptions {
    * `syncXmpWithInfo` は `documentDate(doc)` を渡すので通常は意識しなくてよい。
    */
   now?: Date;
+}
+
+/**
+ * W-6: Info /CreationDate を xmp:CreateDate 用の ISO 8601 に変換する。
+ *
+ * XMP を新設・再構築するとき、作成日時の引き継ぎ元が既存 XMP に無くても
+ * **Info 辞書には残っている**ことがある（`ensure_pdfa` を既存 PDF に掛ける経路が典型）。
+ * ここを見ずに現在時刻へフォールバックすると、Info /CreationDate ≠ xmp:CreateDate の
+ * 不等価な文書を自分で作ることになり、R-14.3.4-4「両者が fully equivalent である限り
+ * 他方へ追記してよい」の条件に反する（§14.3.4。発見経緯 = 制約テーブル PoC CT-META-4）。
+ *
+ * 変換は pdf-lib の `getCreationDate()`（タイムゾーン換算・§7.9.4 の既定値規則を実装済み）に
+ * 委譲し、UTC の ISO 8601 で返す。等価性は「同一時点」であり表記の一致ではない。
+ * 不正な日付文字列は undefined（壊れた値を XMP へ複製しない — その場合は now に落ちる）。
+ */
+export function infoCreationDateIso(doc: PDFDocument): string | undefined {
+  try {
+    const date = doc.getCreationDate();
+    if (!date || Number.isNaN(date.getTime())) return undefined;
+    return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  } catch {
+    return undefined;
+  }
 }
 
 /** XML の特殊文字をエスケープする（タイトル等に < & " が入りうる） */
@@ -189,6 +220,10 @@ ${parts.join('\n')}
  * また PDF/UA の XMP は暗号化・圧縮しない慣行に従い、フィルタを掛けない。
  */
 export function setXmpMetadata(doc: PDFDocument, opts: XmpOptions): void {
+  // W-6 の backfill をここに置いてはいけない: 新規作成経路（applyPdfuaCatalog）では
+  // pdf-lib が create() 時に入れた実時刻の Info /CreationDate を拾ってしまい、
+  // SOURCE_DATE_EPOCH（E-6）の決定論と W-5 の documentDate 一貫性を壊す（ホストの
+  // E-6 テストで実際に落ちた）。既存 PDF を読む呼び出し側が createDate を明示する。
   const packet = buildXmpPacket({ now: documentDate(doc), ...opts });
   const bytes = new TextEncoder().encode(packet);
   const stream = PDFRawStream.of(
@@ -221,6 +256,7 @@ export interface XmpSyncResult {
  *
  * 保持するもの: pdfuaid:part（PDF/UA 宣言）・**pdfaid:part / pdfaid:conformance（PDF/A 宣言・B-8）**・
  * dc:language・xmp:CreateDate。既存 XMP からこれらを読み取り、新しいパケットへ引き継ぐ。
+ * xmp:CreateDate が既存 XMP に無い場合は **Info /CreationDate から補う**（W-6。`infoCreationDateIso`）。
  * 差し替えは**同一 ref への assign**で行い、catalog には触れない（増分更新に優しい）。
  *
  * **PDF/A 宣言を落とさないことが B-8 では重要**: `set_metadata` でタイトルを変えただけで
@@ -284,7 +320,8 @@ export function syncXmpWithInfo(
     pdfaPart: overrides?.pdfaPart ?? (pdfaPart !== undefined ? Number(pdfaPart) : undefined),
     pdfaConformance: overrides?.pdfaConformance ?? pdfaConformance,
     lang,
-    createDate,
+    // W-6: 既存 XMP に xmp:CreateDate が無ければ Info /CreationDate から補う
+    createDate: createDate ?? infoCreationDateIso(doc),
     now: documentDate(doc),
   });
   const bytes = new TextEncoder().encode(packet);
@@ -327,6 +364,8 @@ export function declarePdfa(
       pdfaPart: part,
       pdfaConformance: conformance,
       lang: lang instanceof PDFString ? lang.asString() : undefined,
+      // W-6: 既存 PDF に XMP を新設する経路。作成日時は Info /CreationDate から引き継ぐ
+      createDate: infoCreationDateIso(doc),
     });
     return { updated: true, catalogTouched: true, warnings: [] };
   }

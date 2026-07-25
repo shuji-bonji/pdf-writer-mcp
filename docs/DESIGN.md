@@ -4,7 +4,7 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.15.0（**B-8 = `ensure_pdfa`**。既存 PDF を PDF/A-3b の器に載せる（trailer /ID・sRGB OutputIntent・XMP pdfaid）。実測 veraPDF 146/146 COMPLIANT・pdfua-1 106/106 維持・添付生存）。0.14.1 = B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
+| バージョン | 0.15.2（**W-6** = XMP 新設・再構築時に xmp:CreateDate を Info /CreationDate から補う（R-14.3.4-4。発見 = 制約テーブル PoC CT-META-4）。0.15.1 = initialize の instructions）。0.15.0（**B-8 = `ensure_pdfa`**。既存 PDF を PDF/A-3b の器に載せる（trailer /ID・sRGB OutputIntent・XMP pdfaid）。実測 veraPDF 146/146 COMPLIANT・pdfua-1 106/106 維持・添付生存）。0.14.1 = B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
 | 最終更新 | 2026-07-25 |
 | ステータス | create 系 3（PDF/UA 対応）+ 編集系 17 = **20 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応。**`ensure_pdfa`（B-8 = PDF/A-3b）を追加**（veraPDF 146/146 COMPLIANT・PDF/UA-1 106/106 維持） |
