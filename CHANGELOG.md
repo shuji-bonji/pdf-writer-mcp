@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1] - 2026-07-25
+
+### Documentation
+
+- **The server now sends `instructions` on `initialize`.** Written for one specific misreading
+  that `ensure_pdfa` (v0.15.0) made easy to fall into: that this server can *produce* a PDF/A or
+  PDF/UA file.
+
+  It cannot. `ensure_pdfa` and `ensure_tagged` write `pdfaid` / `pdfuaid` into the XMP, which is
+  a **declaration** — the document saying of itself that it follows a standard. Applying either
+  to a file that does not conform yields a file that lies about itself, which is worse than one
+  that claims nothing. Both tools already return a warning saying exactly that; the instructions
+  make the rule general: **write a declaration, measure it** with
+  `validate_conformance` (`pdfua-1` for `ensure_tagged`, `pdfa-3b` for `ensure_pdfa`) — and if
+  you cannot measure it, do not write the declaration.
+
+  The signing / `outputPath` / structured-error rules are restated there too, since they are the
+  ones most often discovered the expensive way.
+
+  Behaviour is unchanged; no tool was added, removed or altered.
+
 ## [0.15.0] - 2026-07-25
 
 ### Added
