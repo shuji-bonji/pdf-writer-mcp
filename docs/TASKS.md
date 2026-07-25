@@ -3,10 +3,10 @@
 | 項目       | 内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 作成日     | 2026-07-16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 最終更新   | 2026-07-25（**B-8 のターゲットを PDF/A-3b に確定**・B-20 / M-9 起票）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 最終更新   | 2026-07-25（**v0.15.0 = B-8 `ensure_pdfa`**・B-20 / M-9 起票）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 基準       | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案）                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 現状       | create 系 3（**PDF/UA 対応**）+ 編集系 16 = **19 ツール**・テスト 25 ファイル・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・公開済み・npx 検証 PASS）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト。**v0.14.0**（2026-07-20・**公開済み・npx 検証 PASS**）= B-14（W-2/3/4）+ W-5 |
-| 次の最優先 | **B-17 は 2026-07-21 に修正済み（未リリース = 次版 0.14.1 候補）。** ホストでの `npm test` / typecheck / biome 待ち。次は **B-18 / B-19**（リフロー経路を採るかの判断 = `specs/14-reflow-placement.md` の決裁と連動）。**v0.14.0 公開済み・npx 検証 PASS**（3 経路 qpdf exit 0 / veraPDF 106-106 / poppler 警告消滅 / 旧版 0.13.1 とラスタライズがバイト一致）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）は全消化**。B-17 の次は、リフロー経路を採るかの判断待ちで **B-18 / B-19**。残る B-10c / B-12 / B-15 / B-4 は急がない。**【2026-07-25】B-8 は UC-4（電帳法）で実需に昇格し、Step 0 が決着した = ターゲットは PDF/A-3b（`specs/15-kickoff-b8-pdfa.md`）。着手は別セッション。PDF/A-4 は B-20 に分離（前提 = B-16 + M-9。`specs/16-pdfa4-roadmap.md`）**                                                                                                                                                                                                                                                                                                                                                                                       |
+| 現状       | create 系 3（**PDF/UA 対応**）+ 編集系 17 = **20 ツール**（2026-07-25: **B-8 = `ensure_pdfa`** を追加）・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・公開済み・npx 検証 PASS）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト。**v0.14.0**（2026-07-20・**公開済み・npx 検証 PASS**）= B-14（W-2/3/4）+ W-5 |
+| 次の最優先 | **B-17 は 2026-07-21 に修正済み（未リリース = 次版 0.14.1 候補）。** ホストでの `npm test` / typecheck / biome 待ち。次は **B-18 / B-19**（リフロー経路を採るかの判断 = `specs/14-reflow-placement.md` の決裁と連動）。**v0.14.0 公開済み・npx 検証 PASS**（3 経路 qpdf exit 0 / veraPDF 106-106 / poppler 警告消滅 / 旧版 0.13.1 とラスタライズがバイト一致）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）は全消化**。B-17 の次は、リフロー経路を採るかの判断待ちで **B-18 / B-19**。残る B-10c / B-12 / B-15 / B-4 は急がない。**【2026-07-25】v0.15.0 = B-8 `ensure_pdfa`（PDF/A-3b）。** 実測 veraPDF **146/146 COMPLIANT** / `pdfua-1` **106/106 維持** / 添付生存 / vitest 14 件緑。**ホストで `npm run build` / `npm test` 全緑**・**実 MCP 経由のドライランも 146/146**。残: push → npx 公開版検証。PDF/A-4 は **B-20** に分離（前提 = B-16 + M-9。`specs/16-pdfa4-roadmap.md`）                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## 次にやること（2026-07-19 更新・SPEC-REAUDIT 反映）
 
@@ -372,7 +372,26 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       R-12.8.2.2.1-7: DocMDP **P≥2 はフォーム記入を明示的に許す**のに、増分更新を持たない
       fill_form では署名済みフォームに記入できない（署名ガードで拒否）。B-7b'' のヘルパで
       成立するはず。違反ではないが、「署名済み申請書に記入して返す」という実需の中心
-- [ ] **B-8. PDF/A 変換 — ターゲットは PDF/A-3b に確定**（2026-07-25 決定・実需に昇格）
+- [x] **B-8. PDF/A 変換 = `ensure_pdfa`（PDF/A-3b）**（**v0.15.0**・2026-07-25）
+      **実測: veraPDF `pdfa-3b` COMPLIANT 146/146**（元は 143/146）・**`pdfua-1` は 106/106 維持**（UC-2 回帰なし）・
+      qpdf `--check` クリーン・**添付（`/AF` + `/EmbeddedFiles`）が生存**（UC-4 = `attach_file` → `ensure_pdfa` の順序）・
+      vitest 14 件緑（`tests/pdfa-conformance.test.ts`）。
+      **`ensure_tagged` の PDF/A 版**として後がけツールにした（create 系オプションではない） —
+      UC-4 の流れが「本文 → 添付 → PDF/A 化」で、**PDF/A 化を最後に置ける必要がある**ため。
+      実装: `services/pdfa-conformance.ts`（`/ID` + OutputIntent）/ `services/srgb-icc.ts`（ICC 生成・548 バイト）/
+      `services/xmp.ts`（`pdfaid` と、`syncXmpWithInfo` での保持）。
+      **設計判断 2 件**:
+      ① `DefaultRGB` ではなく **OutputIntent** — **R-8.6.5.7** が `DefaultRGB` を「ページごとの `/Resources`」に置くため、
+      `add_watermark` / `merge_pdfs` 等ページや Resources が増える経路で付け漏れる。catalog 1 箇所の方が壊れにくい
+      ② ICC は Table 365 上 optional（`sRGB IEC61966-2.1` は登録名）だが**埋め込む** —
+      veraPDF が「destination profile を含む」ことを求め、PDF/A の自己完結の趣旨にも沿う
+      **既知の割り切り**: ICC の TRC をガンマ 2.2 で近似（sRGB の真の伝達関数は区分関数）。
+      精度が要件になったら 1024 点テーブルに差し替える（`srgb-icc.ts` の中だけで済む）
+      ※**適合の保証ではない** — フォント未埋め込み・透明度・暗号化は直らない。判定は `validate_conformance` に委ねる
+      ※**PDF/A-4 は B-20**（前提 = B-16 + M-9。`specs/16-pdfa4-roadmap.md`）
+      ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
+
+<details><summary>B-8 の起点（Step 0 決着時の記録・2026-07-25）</summary>
       **キックオフ書: `Document-Note/mcps/PDFfamily/specs/15-kickoff-b8-pdfa.md`**（Step 0 決着済み）。
       出自は ④ 関門A の UC-4（電帳法）実走 = `specs/12-use-cases.md §3 UC-4`。
       **ISO 19005 は pdf-spec のコーパスに無い（T2）**ので、合否は **veraPDF をオラクル**にした
@@ -386,9 +405,9 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       ③ XMP `pdfaid:part`=3 / `pdfaid:conformance`=B（**B-9 の `pdfuaid:part` 保持を壊さない**）。
       **検証の要注意点**: `attach_file` と PDF/A 正規化の**順序**（添付が生き残るか）／
       UC-2 の veraPDF ua1 **106/106 を壊さない**（PDF/A-3 + PDF/UA-1 はどちらも 32000-1 基盤で整合）。
-      ※**PDF/A-4 は B-8 から分離 → B-20**（verify の flavour 拡張と B-16 が前提のため）
       ※サブセット名正規化は B-14/W-3 へ移動（32000-2 本体の義務のため PDF/A を待たない）
-      ※旧番号 B-6（B-6 が `tag_form_fields` と重複していたため 2026-07-17 に改番）
+
+</details>
 - [ ] **B-16. PDF 2.0 出力対応時の必須項目メモ**（起票のみ）— Table 15: trailer `/ID` は
       **PDF 2.0 で Required**（各バイト列 16 バイト以上・初回は両要素同値 = R-14.4-6）。
       現状の 1.7 出力では不書きで適合（実測: create 系は /ID を書かない）。

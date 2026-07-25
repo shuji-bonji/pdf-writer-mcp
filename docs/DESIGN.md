@@ -4,10 +4,10 @@
 |------|------|
 | ドキュメント種別 | 設計書（Design Document） |
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
-| バージョン | 0.14.1（B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
+| バージョン | 0.15.0（**B-8 = `ensure_pdfa`**。既存 PDF を PDF/A-3b の器に載せる（trailer /ID・sRGB OutputIntent・XMP pdfaid）。実測 veraPDF 146/146 COMPLIANT・pdfua-1 106/106 維持・添付生存）。0.14.1 = B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
-| 最終更新 | 2026-07-20 |
-| ステータス | create 系 3（PDF/UA 対応）+ 編集系 15 = **18 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応 |
+| 最終更新 | 2026-07-25 |
+| ステータス | create 系 3（PDF/UA 対応）+ 編集系 17 = **20 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応。**`ensure_pdfa`（B-8 = PDF/A-3b）を追加**（veraPDF 146/146 COMPLIANT・PDF/UA-1 106/106 維持） |
 
 > **本書のバージョン行は `package.json` と同期させること。** リリース手順（CLAUDE.md）に
 > 「DESIGN.md ヘッダの更新」を含める。v0.3.1→v0.6.0 の間、本書が未更新のまま放置され、
@@ -49,10 +49,16 @@ Tier の呼称は PDFfamily specs/05 の体系に従う。create 系は当初ど
 - 透かし（add_watermark）・ページ番号（stamp_page_numbers）— タグ付き文書では Artifact 化
 - フォーム記入・フラット化（fill_form / flatten_form）
 
+**対象（編集系 Tier B。v0.15.0 実装済み）**
+
+- **PDF/A-3b の器付け（ensure_pdfa）** — trailer `/ID`・sRGB OutputIntent（ICC 生成）・XMP `pdfaid`。
+  文書レベル要件のみを補い、本文・構造木・フォントには触らない。**適合の保証ではない**
+  （判定は pdf-verify-mcp の `validate_conformance`）
+
 **対象外（将来 = Tier C ほか）**
 
 - 本文テキスト編集・タグ木保守（ensure_tagged）・署名を保持する増分更新（Tier C。pdf-engine-core と合流）
-- PDF/A 変換
+- **PDF/A-4**（PDF 2.0 出力 = B-16 と verify の flavour 拡張が前提。B-20）
 - 電子署名の**付与**（verify との対称性から別 MCP `pdf-signature-mcp` として切り出す案が有力。specs/05 §7-3）
 - 画像埋め込み・ヘッダー/フッター、.ttc フェイス自動抽出、見出し/本文のフォント分け
 
@@ -188,6 +194,8 @@ pdf-writer-mcp/
 │   │   ├── outline.ts               # しおり（add_bookmarks）
 │   │   ├── annotation.ts            # 注釈辞書の構築（add_annotation）
 │   │   ├── attachment.ts            # 添付ファイル（attach_file。PDF/A-3 §6.8）
+│   │   ├── pdfa-conformance.ts      # PDF/A-3b の器付け（trailer /ID・sRGB OutputIntent）
+│   │   ├── srgb-icc.ts              # sRGB ICC プロファイルの生成（548B・E-6 と両立）
 │   │   ├── watermark.ts             # 透かし（add_watermark。背面配置・Artifact 化）
 │   │   ├── page-number.ts           # ページ番号（stamp_page_numbers。回転補正・Artifact 化）
 │   │   ├── form.ts                  # AcroForm（fill_form / flatten_form。外観再生成の制御）

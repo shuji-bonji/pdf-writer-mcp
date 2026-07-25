@@ -63,6 +63,7 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 | `flatten_form` | フォームを静的な内容に焼き込む。タグ付き PDF は既定で拒否（PDF/UA が壊れるため） |
 | `tag_form_fields` | タグ付き PDF 内のフォームを PDF/UA-1 準拠へ修復する。Widget を `Form` 構造要素に内包（7.18.4-1）、`/Tabs S` を設定（7.18.3-1）、代替名 `/TU` を付与（7.18.1-3）。`labels` で人間可読な名前を渡す。冪等なので何度実行しても安全。`preserveSignatures` 対応（承認署名のみ） |
 | `ensure_tagged` | 既存 PDF を PDF/UA-1 の「器」に載せる。タグ付き入力では構造木を温存し、欠落した文書要件（`MarkInfo` / `/Lang` / `DisplayDocTitle` / XMP）のみ補修。タグ無し入力には**最小限の足場**（各ページ = 1 つの `P`）を新設。下記の注意書き参照 — これは出発点であってアクセシブルな文書ではない |
+| `ensure_pdfa` | 既存 PDF を **PDF/A-3b** の「器」に載せる（`ensure_tagged` の長期保存版）。補うのは文書レベル要件のみ: trailer の `/ID`（ISO 32000-1 §14.4）・sRGB の OutputIntent（`GTS_PDFA1`。ICC プロファイルを生成して埋め込む）・XMP の `pdfaid`。本文・フォント・構造木には触らないため、**これは適合の保証ではない** — pdf-verify-mcp の `validate_conformance(flavour: "pdfa-3b")` で確認すること。電帳法の検体で実測: veraPDF **146/146 COMPLIANT**・PDF/UA-1 は **106/106** 維持・添付も生存 |
 | `add_watermark` | 斜めの透かしを重ねる（"社外秘" / "DRAFT"）。既定で本文の背面。タグ付き PDF では Artifact になる |
 
 共通オプション: `outputPath` / `returnBase64` / `allowBreakingSignatures`。

@@ -456,6 +456,12 @@ export const ensureTaggedShape = {
   ...commonEditShape,
 } as const;
 
+export const ensurePdfaShape = {
+  inputPath,
+  preserveSignatures: zPreserveSignatures,
+  ...commonEditShape,
+} as const;
+
 export const attachFileShape = {
   inputPath,
   attachmentPath: zPath.describe('埋め込むファイルの絶対パス。'),
@@ -514,6 +520,7 @@ export const FillFormSchema = z.object(fillFormShape);
 export const FlattenFormSchema = z.object(flattenFormShape);
 export const TagFormFieldsSchema = z.object(tagFormFieldsShape);
 export const EnsureTaggedSchema = z.object(ensureTaggedShape);
+export const EnsurePdfaSchema = z.object(ensurePdfaShape);
 export const AttachFileSchema = z.object(attachFileShape);
 
 /**

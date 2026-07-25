@@ -17,6 +17,7 @@ import {
   addBookmarks,
   addWatermark,
   attachFileToPdf,
+  ensurePdfa,
   ensureTagged,
   fillForm,
   flattenForm,
@@ -40,6 +41,7 @@ import type {
   AttachResult,
   CreateResult,
   EditResult,
+  EnsurePdfaResult,
   EnsureTaggedResult,
   FormResult,
   SplitResult,
@@ -56,6 +58,7 @@ import {
   CreateTableSchema,
   CreateTextSchema,
   DeletePagesSchema,
+  EnsurePdfaSchema,
   EnsureTaggedSchema,
   ExtractPagesSchema,
   FillFormSchema,
@@ -190,6 +193,11 @@ export async function handleEnsureTagged(args: unknown): Promise<EnsureTaggedRes
   return ensureTagged(a);
 }
 
+export async function handleEnsurePdfa(args: unknown): Promise<EnsurePdfaResult> {
+  const a = parseArgs(EnsurePdfaSchema, args);
+  return ensurePdfa(a);
+}
+
 /**
  * Tool ハンドラの Map（引数型は各ハンドラ側で検査するため any を許容）
  */
@@ -214,4 +222,5 @@ export const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
   flatten_form: handleFlattenForm,
   tag_form_fields: handleTagFormFields,
   ensure_tagged: handleEnsureTagged,
+  ensure_pdfa: handleEnsurePdfa,
 };

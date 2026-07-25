@@ -30,6 +30,8 @@ import type {
   AttachResult,
   CommonEditOptions,
   EditResult,
+  EnsurePdfaArgs,
+  EnsurePdfaResult,
   EnsureTaggedArgs,
   EnsureTaggedResult,
   FillFormArgs,
@@ -67,10 +69,11 @@ import {
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
+import { hasPdfaDeclaration, normalizePdfaConformance } from './pdfa-conformance.js';
 import { assertRenderable } from './renderers/text.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
-import { syncXmpWithInfo } from './xmp.js';
+import { declarePdfa, syncXmpWithInfo } from './xmp.js';
 
 /** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
 export function containsSignature(bytes: Uint8Array): boolean {
@@ -814,6 +817,88 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
     wrappedPages: outcome.wrappedPages,
     addedRequirements: outcome.addedRequirements,
     warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+/**
+ * B-8: 既存 PDF を PDF/A-3b の「器」に載せる。
+ *
+ * `ensure_tagged`（PDF/UA の器）と対になる操作。**構造木や本文には触らない**。
+ *
+ * ## なぜ create 系のオプションではなく後がけツールなのか
+ *
+ * UC-4（電帳法）の流れは「本文を作る → 機械可読データを添付する → PDF/A 化する」であり、
+ * **PDF/A 化を最後に置けることが要る**。create 系のオプションにすると
+ * `attach_file` が後に来て、添付が PDF/A 化の前提を崩しうる。
+ *
+ * ## 自称と実体は別物 — 本ツールが作るのは「宣言」だけ
+ *
+ * 本ツールは「PDF/A を名乗るための文書レベル要件」を補うだけで、**適合を保証しない**
+ * （例: 埋め込まれていないフォント・暗号化・JavaScript・LZW は直さない）。
+ * 適合したかは `pdf-verify-mcp` の `validate_conformance(flavour: "pdfa-3b")` で確かめる
+ * — 判定は veraPDF が下し、ISO 19005 は family のコーパス外（T2）である。
+ *
+ * **XMP に `pdfaid` を書く = その文書は「PDF/A-3b です」と名乗る。**
+ * 適合していない文書に付ければ**嘘を名乗る PDF を作ってしまう**ので、
+ * **適用時は常に「検査していない」警告を返す**（下記 `warnings`）。
+ * `specs/09 §4`「宣言 / 適合 / 検証は別物」の、**宣言側だけを作る道具**だと理解すること。
+ */
+export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult> {
+  const { doc, bytes } = await loadForEdit(args.inputPath, args);
+  const preserve = args.preserveSignatures === true;
+  if (preserve) {
+    // catalog（/OutputIntents）と trailer を触るので、構造変更と同じ扱いにする
+    assertDocMdpAllows(doc, 'structure');
+    reserveExistingObjectNumbers(doc, bytes);
+  }
+  const since = doc.context.largestObjectNumber;
+
+  const wasDeclared = hasPdfaDeclaration(doc);
+  const addedRequirements: string[] = [];
+  const warnings: string[] = [];
+
+  const normalized = await normalizePdfaConformance(doc);
+  addedRequirements.push(...normalized.added);
+  warnings.push(...normalized.notes);
+
+  const xmp = declarePdfa(doc, 3, 'B');
+  if (xmp.updated) addedRequirements.push('XMP pdfaid (part 3, conformance B)');
+  warnings.push(...xmp.warnings);
+
+  // **宣言を書いた以上、検査していない事実は必ず伝える。**
+  // ensure_tagged が「足場であってアクセシブルな文書ではない」と言うのと同じ位置づけだが、
+  // PDF/A の方が危険度が高い: PDF/UA は機械判定に届かない領域があるのに対し、
+  // **PDF/A はほぼ機械判定できる（veraPDF がある）のに、ここでは検査していない**。
+  // 「宣言 / 適合 / 検証は別物」（specs/09 §4）— 本ツールが作るのは**宣言**だけである。
+  warnings.push(
+    'This file now CLAIMS PDF/A-3b (pdfaid:part=3, conformance=B), but conformance was NOT ' +
+      'checked here. Only document-level requirements were supplied; unembedded fonts, ' +
+      'encryption, JavaScript, LZW compression and similar violations are left as they are. ' +
+      'If the document does not actually conform, that claim is now false. ' +
+      'Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: "pdfa-3b") — ' +
+      'and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text.',
+  );
+
+  logger.info(
+    'Editor',
+    `Applied PDF/A-3b document requirements (${addedRequirements.length} item(s))`,
+  );
+
+  const saved = preserve
+    ? await (async () => {
+        const dirty = xmp.ref ? [xmp.ref] : [];
+        touchModificationDate(doc, since, dirty);
+        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, 'Applied PDF/A-3b');
+      })()
+    : await saveEdited(doc, args);
+
+  const all = [...(saved.warnings ?? []), ...warnings];
+  return {
+    ...saved,
+    flavour: '3b',
+    addedRequirements,
+    wasDeclared,
+    warnings: all.length > 0 ? all : undefined,
   };
 }
 

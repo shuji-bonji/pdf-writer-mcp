@@ -29,6 +29,17 @@ export interface XmpOptions {
   keywords?: string;
   /** PDF/UA 宣言を含める場合の part（1 | 2） */
   pdfuaPart?: number;
+  /**
+   * PDF/A 宣言を含める場合の part（B-8 では 3）。
+   * `pdfaConformance` と対で使う（PDF/A-1〜3 は conformance level を持つ）。
+   */
+  pdfaPart?: number;
+  /**
+   * PDF/A の conformance level（`'A'` | `'B'` | `'U'`）。B-8 のターゲットは `'B'`。
+   * **PDF/A-4 は conformance level を持たない**（`pdfaid:conformance` を書かず `pdfaid:rev` を使う）ので、
+   * -4 に広げるときはここを分岐させる（B-20 / `specs/16-pdfa4-roadmap.md`）。
+   */
+  pdfaConformance?: string;
   /** dc:language */
   lang?: string;
   /** xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻 */
@@ -87,6 +98,23 @@ export function buildXmpPacket(opts: XmpOptions): string {
   // SOURCE_DATE_EPOCH（E-6）設定時はどちらの経路でも同じ固定時刻になる
   const now = (opts.now ?? outputDate()).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const parts: string[] = [];
+
+  // B-8: PDF/A Identification（veraPDF `6.6.4-1`「The PDF/A version and conformance level of a
+  // file shall be specified using the PDF/A Identification extension schema」）。
+  // pdfuaid と違って pdfaExtension での自己記述は要らない — pdfaid は PDF/A 自身が定義する
+  // 既知のスキーマであり、拡張スキーマ記述が必要なのは「PDF/A から見て未知の名前空間」の側だから
+  if (opts.pdfaPart !== undefined) {
+    const conformance =
+      opts.pdfaConformance !== undefined
+        ? `      <pdfaid:conformance>${escapeXml(opts.pdfaConformance)}</pdfaid:conformance>\n`
+        : '';
+    parts.push(
+      `    <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">\n` +
+        `      <pdfaid:part>${opts.pdfaPart}</pdfaid:part>\n` +
+        conformance +
+        `    </rdf:Description>`,
+    );
+  }
 
   if (opts.pdfuaPart !== undefined) {
     parts.push(
@@ -191,11 +219,21 @@ export interface XmpSyncResult {
  * dc:title 等の食い違い（スクリーンリーダ・アーカイブ検証の誤り）を生む。
  * Info を更新した後に呼ぶと、Info の現在値で XMP を再生成する。
  *
- * 保持するもの: pdfuaid:part（PDF/UA 宣言）・dc:language・xmp:CreateDate。
- * 既存 XMP からこれらを読み取り、新しいパケットへ引き継ぐ。
+ * 保持するもの: pdfuaid:part（PDF/UA 宣言）・**pdfaid:part / pdfaid:conformance（PDF/A 宣言・B-8）**・
+ * dc:language・xmp:CreateDate。既存 XMP からこれらを読み取り、新しいパケットへ引き継ぐ。
  * 差し替えは**同一 ref への assign**で行い、catalog には触れない（増分更新に優しい）。
+ *
+ * **PDF/A 宣言を落とさないことが B-8 では重要**: `set_metadata` でタイトルを変えただけで
+ * pdfaid が消えると、veraPDF `6.6.4-1` に戻る（= PDF/A でなくなる）。
  */
-export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
+export function syncXmpWithInfo(
+  doc: PDFDocument,
+  /**
+   * 既存 XMP の値より優先して書き込む宣言（B-8 の `ensure_pdfa` 用）。
+   * 保持ではなく**上書き**なので、新たに PDF/A を名乗らせるときに使う。
+   */
+  overrides?: { pdfaPart?: number; pdfaConformance?: string },
+): XmpSyncResult {
   const none: XmpSyncResult = { updated: false, catalogTouched: false, warnings: [] };
   const raw = doc.catalog.get(PDFName.of('Metadata'));
   if (raw === undefined) return none;
@@ -231,6 +269,11 @@ export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
   const part = /<pdfuaid:part>\s*(\d+)\s*<\/pdfuaid:part>/.exec(text)?.[1];
   const lang = /<dc:language>[\s\S]*?<rdf:li>([^<]*)<\/rdf:li>/.exec(text)?.[1];
   const createDate = /<xmp:CreateDate>([^<]+)<\/xmp:CreateDate>/.exec(text)?.[1];
+  // B-8: PDF/A 宣言も引き継ぐ（落とすと veraPDF `6.6.4-1` に逆戻りする）
+  const pdfaPart = /<pdfaid:part>\s*(\d+)\s*<\/pdfaid:part>/.exec(text)?.[1];
+  const pdfaConformance = /<pdfaid:conformance>\s*([^<\s]+)\s*<\/pdfaid:conformance>/.exec(
+    text,
+  )?.[1];
 
   const packet = buildXmpPacket({
     title: doc.getTitle(),
@@ -238,6 +281,8 @@ export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
     subject: doc.getSubject(),
     keywords: doc.getKeywords(),
     pdfuaPart: part !== undefined ? Number(part) : undefined,
+    pdfaPart: overrides?.pdfaPart ?? (pdfaPart !== undefined ? Number(pdfaPart) : undefined),
+    pdfaConformance: overrides?.pdfaConformance ?? pdfaConformance,
     lang,
     createDate,
     now: documentDate(doc),
@@ -256,6 +301,36 @@ export function syncXmpWithInfo(doc: PDFDocument): XmpSyncResult {
   // /Metadata が直接オブジェクト（稀）— catalog を書き換えるしかない
   doc.catalog.set(PDFName.of('Metadata'), doc.context.register(stream));
   return { updated: true, catalogTouched: true, warnings: [] };
+}
+
+/**
+ * B-8: 文書に PDF/A 適合を宣言させる（veraPDF `6.6.4-1`）。
+ *
+ * 既存 XMP があれば `pdfaid` を**上書き**（他の宣言は `syncXmpWithInfo` が保持する）、
+ * 無ければ Info 辞書と `/Lang` から最小の XMP を新規作成する。
+ *
+ * **`ensure_pdfa` は既存 PDF が対象なので「XMP が無い」経路が普通に起こる** —
+ * `syncXmpWithInfo` は /Metadata 不在時に何もしない設計なので、そこを埋めるのが本関数。
+ */
+export function declarePdfa(
+  doc: PDFDocument,
+  part: number,
+  conformance: string | undefined,
+): XmpSyncResult {
+  if (doc.catalog.get(PDFName.of('Metadata')) === undefined) {
+    const lang = doc.catalog.lookup(PDFName.of('Lang'));
+    setXmpMetadata(doc, {
+      title: doc.getTitle(),
+      author: doc.getAuthor(),
+      subject: doc.getSubject(),
+      keywords: doc.getKeywords(),
+      pdfaPart: part,
+      pdfaConformance: conformance,
+      lang: lang instanceof PDFString ? lang.asString() : undefined,
+    });
+    return { updated: true, catalogTouched: true, warnings: [] };
+  }
+  return syncXmpWithInfo(doc, { pdfaPart: part, pdfaConformance: conformance });
 }
 
 export interface PdfuaCatalogOptions {

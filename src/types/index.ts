@@ -337,6 +337,22 @@ export interface EnsureTaggedResult extends EditResult {
   addedRequirements: string[];
 }
 
+export interface EnsurePdfaArgs extends CommonEditOptions, PreservableEditOptions {
+  inputPath: string;
+}
+
+export interface EnsurePdfaResult extends EditResult {
+  /** 名乗らせた PDF/A のフレーバー（例 `"3b"`） */
+  flavour: string;
+  /** 補った項目（`"trailer /ID"` / `"sRGB output intent"` / `"XMP pdfaid"`） */
+  addedRequirements: string[];
+  /**
+   * 入力が既に PDF/A を自称していたか（XMP の pdfaid）。
+   * **自称と実体は別物** — 適合しているかは `pdf-verify-mcp` の `validate_conformance` で確かめる。
+   */
+  wasDeclared: boolean;
+}
+
 export interface TagFormFieldsResult extends EditResult {
   /** 新たに Form 構造要素へ内包した Widget 数 */
   taggedWidgets: number;

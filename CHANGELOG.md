@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] - 2026-07-25
+
+### Added
+
+- **`ensure_pdfa` — PDF/A-3b conformance scaffolding (B-8).** The PDF/A counterpart of
+  `ensure_tagged`: it supplies the *document-level* requirements a file needs before it can
+  claim PDF/A, and touches neither the content streams nor the structure tree.
+
+  Three things are added, each verified against the UC-4 sample that previously scored
+  **143/146** under veraPDF:
+
+  - **`/ID` in the trailer.** Two byte strings, identical on first write
+    (ISO 32000-1 **R-14.4-7 / -11**), computed with MD5 over the document date and every entry
+    of the Info dictionary. §14.4 lists the file size and pathname as inputs too, but both are
+    dropped on purpose: the size is not known before `save()`, and mixing in the pathname would
+    change the bytes merely because the same content was written elsewhere. Both are `should`,
+    and the NOTE in §14.4 states the calculation "need not be reproducible" — so
+    **determinism (E-6) wins**: with `SOURCE_DATE_EPOCH` set, the same input yields the same `/ID`.
+  - **An sRGB output intent (`GTS_PDFA1`) with the ICC profile embedded.** Rather than
+    setting a `DefaultRGB`, which **R-8.6.5.7** places in *each page's* `/Resources`
+    (and would therefore be missed by `add_watermark` / `merge_pdfs` and friends), the intent
+    goes in the catalog — one place, harder to break. Table 365 makes `DestOutputProfile`
+    optional when the condition identifier names a registered condition, but it is embedded
+    anyway: veraPDF asks for an intent that *contains* an RGB destination profile, and relying
+    on an external registry would defeat the self-containment PDF/A exists for.
+  - **`pdfaid:part` / `pdfaid:conformance` in the XMP.** `syncXmpWithInfo` now carries the
+    PDF/A declaration across metadata updates, so `set_metadata` cannot silently un-PDF/A a file.
+
+  The sRGB ICC profile is **generated** (`services/srgb-icc.ts`, 548 bytes) rather than shipped
+  as a binary asset or downloaded: no redistribution licence to check, works offline, and the
+  byte sequence is fixed so E-6 holds. Its TRC approximates sRGB with a single gamma of 2.2 —
+  the true transfer function is piecewise, so this is a **known simplification**, documented in
+  the module and swappable for a 1024-entry table if precision ever becomes a requirement.
+
+  Measured on `_pdf-family-e2e/invoice-with-data.pdf`: veraPDF **146/146 COMPLIANT** for
+  `pdfa-3b`, **106/106** still COMPLIANT for `pdfua-1`, `qpdf --check` clean, and the embedded
+  attachment (`/AF` + `/EmbeddedFiles`) survives — so the electronic-bookkeeping flow
+  (`attach_file` **then** `ensure_pdfa`) holds together.
+
+  **This tool does not make a PDF conform.** Unembedded fonts, transparency and encryption are
+  untouched; it only removes the document-level obstacles. Whether the result conforms is for
+  `pdf-verify-mcp`'s `validate_conformance(flavour: "pdfa-3b")` to say — the verdict comes from
+  veraPDF, because ISO 19005 is outside the family's corpus and cannot be quoted.
+  PDF/A-4 is deliberately out of scope (it needs PDF 2.0 output and a verify-side flavour
+  extension first); it is tracked as **B-20**.
+
 ## [0.14.1] - 2026-07-23
 
 ### Fixed

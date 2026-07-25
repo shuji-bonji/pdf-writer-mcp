@@ -21,6 +21,7 @@ import {
   createTableShape,
   createTextShape,
   deletePagesShape,
+  ensurePdfaShape,
   ensureTaggedShape,
   extractPagesShape,
   fillFormShape,
@@ -233,6 +234,25 @@ export const tools: ToolDefinition[] = [
       '構造を最初から正しく作れる場合は create 系の tagged: true を使うこと。' +
       '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。',
     shape: ensureTaggedShape,
+    annotations: base,
+  },
+  {
+    name: 'ensure_pdfa',
+    title: 'Ensure PDF/A (archival conformance scaffold)',
+    description:
+      '既存 PDF を PDF/A-3b の「器」に載せる(ensure_tagged の PDF/A 版)。' +
+      '文書レベルの欠落要件だけを補う: trailer の /ID(ISO 32000-1 14.4)・' +
+      'sRGB の OutputIntent(GTS_PDFA1。ICC プロファイルを生成して埋め込む)・XMP の pdfaid。' +
+      '**本文・構造木・フォントには触らない**。' +
+      '**重要**: これは「PDF/A を名乗るための下準備」であって適合の保証ではない。' +
+      'フォント未埋め込み・暗号化・JavaScript・LZW などの違反は直らない。' +
+      '**XMP に pdfaid を書く = その文書が「PDF/A-3b です」と名乗る**ため、' +
+      '適合していない文書に適用すると**嘘を名乗る PDF ができる**(だから適用時は常に警告を返す)。' +
+      '適合したかは pdf-verify-mcp の validate_conformance(flavour: "pdfa-3b") で必ず確認すること' +
+      '(判定は veraPDF が下す。ISO 19005 は条文を引けないため「veraPDF はこう判定した」までしか言えない)。' +
+      '電帳法の文脈では attach_file で機械可読データを添付した**後**に適用する。' +
+      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。',
+    shape: ensurePdfaShape,
     annotations: base,
   },
   {
