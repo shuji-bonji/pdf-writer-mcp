@@ -12,6 +12,7 @@ Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji
 
 ## Tools
 
+> [!IMPORTANT]
 > **All file paths must be absolute** (since v0.7.0). Relative paths and paths containing `..` are rejected — a relative path would resolve against the MCP host's working directory, which is not the directory you think it is. This applies to `inputPath`, `inputPaths`, `outputPath`, `outputDir`, `fontPath` and `attachmentPath`. Input PDFs larger than 100 MB are also rejected.
 
 ### Creation
@@ -36,48 +37,75 @@ Markdown maps onto the structure tree: headings → `H1`–`H6`, lists → `L`/`
 
 PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BCP 47) is inferred from the text when omitted and reported via `warnings` — pass it explicitly when you know it, since a wrong `/Lang` makes screen readers mispronounce the text.
 
-> Tagging is opt-in: default output is unchanged. Machine validation cannot judge whether reading order or alt text are *appropriate*, only that they exist — human review still matters.
+> [!NOTE]
+> Tagging is opt-in — default output is unchanged.
+>
+> Machine validation (veraPDF) only sees whether things *exist*. It cannot judge whether reading order or alt text are *appropriate* — human review still matters.
 
-### Editing
+### Editing — page operations
 
 | Tool | Purpose |
 |------|---------|
-| `set_metadata` | Update Info dictionary fields (`title` / `author` / `subject` / `keywords` / `creator`), preserving the rest. On documents carrying XMP (`/Metadata`), `dc:title` etc. are regenerated in sync (keeping the PDF/UA declaration). Supports `preserveSignatures` |
 | `merge_pdfs` | Concatenate 2–50 PDFs in order; metadata inherited from the first file |
 | `split_pdf` | One output file per page range |
 | `extract_pages` | Extract pages in the requested order (doubles as reordering) |
 | `delete_pages` | Remove pages (deleting every page is rejected) |
 | `reorder_pages` | Reorder by an explicit permutation of all pages |
+| `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation. Edits in place, so the warning below does not apply |
 
-> **The five tools above rebuild the document from its pages.** Attachments (`/Names
-> /EmbeddedFiles`, `/AF`), `/Lang`, `/ViewerPreferences` and `/OutputIntents` are carried
-> over; the tagged structure tree, XMP and anything tied to page numbers or page
-> references (bookmarks, page labels, named destinations) are not. **Whatever is lost is
-> reported in `warnings`** — nothing disappears silently. `rotate_pages` edits in place and
-> is unaffected.
-| `rotate_pages` | Rotate clockwise (90/180/270), accumulating over existing rotation |
-| `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline. Supports `preserveSignatures` |
-| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation to a page. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it. With `preserveSignatures: true`, a **signed PDF keeps its signatures**: the annotation is appended as an ISO 32000 incremental update, leaving the original bytes untouched — on tagged PDFs the structure-tree changes ride the same increment (v0.11.0) |
-| `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape for bundling machine-readable data with a document |
+> [!WARNING]
+> **The five tools other than `rotate_pages` rebuild the document from its pages.**
+>
+> - Carried over: attachments (`/Names /EmbeddedFiles`, `/AF`), `/Lang`, `/ViewerPreferences`, `/OutputIntents`
+> - Not carried over: the tagged structure tree, XMP, and anything tied to page numbers or page references (bookmarks, page labels, named destinations)
+> - Whatever is lost is reported in `warnings` — nothing disappears silently
+
+Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8 to the end). Order is preserved and duplicates are removed.
+
+### Editing — adding to and repairing documents
+
+| Tool | Purpose |
+|------|---------|
+| `set_metadata` | Update Info dictionary fields (`title` / `author` / `subject` / `keywords` / `creator`), preserving the rest. On documents carrying XMP, `dc:title` etc. are kept in sync (PDF/UA and PDF/A declarations preserved) |
+| `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
+| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
+| `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape |
 | `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
 | `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
 | `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
-| `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1: nest widgets in `Form` structure elements (7.18.4-1), set `/Tabs S` (7.18.3-1), add `/TU` alternate names (7.18.1-3). Pass `labels` with human-readable names; idempotent, so safe to re-run. Supports `preserveSignatures` (approval signatures only) |
-| `ensure_tagged` | Put an existing PDF into the PDF/UA-1 container. Tagged input: the structure tree is left untouched and only missing document-level requirements are repaired (`MarkInfo`, `/Lang`, `DisplayDocTitle`, XMP). Untagged input: a **minimal scaffold** is created (each page wrapped in a single `P`). See the note below — this is a starting point, not an accessible document |
-| `ensure_pdfa` | Put an existing PDF into the **PDF/A-3b** container (the archival counterpart of `ensure_tagged`). Adds only the document-level requirements: trailer `/ID` (ISO 32000-1 §14.4), an sRGB output intent (`GTS_PDFA1`, ICC profile generated and embedded) and XMP `pdfaid`. Content streams, fonts and the structure tree are untouched — so this **does not make a PDF conform**; verify with pdf-verify-mcp's `validate_conformance(flavour: "pdfa-3b")`. Measured on the electronic-bookkeeping sample: veraPDF **146/146 COMPLIANT**, PDF/UA-1 still **106/106**, attachment preserved |
+| `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1 (nest widgets in `Form`, set `/Tabs S`, add `/TU` alternate names; pass `labels` for human-readable names). Idempotent |
+| `ensure_tagged` | Put an existing PDF into the PDF/UA-1 container → [Scaffolding an untagged PDF](#scaffolding-an-untagged-pdf-ensure_tagged) |
+| `ensure_pdfa` | Put an existing PDF into the **PDF/A-3b** container → [The archival container](#the-archival-container-ensure_pdfa) |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
-Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8 to the end). Order is preserved and duplicates are removed.
-
-> **Signatures**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default; pass `allowBreakingSignatures: true` to proceed destructively — or pass `preserveSignatures: true` to append an ISO 32000 incremental update that keeps every signature valid. Supported by every editing tool that adds to a document: `add_annotation` (tagged PDFs included — the structure-tree changes ride the same increment), `set_metadata`, `add_bookmarks`, `tag_form_fields`, `ensure_tagged`, `attach_file`, `stamp_page_numbers` and `add_watermark`. Certified documents (DocMDP) are refused when the change type is not permitted by the certification level (§12.8.2.2). Measured: stacked increments on a really-signed PDF keep pdf-verify-mcp reporting **VALID**, and incremental structure updates on tagged PDFs stay veraPDF **COMPLIANT (106/106)**.
+> [!IMPORTANT]
+> **Editing signed PDFs**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default.
+>
+> - `preserveSignatures: true` — appends an ISO 32000 incremental update that **keeps every signature valid** (the original bytes are untouched). Supported by every editing tool that adds to a document: `add_annotation`, `set_metadata`, `add_bookmarks`, `tag_form_fields`, `ensure_tagged`, `attach_file`, `stamp_page_numbers`, `add_watermark` (on tagged PDFs the structure-tree changes ride the same increment)
+> - `allowBreakingSignatures: true` — proceed destructively, invalidating signatures
+> - Certified documents (DocMDP) are refused when the change type is not permitted by the certification level (§12.8.2.2)
+>
+> Measured: stacked increments on a really-signed PDF keep pdf-verify-mcp reporting **VALID**, and incremental structure updates on tagged PDFs stay veraPDF **COMPLIANT (106/106)**.
 
 ### Scaffolding an untagged PDF (`ensure_tagged`)
 
-`ensure_tagged` can hang a structure tree onto a document that never had one — each page's content is wrapped in a single `P` element, which makes the text reachable by assistive technology and passes veraPDF (measured: 106/106).
+`ensure_tagged` puts an existing PDF into the PDF/UA-1 container. On tagged input the structure tree is left untouched and only missing document-level requirements are repaired (`MarkInfo`, `/Lang`, `DisplayDocTitle`, XMP). On a document that never had a structure tree, a **minimal scaffold** is created — each page's content wrapped in a single `P` element, which makes the text reachable by assistive technology and passes veraPDF (measured: 106/106).
 
+> [!WARNING]
 > **This is a scaffold, not accessibility.** A machine cannot infer meaning, so headings, lists, tables, reading order and figure alt text are *not* produced. The tool says so in its `warnings`. (Wrapping the content in `Artifact` would also pass veraPDF while hiding the body from screen readers — conformance theatre, deliberately not implemented.) Where you control the source, `create_*` with `tagged: true` produces real structure; `ensure_tagged` is for documents you were handed.
+
+### The archival container (`ensure_pdfa`)
+
+`ensure_pdfa` is the archival (PDF/A-3b) counterpart of `ensure_tagged`. It adds only the document-level requirements:
+
+- trailer `/ID` (ISO 32000-1 §14.4)
+- an sRGB output intent (`GTS_PDFA1`; ICC profile generated and embedded)
+- the XMP `pdfaid` declaration (the creation date is inherited from Info `/CreationDate`)
+
+> [!WARNING]
+> Content streams, fonts and the structure tree are untouched — so this **does not make a PDF conform**. Write the declaration, then measure it: verify with pdf-verify-mcp's `validate_conformance(flavour: "pdfa-3b")`. Measured on the electronic-bookkeeping sample: veraPDF **146/146 COMPLIANT**, PDF/UA-1 still **106/106**, attachment preserved.
 
 ## Install
 
@@ -97,6 +125,7 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
 
 `PDF_WRITER_FONT` lets every tool omit `fontPath` and still render CJK text.
 
+> [!TIP]
 > **Use `@latest` (or pin a version).** `npx -y <pkg>` without a version keeps running whatever it cached the first time — `-y` only skips the install prompt, it does not check for updates. A bare specifier will happily run a months-old release. `@latest` makes npx check the registry on each start; pin `@0.5.0` instead if you want reproducibility. To clear a stale cache: `rm -rf ~/.npm/_npx`.
 
 ## Fonts
@@ -165,7 +194,8 @@ Set the `SOURCE_DATE_EPOCH` environment variable (UNIX seconds, per the [reprodu
 
 Generated PDFs are selectable, copyable, searchable, and screen-reader accessible: pdf-lib emits a ToUnicode CMap even for embedded subset fonts. This is covered by regression tests (`extract.test.ts`, `render.test.ts`).
 
-> Some poppler-based viewers print `Mismatch between font type and embedded font file` for OTF/CFF fonts embedded as CIDFontType0. This is harmless — rendering and extraction are both correct.
+> [!NOTE]
+> Output from v0.13.x and earlier could make poppler-based viewers print `Mismatch between font type and embedded font file`. That was a symptom of a real conformance defect (W-2: CFF fonts embedded via `FontFile2`), **fixed in v0.14.0** — current output produces no such warning.
 
 ## Development
 

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [0.15.2] - 2026-07-26
 
+### Documentation
+
+- **README (en/ja) restructured for readability.** The editing-tools table was interrupted
+  mid-table by a blockquote, so everything after `rotate_pages` rendered as one dense
+  paragraph instead of table rows. The table is now split into "page operations" and
+  "adding to and repairing documents", the notes moved out of the table and converted to
+  GitHub alerts (`[!NOTE]` / `[!WARNING]` / `[!IMPORTANT]` / `[!TIP]`), the longest cells
+  trimmed (signature details consolidated into the signatures note; `ensure_pdfa` got its
+  own section next to `ensure_tagged`'s). The stale poppler "Mismatch" note now says the
+  warning was a W-2 symptom fixed in v0.14.0. GitHub renders the alerts; npm shows them as
+  plain blockquotes with a literal `[!NOTE]` marker, which degrades acceptably.
+
 ### Fixed
 
 - **W-6: XMP written for an existing document now inherits the creation date from the Info
