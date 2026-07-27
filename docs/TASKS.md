@@ -530,7 +530,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       **`Document-Note/mcps/PDFfamily/specs/16-pdfa4-roadmap.md`**（購入前 / 購入後の 2 段階）。
       **【2026-07-27】前提 2 つが揃ったので着手可能になった**:
       ① **B-16**（PDF 2.0 出力）= **v0.16.0 で完了**
-      ② **M-9 / verify V-F1**（flavour 拡張）= **verify v0.10.0 で完了**（実 veraPDF 1.30.0 で
+      ② **M-9 / verify V-F1**（flavour 拡張）= **verify v0.11.0 で完了**（実 veraPDF 1.30.0 で
       `pdfa-4` / `4e` / `4f` が 109 規則を回すことを実測）
       → **write → `validate_conformance(flavour: "pdfa-4")` → 直す のループが回る状態**
       着手の第一手: `create_text_pdf({ pdfVersion: '2.0' })` の出力をそのまま `pdfa-4` に掛けて、
@@ -672,7 +672,7 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
     ネイティブ規則の妥当性が裏付けられた。同時に native では届かない 4 項目も判明（B-1 の表の太字）
 - [ ] **M-2. reader の `validate_tagged` / `validate_metadata` の deprecation 予告** — verify へ移管済みのため description で誘導 → 次メジャーで削除
 - [ ] **M-9. verify に PDF/A-4 flavour 追加**（2026-07-25 起票・**B-20 の前提**。M-1 の PDF/UA 版と同じ形）
-      **【2026-07-27】verify 側で実装・実測とも完了**（v0.10.0 に同乗・リリース待ち）。
+      **【2026-07-27】verify 側で実装・実測とも完了**（**v0.11.0**・リリース待ち。0.10.0 は公開済みだったため切り出した）。
       実 veraPDF 1.30.0 で `pdfa-4` / `4e` = **102/109**・`4f` = **101/109**、違反 ID は `ISO 19005-4:2020`
       （= -4 profile が実際に回っている証拠）。`pdfa-4b` は拒否。UC-2 = `pdfua-1` **106/106 維持**。
       **⚠️ UC-4（146/146）は未再現** — 手元に `ensure_pdfa` 出力が残っておらず、
