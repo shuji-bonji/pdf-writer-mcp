@@ -240,18 +240,25 @@ export const tools: ToolDefinition[] = [
     name: 'ensure_pdfa',
     title: 'Ensure PDF/A (archival conformance scaffold)',
     description:
-      '既存 PDF を PDF/A-3b の「器」に載せる(ensure_tagged の PDF/A 版)。' +
+      '既存 PDF を PDF/A の「器」に載せる(ensure_tagged の PDF/A 版)。' +
+      'flavour で "pdfa-3b"(既定) / "pdfa-4" / "pdfa-4f" を選ぶ。' +
       '文書レベルの欠落要件だけを補う: trailer の /ID(ISO 32000-1 14.4)・' +
       'sRGB の OutputIntent(GTS_PDFA1。ICC プロファイルを生成して埋め込む)・XMP の pdfaid。' +
+      '**-4 系はさらにヘッダを PDF 2.0 にし、Info 辞書を削除する**' +
+      '(-4 は catalog に /PieceInfo が無い限り Info を許さない。ISO 32000-2 14.3.3 より厳しい)。' +
       '**本文・構造木・フォントには触らない**。' +
+      '**添付がある文書は "pdfa-4f" を使うこと** — 素の "pdfa-4" は添付ファイル自身が PDF/A で' +
+      'あることを要求するため、CSV や JSON を添える電帳法の使い方では非適合になる。' +
       '**重要**: これは「PDF/A を名乗るための下準備」であって適合の保証ではない。' +
       'フォント未埋め込み・暗号化・JavaScript・LZW などの違反は直らない。' +
-      '**XMP に pdfaid を書く = その文書が「PDF/A-3b です」と名乗る**ため、' +
+      '**XMP に pdfaid を書く = その文書が「PDF/A です」と名乗る**ため、' +
       '適合していない文書に適用すると**嘘を名乗る PDF ができる**(だから適用時は常に警告を返す)。' +
-      '適合したかは pdf-verify-mcp の validate_conformance(flavour: "pdfa-3b") で必ず確認すること' +
+      '適合したかは pdf-verify-mcp の validate_conformance(flavour: 同じ値) で必ず確認すること' +
       '(判定は veraPDF が下す。ISO 19005 は条文を引けないため「veraPDF はこう判定した」までしか言えない)。' +
       '電帳法の文脈では attach_file で機械可読データを添付した**後**に適用する。' +
-      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。',
+      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。' +
+      'ただし **-4 系 × preserveSignatures は、入力が既に PDF 2.0 でない限り拒否する**' +
+      '(増分更新では先頭のヘッダを書き換えられず、書き換えれば署名が壊れるため)。',
     shape: ensurePdfaShape,
     annotations: base,
   },

@@ -223,6 +223,57 @@ export async function normalizePdfaConformance(doc: PDFDocument): Promise<PdfaCo
 }
 
 /**
+ * `pdfaid:rev` に書く値。PDF/A-4 = **ISO 19005-4:2020** なので 2020。
+ *
+ * **T2**（ISO 19005-4 はコーパス外）。条文で「rev が必須か・値は何か」を確かめる術が無いので、
+ * 規格の発行年を当て、**veraPDF が受けるかどうかで裏を取っている**。
+ * 第二段階（19005-4 購入後）に Table 2 で確認すること。
+ */
+export const PDFA4_REV = 2020;
+
+/**
+ * PDF/A-4 のために Info 辞書を始末する（B-20）。**戻り値は何をしたかの説明**。
+ *
+ * veraPDF の -4 プロファイルは Info について 2 つ言う（**T2** — ISO 19005-4 はコーパス外なので
+ * 条文は引けず、規則 ID と description が一次情報のすべて）:
+ *
+ * - `ISO 19005-4:2020 6.1.3-4`「catalog に PieceInfo が無い限り、trailer に Info を置いてはならない」
+ * - `ISO 19005-4:2020 6.1.3-5`「Info があるなら ModDate だけを含むこと」
+ *
+ * ISO 32000-2 §14.3.3（B-16 が従った方）より**厳しい** — あちらは CreationDate と ModDate の
+ * 2 つを残してよいが、-4 は CreationDate すら許さない。作成日時は XMP の `xmp:CreateDate` が持つ。
+ *
+ * PieceInfo がある場合に Info ごと消すと、§14.5 が要求する ModDate まで失う。
+ * そのときは ModDate だけ残す。
+ */
+export function stripInfoForPdfa4(doc: PDFDocument): string | null {
+  const infoRef = doc.context.trailerInfo.Info;
+  if (infoRef === undefined) return null;
+
+  const hasPieceInfo = doc.catalog.has(PDFName.of('PieceInfo'));
+  const dict = infoRef instanceof PDFRef ? doc.context.lookup(infoRef) : infoRef;
+
+  if (!hasPieceInfo) {
+    // trailer から外す。オブジェクト自体は参照されなくなるだけで、
+    // pdf-lib は到達不能オブジェクトを書き出さない
+    doc.context.trailerInfo.Info = undefined as unknown as typeof infoRef;
+    return 'removed the Info dictionary (PDF/A-4 6.1.3-4)';
+  }
+
+  if (!(dict instanceof PDFDict)) return null;
+  const removed: string[] = [];
+  for (const [key] of dict.entries()) {
+    const name = key.asString().replace(/^\//, '');
+    if (name === 'ModDate') continue;
+    dict.delete(PDFName.of(name));
+    removed.push(name);
+  }
+  return removed.length > 0
+    ? `reduced the Info dictionary to ModDate, because /PieceInfo requires it (PDF/A-4 6.1.3-5): removed ${removed.join(', ')}`
+    : null;
+}
+
+/**
  * XMP に PDF/A 宣言（`pdfaid:part`）があるか。
  * **自称を見るだけで、適合しているかは分からない**（判定は veraPDF = `pdf-verify-mcp` の仕事）。
  */

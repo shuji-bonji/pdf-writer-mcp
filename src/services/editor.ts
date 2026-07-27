@@ -69,7 +69,12 @@ import {
 import { countBookmarks, setBookmarks } from './outline.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
-import { hasPdfaDeclaration, normalizePdfaConformance } from './pdfa-conformance.js';
+import {
+  hasPdfaDeclaration,
+  normalizePdfaConformance,
+  PDFA4_REV,
+  stripInfoForPdfa4,
+} from './pdfa-conformance.js';
 import { assertRenderable } from './renderers/text.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
@@ -844,8 +849,28 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
  * `specs/09 §4`「宣言 / 適合 / 検証は別物」の、**宣言側だけを作る道具**だと理解すること。
  */
 export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult> {
+  const flavour = args.flavour ?? 'pdfa-3b';
+  const isPdfa4 = flavour === 'pdfa-4' || flavour === 'pdfa-4f';
+  // -4 の variant。素の -4 では書かない（level ではないが XMP 上の置き場所は同じ）
+  const pdfa4Variant = flavour === 'pdfa-4f' ? 'F' : undefined;
   const { doc, bytes } = await loadForEdit(args.inputPath, args);
   const preserve = args.preserveSignatures === true;
+
+  // PDF/A-4 は PDF 2.0 基盤で、ヘッダが `%PDF-2.n` であることを要求する
+  // （veraPDF `ISO 19005-4:2020 6.1.2-1`）。増分更新は**元ファイルの先頭を書き換えられない** —
+  // 書き換えれば署名の対象バイトが変わって署名が壊れる。だから黙って版を上げず、断る。
+  const alreadyPdf20 = String.fromCharCode(...bytes.subarray(0, 8)) === '%PDF-2.0';
+  if (isPdfa4 && preserve && !alreadyPdf20) {
+    throw new PdfWriterError(
+      'PDF/A-4 requires a PDF 2.0 header, but preserveSignatures appends an incremental update and cannot rewrite the header of a signed file without breaking the signature.',
+      'SIGNED_PDF',
+      {
+        hint: 'Start from a document that is already PDF 2.0, or drop preserveSignatures and re-sign afterwards.',
+        retryable: true,
+      },
+    );
+  }
+
   if (preserve) {
     // catalog（/OutputIntents）と trailer を触るので、構造変更と同じ扱いにする
     assertDocMdpAllows(doc, 'structure');
@@ -861,8 +886,18 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   addedRequirements.push(...normalized.added);
   warnings.push(...normalized.notes);
 
-  const xmp = declarePdfa(doc, 3, 'B');
-  if (xmp.updated) addedRequirements.push('XMP pdfaid (part 3, conformance B)');
+  // -4 は conformance level を持たない。level の代わりに rev（版の年）を名乗り、
+  // variant（-4f）だけが pdfaid:conformance を使う
+  const xmp = isPdfa4
+    ? declarePdfa(doc, 4, pdfa4Variant, PDFA4_REV)
+    : declarePdfa(doc, 3, 'B', undefined);
+  if (xmp.updated) {
+    addedRequirements.push(
+      isPdfa4
+        ? `XMP pdfaid (part 4${pdfa4Variant ? `, conformance ${pdfa4Variant}` : ''}, rev ${PDFA4_REV})`
+        : 'XMP pdfaid (part 3, conformance B)',
+    );
+  }
   warnings.push(...xmp.warnings);
 
   // **宣言を書いた以上、検査していない事実は必ず伝える。**
@@ -870,32 +905,45 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   // PDF/A の方が危険度が高い: PDF/UA は機械判定に届かない領域があるのに対し、
   // **PDF/A はほぼ機械判定できる（veraPDF がある）のに、ここでは検査していない**。
   // 「宣言 / 適合 / 検証は別物」（specs/09 §4）— 本ツールが作るのは**宣言**だけである。
+  const label = isPdfa4 ? (pdfa4Variant ? 'PDF/A-4f' : 'PDF/A-4') : 'PDF/A-3b';
+  const claim = isPdfa4
+    ? `pdfaid:part=4${pdfa4Variant ? `, conformance=${pdfa4Variant}` : ''}, rev=${PDFA4_REV}`
+    : 'pdfaid:part=3, conformance=B';
   warnings.push(
-    'This file now CLAIMS PDF/A-3b (pdfaid:part=3, conformance=B), but conformance was NOT ' +
+    `This file now CLAIMS ${label} (${claim}), but conformance was NOT ` +
       'checked here. Only document-level requirements were supplied; unembedded fonts, ' +
       'encryption, JavaScript, LZW compression and similar violations are left as they are. ' +
       'If the document does not actually conform, that claim is now false. ' +
-      'Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: "pdfa-3b") — ' +
+      `Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: "${flavour}") — ` +
       'and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text.',
   );
 
   logger.info(
     'Editor',
-    `Applied PDF/A-3b document requirements (${addedRequirements.length} item(s))`,
+    `Applied ${label} document requirements (${addedRequirements.length} item(s))`,
   );
 
   const saved = preserve
     ? await (async () => {
         const dirty = xmp.ref ? [xmp.ref] : [];
         touchModificationDate(doc, since, dirty);
-        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, 'Applied PDF/A-3b');
+        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, `Applied ${label}`);
       })()
-    : await saveEdited(doc, args);
+    : await saveEdited(doc, args, undefined, {
+        // Info の始末は ModDate 更新の**後**でなければ意味が無い（saveEdited が作り直すため）
+        beforeSave: isPdfa4
+          ? (d) => {
+              const note = stripInfoForPdfa4(d);
+              if (note) addedRequirements.push(note);
+            }
+          : undefined,
+        targetVersion: isPdfa4 ? '2.0' : undefined,
+      });
 
   const all = [...(saved.warnings ?? []), ...warnings];
   return {
     ...saved,
-    flavour: '3b',
+    flavour: isPdfa4 ? (pdfa4Variant ? '4f' : '4') : '3b',
     addedRequirements,
     wasDeclared,
     warnings: all.length > 0 ? all : undefined,

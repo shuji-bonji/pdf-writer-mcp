@@ -3,6 +3,7 @@
  */
 
 import type { PageSizeName } from '../constants.js';
+import type { PdfVersion } from '../services/pdf-version.js';
 
 /**
  * フォントに存在しない文字（グリフ欠落）の扱い
@@ -45,6 +46,17 @@ export interface CommonCreateOptions {
    * tagged 時に省略すると本文から推定し、結果を warnings で報告する。
    */
   lang?: string;
+  /**
+   * 出力する PDF の版。既定 '1.7'（既存出力のバイト列を動かさないため）。
+   *
+   * '2.0' にすると版の宣言に加えて **ISO 32000-2 が版に紐づけて課す義務**も満たす:
+   * trailer `/ID`（Table 15 で Required）と、Info 辞書を CreationDate / ModDate に
+   * 絞って残りを XMP へ移すこと（§14.3.3）。詳細は `services/pdf-version.ts`。
+   *
+   * **tagged: true とは併用できない** — writer が書けるのは PDF/UA-1（ISO 14289-1・PDF 1.7 基盤）
+   * の宣言だけで、PDF 2.0 の器に載せると自分で嘘の宣言を書くことになる。
+   */
+  pdfVersion?: PdfVersion;
 }
 
 export interface CreateTextArgs extends CommonCreateOptions {
@@ -337,8 +349,22 @@ export interface EnsureTaggedResult extends EditResult {
   addedRequirements: string[];
 }
 
+/** `ensure_pdfa` が名乗らせられる PDF/A のフレーバー */
+export type EnsurePdfaFlavour = 'pdfa-3b' | 'pdfa-4' | 'pdfa-4f';
+
 export interface EnsurePdfaArgs extends CommonEditOptions, PreservableEditOptions {
   inputPath: string;
+  /**
+   * 名乗らせる PDF/A。既定 `'pdfa-3b'`（従来の挙動）。
+   *
+   * `'pdfa-4'` は PDF 2.0 基盤なので、-3b の 3 項目（`/ID`・OutputIntent・XMP pdfaid）に加えて
+   * **ヘッダを 2.0 にし、Info 辞書を落とす**（veraPDF `ISO 19005-4:2020` 6.1.2-1 / 6.1.3-4・6.1.3-5）。
+   *
+   * `'pdfa-4f'` は添付を持つ文書のための variant。素の `'pdfa-4'` は
+   * **添付ファイル自身が PDF/A であることを要求する**（6.9-3）ので、JSON や CSV を添える
+   * 電帳法の使い方では -4f を名乗る（`pdfaid:conformance` = `F`）。
+   */
+  flavour?: EnsurePdfaFlavour;
 }
 
 export interface EnsurePdfaResult extends EditResult {

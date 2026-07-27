@@ -3,7 +3,7 @@
 | 項目       | 内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 作成日     | 2026-07-16                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 最終更新   | 2026-07-26（**v0.15.2 候補 = W-6**: XMP 新設・再構築時に xmp:CreateDate を Info /CreationDate から補う。発見 = 制約テーブル PoC CT-META-4）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 最終更新   | 2026-07-27（**v0.16.0 = B-16 + B-20**。B-16 = create 系 3 ツールの `pdfVersion: '2.0'`。B-20 = `ensure_pdfa(flavour: 'pdfa-4' | 'pdfa-4f')` で **veraPDF 109/109 COMPLIANT**。回帰 = PDF/A-3b 146/146・PDF/UA-1 106/106。**specs/16 第一段階は完了**（T2 残件 7 件を B-20 の項に記録）。ホストのテスト待ち） |
 | 基準       | `docs/DESIGN.md` §12（ロードマップ）／ `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier 体系）／ `specs/06-family-implementation-standards.md`（共通実装規約）／ `specs/07-pdf-publish-skill.md`（出力パイプライン）／ `mcps/pdf-family-role-architecture.md`（責務分担提案）                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 現状       | create 系 3（**PDF/UA 対応**）+ 編集系 17 = **20 ツール**（2026-07-25: **B-8 = `ensure_pdfa`** を追加）・typecheck / biome OK。**v0.13.0**（2026-07-18・公開済み）= B-10a / B-10b / B-11 / B-13 / SPEC-AUDIT Phase 2・3・4。**Tier C は完了**（増分更新 7 ツール / ensure_tagged。B-7d は M-8 経路へ委譲）。**Issue #2 の 3 ハードルは全て達成済み → close 可能**。**2026-07-19: pdf-spec 0.4.4 正典で全ツール再監査済み**（`docs/SPEC-REAUDIT-2026-07-19.md`）— Phase 1〜4 の結論は維持・新規発見 5 件（下記 B-10b-fix / B-14 / B-15）。**v0.13.1**（2026-07-19・公開済み・npx 検証 PASS）= B-10b-fix（W-1 hotfix）+ carry 経路の qpdf 読み戻しテスト。**v0.14.0**（2026-07-20・**公開済み・npx 検証 PASS**）= B-14（W-2/3/4）+ W-5 |
 | 次の最優先 | **B-17 は 2026-07-21 に修正済み（未リリース = 次版 0.14.1 候補）。** ホストでの `npm test` / typecheck / biome 待ち。次は **B-18 / B-19**（リフロー経路を採るかの判断 = `specs/14-reflow-placement.md` の決裁と連動）。**v0.14.0 公開済み・npx 検証 PASS**（3 経路 qpdf exit 0 / veraPDF 106-106 / poppler 警告消滅 / 旧版 0.13.1 とラスタライズがバイト一致）。**SPEC-REAUDIT の新規発見 5 件（W-1〜W-5）は全消化**。B-17 の次は、リフロー経路を採るかの判断待ちで **B-18 / B-19**。残る B-10c / B-12 / B-15 / B-4 は急がない。**【2026-07-25】v0.15.0 = B-8 `ensure_pdfa`（PDF/A-3b）。** 実測 veraPDF **146/146 COMPLIANT** / `pdfua-1` **106/106 維持** / 添付生存 / vitest 14 件緑。**ホストで `npm run build` / `npm test` 全緑**・**実 MCP 経由のドライランも 146/146**。残: push → npx 公開版検証。PDF/A-4 は **B-20** に分離（前提 = B-16 + M-9。`specs/16-pdfa4-roadmap.md`）                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -431,21 +431,110 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       ※サブセット名正規化は B-14/W-3 へ移動（32000-2 本体の義務のため PDF/A を待たない）
 
 </details>
-- [ ] **B-16. PDF 2.0 出力対応時の必須項目メモ**（起票のみ）— Table 15: trailer `/ID` は
-      **PDF 2.0 で Required**（各バイト列 16 バイト以上・初回は両要素同値 = R-14.4-6）。
-      現状の 1.7 出力では不書きで適合（実測: create 系は /ID を書かない）。
-      2.0 対応時は E-6 決定論と `SOURCE_DATE_EPOCH` 由来ハッシュで両立させる
-      **【2026-07-25 追記】B-20（PDF/A-4）の前提タスクに昇格した。**
-      PDF/A-4 は PDF 2.0 基盤なので B-16 なしでは成立しない。実装の起点は
-      pdf-lib `PDFContext` の `PDFHeader.forVersion(1, 7)` ハードコード（`context.header` は差し替え可能な public field）。
-      **32000-2 は EC3 込みでコーパスにあるので、この範囲は最初から T1 で回せる**（`iso32000-2` / `ts32005` / `compare_versions`）。
-      ロードマップ: `Document-Note/mcps/PDFfamily/specs/16-pdfa4-roadmap.md` 第一段階 §2
+- [x] **B-16. PDF 2.0 出力**（**v0.16.0**・2026-07-27）— create 系 3 ツールに
+      `pdfVersion: '1.7' | '2.0'`（既定 1.7）。**B-20 の前提**。全体が T1（32000-2 はコーパス内）。
+
+  **「ヘッダを 2.0 にする」は仕事の一部でしかない。** 32000-2 は版そのものに義務を 2 つ紐づけており、
+  それを伴わないヘッダは**文書が自分の素性を偽る**ことになる:
+
+  | # | 義務 | 条文 | 実装 |
+  | --- | --- | --- | --- |
+  | 1 | trailer `/ID` が **Required**（1.7 では `/Encrypt` があるときだけ） | Table 15 / R-14.4-6 | B-8 の `ensureFileIdentifier()` をそのまま流用。E-6 決定論も維持 |
+  | 2 | Info 辞書は **CreationDate / ModDate 以外が非推奨**、他は metadata stream へ | §14.3.3（R-14.3.3-2 = should） | XMP を**先に**書いてから Info を日付 2 つに削る |
+
+  順序が逆だと題名の行き場が無くなる。日付 2 つを両方に残すのは §14.3.4（Info と XMP の
+  日時は fully equivalent）を成立させる側でもある。**「書かない」ではなく「消す」**必要がある —
+  pdf-lib は `PDFDocument.create()` の時点で `/Producer` `/Creator` を勝手に入れる。
+
+  **`tagged: true` との併用は拒否する。** writer が書けるアクセシビリティ宣言は
+  PDF/UA-1（ISO 14289-1 = PDF 1.7 基盤）だけで、2.0 の器に `pdfuaid:part=1` を載せるのは
+  **測れない宣言を自分で書く**こと（`ensure_pdfa` が警告しているのと同じ過ち）。
+  PDF/UA-2 出力は未実装なので、黙って出さずに `INVALID_ARGUMENT` で断る。
+
+  ### 起票時の想定が 2 つとも外れた（どちらも実測で分かった）
+
+  - ❌ **「`context.header` は public field なので差し替えれば効く」→ 効かない。**
+    `PDFWriter#computeBufferSize()` も `PDFStreamWriter#computeBufferSize()` も
+    `PDFHeader.forVersion(1, 7)` を**その場で作って**書き、`this.context.header` を一度も読まない。
+    → **save 後のバイト列でヘッダを差し替える**。`%PDF-1.7` と `%PDF-2.0` はどちらも 8 バイトなので
+    xref のオフセットは 1 つも動かない（R-7.5.2-1）。**8 バイト一致は実行時にも検査**して、
+    前提が崩れたら黙って上書きせず落とす。
+  - ❌ **`PDFDocument.load()` で読み戻して Info を検査する → 嘘をつかれる。**
+    `updateMetadata` の既定が `true` で、コンストラクタが `updateInfoDict()` を呼び
+    **ファイルに無い `/Producer` `/Creator` をメモリ上で足す**。「Info を削ったのに削れていない」という
+    **偽の赤**が出た（実際のファイルは qpdf で見れば日付 2 つだけ）。検査時は
+    `{ updateMetadata: false }` を渡すこと。**[[green-tests-can-be-vacuous]] の裏返し = 読み戻し器が嘘をつく側**。
+
+  ### 実測（サンドボックス・`tests/pdf-version.test.ts` 相当を dist で全項目実行）
+
+  - ヘッダ `%PDF-2.0` / バイナリコメント行（0x81×4）維持 / **qpdf `--check` が "PDF Version: 2.0" かつ構文エラー無し**
+  - `/ID` = 2 要素・同値・各 16 バイト（hex 32 桁）
+  - Info = `CreationDate` / `ModDate` のみ（qpdf で実ファイル確認）
+  - XMP に `dc:title` / `dc:creator` / `pdf:Producer`
+  - `tagged + 2.0` → `INVALID_ARGUMENT`
+  - **1.7 出力は 0.15.2（HEAD）とバイト完全一致**（前コミットを別ディレクトリにビルドして sha256 比較。
+    「差分を読んで大丈夫そう」ではなく実際に比べた）
+  - E-6: `SOURCE_DATE_EPOCH` 固定で 2 回の 2.0 出力がバイト一致
+
+  ### 残り（この版では**やらない**と決めたもの）
+
+  - **編集系ツールは 2.0 を知らない。** 特に `set_metadata` は Info を正として XMP を再生成するので、
+    2.0 文書に掛けると非推奨エントリを書き戻す。create 限定という判断（露出方法の決定）の帰結で、
+    編集経路まで広げるかは **B-20 で PDF/A-4 を実測してから**決める（`syncXmpWithInfo` の
+    `pdf:Producer` 保持も同時に要る）
+  - catalog `/Version` は書かない。R-7.5.2-4 は「ヘッダ **または** `/Version`」なのでヘッダで足りる
+  - 構造名前空間（ISO/TS 32005）はタグ付き経路の話で、2.0 × tagged を拒否した今は出番が無い
+- [x] **B-20. PDF/A-4 正規化**（**v0.16.0**・2026-07-27）— `ensure_pdfa(flavour: 'pdfa-4' | 'pdfa-4f')`。
+      **veraPDF が両方とも COMPLIANT（109/109）と判定**。既定 `'pdfa-3b'` の出力は不変。
+
+  **-4 は「-3b の番号違い」ではなかった。** veraPDF の -4 プロファイルが要求したのは 4 つで、
+  いずれも**書いて怒られて**分かった（ISO 19005-4 はコーパス外 = **T2**。下の規則 ID が一次情報のすべて）:
+
+  | 規則 ID | 要求 | 対応 |
+  | --- | --- | --- |
+  | `6.1.2-1` | ヘッダが `%PDF-2.n` | **B-16 が供給** |
+  | `6.1.3-4` / `6.1.3-5` | **Info 辞書を置いてはならない**（`/PieceInfo` があるときのみ、かつ `ModDate` だけ） | `stripInfoForPdfa4()` |
+  | `6.7.3-5` | `pdfaid:rev` = `2020`・`pdfaid:conformance` は書かない | `declarePdfa(doc, 4, undefined, 2020)` |
+  | `6.9-3` | 素の -4 では**添付ファイル自身が PDF/A** であること | 添付がある文書は **`'pdfa-4f'`**（`6.7.3-3` = `conformance` に `F`） |
+
+  **§14.3.3（B-16 が従った条文）より -4 の方が厳しい**のが今回いちばんの発見。
+  §14.3.3 は `CreationDate` を残してよいが、**-4 は Info そのものを許さない**。
+  作成日時は `xmp:CreateDate` が持つ。B-16 の実装は -4 の土台としては**半分まで**だった。
+
+  **`pdfaid:rev` = 2020 は当て推量だった**ので、`rev` 行だけを同じバイト長の空白で潰した対照検体を作り、
+  veraPDF が **`6.7.3-5` ちょうど 1 件で落ちる**ことを実測して裏を取った（推測 → 観測への格上げ）。
+
+  **`6.9-3` は UC-4（電帳法）に直撃する** — CSV / JSON を添付する使い方は素の -4 では非適合になる。
+  同一文書が `pdfa-4` で 108/109・`pdfa-4f` で **109/109**、qpdf 読み戻しで `/AF` と添付が生存、を実測。
+
+  **`preserveSignatures` × -4 は拒否する**（入力が既に PDF 2.0 の場合を除く）。増分更新は追記なので
+  **バイト 0 のヘッダを書き換えられず**、書き換えれば署名対象の範囲がずれて署名が壊れる。
+  黙って版を上げるより、断る方がよい。
+
+  **回帰（同じ veraPDF 1.30.0）**: PDF/A-3b **146/146**・PDF/UA-1 **106/106**。
+  ← **B-16 の項で「取り直す」と書いた UC-4 の 146/146 は、ここで `ensure_pdfa` 出力により再現した。**
+
+  **ホスト実測（2026-07-27）**: `npm test` **333 passed / 30 files**・`npm run check` 緑。
+  **実 MCP 経由のドライランで UC-4 の鎖を 1 本通した** — `create_text_pdf(pdfVersion: '2.0')` →
+  `attach_file(CSV)` → `ensure_pdfa(flavour: 'pdfa-4f')` → `validate_conformance(flavour: 'pdfa-4f')`
+  が **109/109 COMPLIANT**（サンドボックスの dist 直叩きではなく、配線ごと通っていることの確認）。
+
+  **description と instructions も同時に直した**（M-9 で踏んだ「flavour 例の更新は 2 箇所」の一般形）:
+  `tools/definitions.ts` の tool description は **PDF/A-3b 専用の文面のまま**で、Zod の `.describe()`
+  だけが 3 値になっていた。`server.ts` の `INSTRUCTIONS` も「`"pdfa-3b"` で検証せよ」と書いていた。
+  **ツールの入口に 3 箇所（Zod / description / instructions）ある**ことを次から数える。
+
+<details><summary>B-20 の起点（2026-07-25 起票時の記録）</summary>
+
 - [ ] **B-20. PDF/A-4 正規化**（2026-07-25 起票・**B-8 から分離**）— ロードマップ:
       **`Document-Note/mcps/PDFfamily/specs/16-pdfa4-roadmap.md`**（購入前 / 購入後の 2 段階）。
-      **前提が 2 つあり、単独では着手できない**:
-      ① **B-16**（PDF 2.0 出力）— PDF/A-4 は PDF 2.0 基盤
-      ② **verify の flavour 拡張（M-9 / verify 側 V-F1）** — 現状 `validate_conformance(flavour: "pdfa-4")` は
-      `INVALID_FLAVOUR` で弾かれる（2026-07-25 実測）。**オラクルが無い状態では write-verify ループが回らない**
+      **【2026-07-27】前提 2 つが揃ったので着手可能になった**:
+      ① **B-16**（PDF 2.0 出力）= **v0.16.0 で完了**
+      ② **M-9 / verify V-F1**（flavour 拡張）= **verify v0.10.0 で完了**（実 veraPDF 1.30.0 で
+      `pdfa-4` / `4e` / `4f` が 109 規則を回すことを実測）
+      → **write → `validate_conformance(flavour: "pdfa-4")` → 直す のループが回る状態**
+      着手の第一手: `create_text_pdf({ pdfVersion: '2.0' })` の出力をそのまま `pdfa-4` に掛けて、
+      **veraPDF が何を言うかを先に見る**（OutputIntent 必須性・`pdfaid:rev` はここで決まる = T2 残件 T2-1 / T2-2）
       **B-8（-3b）からの流用可否**: OutputIntent ✅ そのまま（ただし -4 で必須かは条文が無いので**オラクルに聞く**）／
       trailer `/ID` ✅ そのまま（-4 では PDF 2.0 側の義務としても必要）／
       XMP ❌ **作り直し**（`pdfaid:part`=4・**`pdfaid:conformance` は使わない**・`pdfaid:rev` が必要）／
@@ -456,6 +545,27 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       更新する場合は UC-2（106/106）と UC-4（143/146）の**回帰確認込み**で行う
       **完了条件**: veraPDF flavour `4` で COMPLIANT ＋ qpdf `--check` read-back ＋
       **「T2 残件リスト」を残す**（= 第二段階＝ISO 19005-4 購入後の再監査の入力。無いと購入が検証に繋がらない）
+
+</details>
+
+  ### T2 残件リスト（第二段階 = ISO 19005-4 購入後に条文で当てる）
+
+  **veraPDF が COMPLIANT と言ったことと、条文を満たしていることは別**。
+  下は「オラクルには通ったが、条文で確かめていない」項目。**買った直後にここから照合する**。
+
+  | # | 項目 | 今の根拠 | 条文で確かめること |
+  | --- | --- | --- | --- |
+  | T2-1 | OutputIntent | `6.2.4.3-2`（DeviceRGB を使うなら要る）。無条件必須かは**不明**のまま | -4 が OutputIntent を無条件に要求するのか、色空間の使用が条件なのか |
+  | T2-2 | `pdfaid:rev` = 2020 | `6.7.3-5`（値まで規則が明示）+ 対照検体で実測 | Table 2 の定義。**将来の改訂で値が変わる**なら writer 側も追随が要る |
+  | T2-3 | Info 削除 | `6.1.3-4` / `6.1.3-5` | `/PieceInfo` があるときの `ModDate` 単独が本当に正しい読みか |
+  | T2-4 | -4f の条件 | `6.7.3-3` / `6.9-3` | **何を添付したら -4f を名乗るべきか**の線引き（PDF/A な添付なら素の -4 のままでよいのか） |
+  | T2-5 | -4e | 未着手（veraPDF に profile はある） | 3D / 工学系の要件。writer は 3D を書かないので**実需が無い** |
+  | T2-6 | PDF 版数 | ヘッダ `%PDF-2.n`（`6.1.2-1`） | 2.0 のみか、以降の 2.x を許すか |
+  | T2-7 | 過剰是正の有無 | — | **veraPDF が弾いた項目に対し、必要以上に書いている辞書は無いか**（逆向きの監査） |
+
+  > **想定される最悪ケース**: 再監査で「veraPDF は通すが条文に反する」箇所が出る。
+  > そのときは**オラクルではなく条文を正とする**（`pdf-family-spec-first`）。
+  > だから第一段階を「完成」ではなく「**COMPLIANT に到達**」と呼ぶ。
 - [x] **B-9. set_metadata の XMP 併記更新**（v0.10.0・2026-07-17）— `syncXmpWithInfo`（xmp.ts）。
       Info の現在値から XMP を再生成し、pdfuaid:part / dc:language / xmp:CreateDate は既存から保持。
       **同一 ref への assign** で差し替えるため catalog 不変（増分更新と両立）。
@@ -562,10 +672,20 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
     ネイティブ規則の妥当性が裏付けられた。同時に native では届かない 4 項目も判明（B-1 の表の太字）
 - [ ] **M-2. reader の `validate_tagged` / `validate_metadata` の deprecation 予告** — verify へ移管済みのため description で誘導 → 次メジャーで削除
 - [ ] **M-9. verify に PDF/A-4 flavour 追加**（2026-07-25 起票・**B-20 の前提**。M-1 の PDF/UA 版と同じ形）
+      **【2026-07-27】verify 側で実装・実測とも完了**（v0.10.0 に同乗・リリース待ち）。
+      実 veraPDF 1.30.0 で `pdfa-4` / `4e` = **102/109**・`4f` = **101/109**、違反 ID は `ISO 19005-4:2020`
+      （= -4 profile が実際に回っている証拠）。`pdfa-4b` は拒否。UC-2 = `pdfua-1` **106/106 維持**。
+      **⚠️ UC-4（146/146）は未再現** — 手元に `ensure_pdfa` 出力が残っておらず、
+      代用した pdfnative-audit 検体（145/146）は基準検体ではない。**B-20 着手時に取り直す**。
+      `pdfa-4` / `pdfa-4e` / `pdfa-4f` を受理し、veraPDF の `4` / `4e` / `4f` に写す。
+      **`pdfa-4b` は存在しないので拒否**（`e`/`f` は `conformance` フィールドに相乗り＝同じ 1 スロットだから）。
+      native は `pdf-version` を part 4 で `=== 2.0`、`output-intent` を part 1-3 限定に変更。
+      **実測（`verapdf --version` / `-l` / 4・4e・4f の受理 / UC-2・UC-4 の回帰）が済むまで完了にしない。**
+      詳細と T2 残件 5 件は `pdf-verify-mcp/docs/TASKS.md` V-F1。
       **verify 側の起票番号は V-F1**（`pdf-verify-mcp/docs/TASKS.md`）。
       現状 `validate_conformance(flavour: "pdfa-4")` → **`INVALID_FLAVOUR`**（2026-07-25 実測）。
-      veraPDF 側にオラクルは存在する（⚠️ **二次情報**: 1.20+ の flavour **`4` / `4e` / `4f`**。
-      **PDF/A-4 は conformance レベルを持たず `4b` は無い** — veraPDF ドキュメント由来・未実測）が、
+      veraPDF 側にオラクルは存在する（**✅ 2026-07-27 実測: veraPDF 1.30.0・`verapdf -l` に
+      `4` / `4e` / `4f` あり・`4b` は無い**。着手条件 ≧1.20 は充足済みで更新不要だった）が、
       family の窓口が閉じているため **B-20 の write-verify ループが回らない**。
       要改修 3 箇所: `services/pdfa-validator.ts:370` の `/^pdfa-([123])([abu])?$/i` ／
       `services/conformance-validation.ts:66` の `veraFlavourId()` が存在しない `"4b"` を生成 ／

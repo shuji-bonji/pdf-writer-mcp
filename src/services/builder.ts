@@ -10,7 +10,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import { DEFAULTS } from '../config.js';
 import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
-import { invalidArg } from '../errors.js';
+import { invalidArg, PdfWriterError } from '../errors.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { inferLang } from '../utils/lang.js';
 import {
@@ -36,6 +36,21 @@ export async function buildPdf(
   inputTexts: string[],
   render: RenderFn,
 ): Promise<CreateResult> {
+  // B-16: writer が書けるアクセシビリティ宣言は PDF/UA-1（ISO 14289-1）だけで、
+  // これは PDF 1.7 基盤の規格。PDF 2.0 の器に pdfuaid:part=1 を載せると、
+  // **測れない宣言を自分で書く**ことになる（ensure_pdfa を非適合文書に掛けるのと同型）。
+  // PDF 2.0 側の相手は PDF/UA-2 で、それは未実装なので黙って通さず断る。
+  if (opts.tagged && opts.pdfVersion === '2.0') {
+    throw new PdfWriterError(
+      'tagged: true cannot be combined with pdfVersion: "2.0" — this server only writes the PDF/UA-1 declaration (ISO 14289-1), which is based on PDF 1.7. PDF/UA-2 output is not implemented.',
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Drop pdfVersion (PDF/UA-1 on PDF 1.7), or drop tagged (untagged PDF 2.0).',
+        retryable: true,
+      },
+    );
+  }
+
   const doc = await PDFDocument.create();
   const source = await openFont(opts.fontPath);
 

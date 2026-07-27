@@ -27,10 +27,14 @@ file that does not conform produces a file that lies about itself, which is wors
 claims nothing. Both tools always return a warning saying so; do not discard it.
 
 So: whenever you write a declaration, measure it. pdf-verify-mcp validate_conformance with the
-matching flavour ("pdfua-1" for ensure_tagged, "pdfa-3b" for ensure_pdfa). If you cannot
-measure it, do not write the declaration. The verdict is veraPDF's, not this server's.
+matching flavour — "pdfua-1" for ensure_tagged, and for ensure_pdfa the same string you passed
+as its flavour ("pdfa-3b" by default, or "pdfa-4" / "pdfa-4f"). If you cannot measure it, do not
+write the declaration. The verdict is veraPDF's, not this server's.
 
 Other limits worth knowing before you plan a job:
+  - PDF 2.0 is opt-in on the create tools (pdfVersion: "2.0"), and it is what PDF/A-4 is built
+    on. Plain PDF/A-4 requires every embedded file to be PDF/A itself, so a document carrying a
+    CSV or JSON attachment has to be declared "pdfa-4f", not "pdfa-4".
   - No signing. Editing a signed PDF normally invalidates the signature; pass
     preserveSignatures: true to append an incremental update instead, or
     allowBreakingSignatures: true to proceed destructively — never silently.

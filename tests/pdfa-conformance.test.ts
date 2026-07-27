@@ -339,3 +339,136 @@ describe('ensure_pdfa', () => {
     }
   });
 });
+
+/**
+ * B-20 = PDF/A-4。**判定はすべて veraPDF のもの**（ISO 19005-4 はコーパス外 = T2）で、
+ * ここで検証できるのは「veraPDF が指摘した項目を、実際に書いた／消したか」だけである。
+ * 適合そのものは e2e（veraPDF 109/109）で確かめる。
+ *
+ * 各期待値の隣にある規則 ID が**唯一の一次情報**なので、消さないこと。
+ */
+describe('ensure_pdfa (PDF/A-4)', () => {
+  /** -4 は PDF 2.0 基盤なので、入力も 2.0 で作る */
+  async function makePdf20(path: string): Promise<void> {
+    await handleCreateTextPdf({
+      text: 'invoice body',
+      title: 'Invoice',
+      pdfVersion: '2.0',
+      outputPath: path,
+    });
+  }
+
+  it('declares part 4 with a rev and no conformance level', async () => {
+    const input = join(dir, 'a4-in.pdf');
+    const output = join(dir, 'a4-out.pdf');
+    await makePdf20(input);
+
+    const result = await ensurePdfa({ inputPath: input, flavour: 'pdfa-4', outputPath: output });
+    expect(result.flavour).toBe('4');
+
+    const doc = await PDFDocument.load(await readFile(output), { updateMetadata: false });
+    const xmp = xmpText(doc);
+    expect(xmp).toContain('<pdfaid:part>4</pdfaid:part>');
+    // 6.7.3-5「The value of "pdfaid:rev" shall be "2020"」— 抜くと veraPDF が落とすことを実測済み
+    expect(xmp).toContain('<pdfaid:rev>2020</pdfaid:rev>');
+    // -4 は conformance level を持たない。-3b からの載せ替えでも残ってはいけない
+    expect(xmp).not.toContain('pdfaid:conformance');
+  });
+
+  it('rewrites the header to 2.0 (ISO 19005-4:2020 6.1.2-1)', async () => {
+    const input = join(dir, 'a4-header-in.pdf');
+    const output = join(dir, 'a4-header-out.pdf');
+    await makePdf20(input);
+    await ensurePdfa({ inputPath: input, flavour: 'pdfa-4', outputPath: output });
+
+    // pdf-lib は保存のたびに 1.7 を書き直すので、**出力側の生バイト**を見ないと意味が無い
+    const bytes = new Uint8Array(await readFile(output));
+    expect(String.fromCharCode(...bytes.subarray(0, 8))).toBe('%PDF-2.0');
+  });
+
+  it('removes the Info dictionary (ISO 19005-4:2020 6.1.3-4)', async () => {
+    const input = join(dir, 'a4-info-in.pdf');
+    const output = join(dir, 'a4-info-out.pdf');
+    await makePdf20(input);
+    const result = await ensurePdfa({
+      inputPath: input,
+      flavour: 'pdfa-4',
+      outputPath: output,
+    });
+
+    expect(result.addedRequirements.join(' ')).toContain('Info');
+    // updateMetadata: false は必須 — 既定の load は Info を作り直して偽の赤を出す
+    const doc = await PDFDocument.load(await readFile(output), { updateMetadata: false });
+    expect(doc.context.trailerInfo.Info).toBeUndefined();
+  });
+
+  it('carries the PDF/A-4f variant in pdfaid:conformance (6.7.3-3)', async () => {
+    const input = join(dir, 'a4f-in.pdf');
+    const attached = join(dir, 'a4f-attached.pdf');
+    const output = join(dir, 'a4f-out.pdf');
+    const data = join(dir, 'a4f-data.csv');
+    await makePdf20(input);
+    await writeFile(data, 'no,amount\n1,1000\n', 'utf8');
+    await attachFileToPdf({
+      inputPath: input,
+      attachmentPath: data,
+      relationship: 'Data',
+      outputPath: attached,
+    });
+
+    const result = await ensurePdfa({
+      inputPath: attached,
+      flavour: 'pdfa-4f',
+      outputPath: output,
+    });
+    expect(result.flavour).toBe('4f');
+
+    const doc = await PDFDocument.load(await readFile(output), { updateMetadata: false });
+    const xmp = xmpText(doc);
+    expect(xmp).toContain('<pdfaid:part>4</pdfaid:part>');
+    expect(xmp).toContain('<pdfaid:conformance>F</pdfaid:conformance>');
+    expect(xmp).toContain('<pdfaid:rev>2020</pdfaid:rev>');
+    // 添付は -4f の存在理由そのもの。消えていないこと
+    expect(doc.catalog.lookup(PDFName.of('AF'))).toBeInstanceOf(PDFArray);
+  });
+
+  it('names PDF/A-4 in the "not verified" warning, not PDF/A-3b', async () => {
+    const input = join(dir, 'a4-warn-in.pdf');
+    const output = join(dir, 'a4-warn-out.pdf');
+    await makePdf20(input);
+    const result = await ensurePdfa({ inputPath: input, flavour: 'pdfa-4', outputPath: output });
+
+    const warnings = result.warnings ?? [];
+    expect(warnings.some((w) => w.includes('CLAIMS PDF/A-4'))).toBe(true);
+    expect(warnings.some((w) => w.includes('validate_conformance(flavour: "pdfa-4")'))).toBe(true);
+  });
+
+  it('does not silently bump the version of a signed file', async () => {
+    // 増分更新は先頭のヘッダを書き換えられない。書き換えれば署名が壊れる。
+    // フィクスチャの署名 PDF は 1.7 なので、-4 を求められたら断るのが正しい
+    const input = join(dir, 'a4-signed-in.pdf');
+    await makeTagged(input); // 1.7 の文書
+    await expect(
+      ensurePdfa({
+        inputPath: input,
+        flavour: 'pdfa-4',
+        preserveSignatures: true,
+        outputPath: join(dir, 'never.pdf'),
+      }),
+    ).rejects.toMatchObject({ code: 'SIGNED_PDF' });
+  });
+
+  it('leaves the PDF/A-3b default untouched', async () => {
+    const input = join(dir, 'default-in.pdf');
+    const output = join(dir, 'default-out.pdf');
+    await makeTagged(input);
+    const result = await ensurePdfa({ inputPath: input, outputPath: output });
+
+    expect(result.flavour).toBe('3b');
+    const bytes = new Uint8Array(await readFile(output));
+    expect(String.fromCharCode(...bytes.subarray(0, 8))).toBe('%PDF-1.7');
+    const doc = await PDFDocument.load(await readFile(output), { updateMetadata: false });
+    expect(doc.context.trailerInfo.Info).toBeDefined();
+    expect(xmpText(doc)).toContain('<pdfaid:conformance>B</pdfaid:conformance>');
+  });
+});

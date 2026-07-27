@@ -23,7 +23,22 @@
 | `create_markdown_pdf` | Markdown — 見出し / 段落 / 箇条書き・番号リスト / コードブロック / 引用 / 水平線 / 表 |
 | `create_table_pdf` | 罫線付き表 — 列幅の自動算出、セル内折り返し、改ページ時のヘッダ再描画 |
 
-共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `author` / `onMissingGlyph` / `tagged` / `lang`。
+共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `author` / `onMissingGlyph` / `tagged` / `lang` / `pdfVersion`。
+
+### PDF 2.0 出力（v0.16.0）
+
+`pdfVersion: "2.0"` を指定すると ISO 32000-2 の文書を書きます。既定は `"1.7"` のままで、そのバイト列は変わりません。
+
+**版はヘッダだけの話ではありません。** ISO 32000-2 は版そのものに 2 つの義務を紐づけており、両方を満たします。
+
+- **trailer `/ID` が Required** になります（Table 15）。初回書き込みでは 2 要素が同値（R-14.4-6）で、`SOURCE_DATE_EPOCH` 下では決定論的です。
+- **Info 辞書は `CreationDate` / `ModDate` だけ**になります（§14.3.3）。タイトル・作成者・Producer は、PDF 2.0 が「文書メタデータの置き場所」とする XMP メタデータストリームへ移ります。
+
+```jsonc
+{ "text": "本文。", "title": "レポート", "pdfVersion": "2.0" }
+```
+
+`tagged: true` とは併用できません。本サーバが書けるアクセシビリティ宣言は PDF/UA-1（ISO 14289-1 = PDF 1.7 基盤）だけで、2.0 の文書に載せると**誰にも測れない宣言**になります。PDF/UA-2 出力は未実装のため、黙って生成せずエラーにします。
 
 ### タグ付き PDF / PDF/UA（v0.5.0）
 
@@ -75,7 +90,7 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 | `flatten_form` | フォームを静的な内容に焼き込む。タグ付き PDF は既定で拒否（PDF/UA が壊れるため） |
 | `tag_form_fields` | タグ付き PDF 内のフォームを PDF/UA-1 準拠へ修復（Widget を `Form` に内包・`/Tabs S`・代替名 `/TU`。`labels` で人間可読名）。冪等 |
 | `ensure_tagged` | 既存 PDF を PDF/UA-1 の「器」に載せる → [タグ無し PDF への足場作り](#タグ無し-pdf-への足場作りensure_tagged) |
-| `ensure_pdfa` | 既存 PDF を **PDF/A-3b** の「器」に載せる → [長期保存の器](#長期保存の器ensure_pdfa) |
+| `ensure_pdfa` | 既存 PDF を **PDF/A-3b / PDF/A-4 / PDF/A-4f** の「器」に載せる（`flavour`） → [長期保存の器](#長期保存の器ensure_pdfa) |
 | `add_watermark` | 斜めの透かしを重ねる（"社外秘" / "DRAFT"）。既定で本文の背面。タグ付き PDF では Artifact になる |
 
 共通オプション: `outputPath` / `returnBase64` / `allowBreakingSignatures`。
@@ -106,6 +121,16 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 
 > [!WARNING]
 > 本文・フォント・構造木には触らないため、**これは適合の保証ではありません**。宣言を書いたら測ること — pdf-verify-mcp の `validate_conformance(flavour: "pdfa-3b")` で確認してください。電帳法の検体で実測: veraPDF **146/146 COMPLIANT**・PDF/UA-1 は **106/106** 維持・添付も生存。
+
+#### PDF/A-4（v0.16.0）
+
+`flavour: "pdfa-4"` は ISO 19005-4 を狙います。PDF 2.0 基盤なので、上の 3 項目に加えて**ヘッダを 2.0 にし、Info 辞書を削除**します — PDF/A-4 は catalog に `/PieceInfo` が無い限り Info を許さず、これは ISO 32000-2 §14.3.3 より厳しい要求です。`pdfaid:rev` を書き、`pdfaid:conformance` は書きません（PDF/A-4 は conformance level を持たないため）。
+
+**添付がある文書には `"pdfa-4f"` を使ってください。** 素の PDF/A-4 は**添付ファイル自身が PDF/A であること**を要求するので、CSV や JSON を添える電帳法の使い方では非適合になります。`"pdfa-4f"` はまさにそのための variant です。
+
+veraPDF 1.30.0 で実測: `pdfa-4` **109/109 COMPLIANT**。CSV を添付した同一文書は `pdfa-4` では 108/109、**`pdfa-4f` では 109/109**。
+
+`preserveSignatures` との併用は、入力が既に PDF 2.0 でない限り拒否します。増分更新はファイル先頭のヘッダを書き換えられず、書き換えれば守るはずの署名を壊すためです。
 
 ## インストール
 

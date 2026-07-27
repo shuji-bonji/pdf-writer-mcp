@@ -2,6 +2,88 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0] - 2026-07-27
+
+### Added
+
+- **PDF/A-4 and PDF/A-4f: `ensure_pdfa(flavour: "pdfa-4" | "pdfa-4f")` (B-20).** veraPDF judges
+  both COMPLIANT at 109/109. The default is still `"pdfa-3b"`, whose output is unchanged.
+
+  PDF/A-4 is not PDF/A-3b with a different number in the XMP. veraPDF's -4 profile asked for
+  four things the -3b path never had to supply, and each was found by writing a file and
+  reading the complaint rather than by reasoning about the standard — **ISO 19005-4 is outside
+  this family's corpus (T2), so the rule ids below are the entirety of the primary evidence**:
+
+  - `6.1.2-1` — the header must be `%PDF-2.n`. Supplied by B-16.
+  - `6.1.3-4` / `6.1.3-5` — **the Info dictionary must not be present at all** unless the catalog
+    has `/PieceInfo`, and even then it may hold only `ModDate`. This is stricter than ISO 32000-2
+    §14.3.3, which B-16 followed: §14.3.3 lets `CreationDate` stay, and PDF/A-4 does not. The
+    creation date lives in `xmp:CreateDate`.
+  - `6.7.3-5` — `pdfaid:rev` must be `2020`, and PDF/A-4 carries no `pdfaid:conformance`. That
+    the value is the year of publication was a guess; it was confirmed by building a specimen
+    with the `rev` line blanked out to the same byte length and watching veraPDF fail exactly
+    that one rule.
+  - `6.9-3` — under plain PDF/A-4, **every embedded file must itself be PDF/A**. Attaching a
+    CSV or JSON — the whole point of the electronic-bookkeeping use case — makes the document
+    non-conformant. That is what `"pdfa-4f"` is for; it sets `pdfaid:conformance` to `F`
+    (`6.7.3-3`) and the embedded-file rule no longer applies. Measured: the same document is
+    108/109 as `pdfa-4` and 109/109 as `pdfa-4f`, with `/AF` and the embedded file intact in a
+    qpdf read-back.
+
+  `preserveSignatures` with a PDF/A-4 flavour is **refused** unless the input is already PDF 2.0.
+  An incremental update appends; it cannot rewrite byte 0 of the file, and rewriting it anyway
+  would move the signed range out from under the signature. Failing loudly beats producing a
+  file whose header and signature disagree.
+
+  Regressions measured on the same veraPDF 1.30.0: PDF/A-3b **146/146**, PDF/UA-1 **106/106**.
+  The electronic-bookkeeping chain was then run end to end through the MCP itself — create a 2.0
+  document, attach a CSV, declare `pdfa-4f`, validate — and came back 109/109.
+
+
+- **PDF 2.0 output on the create tools: `pdfVersion: "2.0"` (B-16).** The three create tools
+  could only write PDF 1.7, which put PDF/A-4 out of reach — it is built on ISO 32000-2, so
+  there was no file to validate in the first place.
+
+  **Writing `%PDF-2.0` is the small part.** ISO 32000-2 attaches two obligations to the version
+  itself, and a header without them is a file that misstates what it is:
+
+  - **trailer `/ID` becomes Required** (Table 15 — in 1.7 it is required only alongside
+    `/Encrypt`). The identifier is the one `ensure_pdfa` already computes, so it stays
+    deterministic under `SOURCE_DATE_EPOCH`, and both elements are equal on a first write
+    (R-14.4-6).
+  - **the Info dictionary is deprecated except for `CreationDate` and `ModDate`** (§14.3.3);
+    everything else should live in a metadata stream. So the 2.0 path writes XMP first — with
+    `dc:title`, `dc:creator` and `pdf:Producer` — and only then strips Info back to the two
+    dates. Order matters: strip first and the title would have nowhere left to be. The dates
+    stay in both places and equal, which is what §14.3.4 requires of them.
+
+  Stripping means *deleting*: pdf-lib puts `/Producer` and `/Creator` into Info at
+  `PDFDocument.create()` time, so not writing them is not enough.
+
+  **`tagged: true` is refused in combination with `pdfVersion: "2.0"`.** The only accessibility
+  declaration this server can write is PDF/UA-1 (ISO 14289-1), which is built on PDF 1.7.
+  Putting `pdfuaid:part=1` in a 2.0 container would be this server writing a claim it cannot
+  measure — the same mistake `ensure_pdfa` warns about. PDF/UA-2 output is not implemented, so
+  the combination errors instead of quietly producing a file that misdescribes itself.
+
+  **The 1.7 default is byte-identical to 0.15.2.** Verified by building the previous commit
+  alongside and comparing hashes of the same document, not by reading the diff.
+
+  Two things the plan got wrong, both found by measuring rather than by reasoning:
+
+  - `context.header` is a public field on pdf-lib's `PDFContext`, and the task assumed
+    replacing it would change the output. It does not: `PDFWriter#computeBufferSize()` and
+    `PDFStreamWriter#computeBufferSize()` each construct `PDFHeader.forVersion(1, 7)` on the
+    spot and never read `this.context.header`. The version is therefore written into the saved
+    bytes afterwards. `%PDF-1.7` and `%PDF-2.0` are both 8 bytes, so no cross-reference offset
+    moves (byte offsets count from the `%`, R-7.5.2-1); the code refuses to rewrite anything
+    whose header is not the exact 8 bytes it expects, rather than risk shifting the file.
+  - `PDFDocument.load()` **adds `/Producer` and `/Creator` to the Info dictionary by default**
+    (`updateMetadata` defaults to `true`). Reading a saved file back with pdf-lib therefore
+    reports metadata the file does not contain — which first looked like the stripping had
+    failed. Inspection now passes `{ updateMetadata: false }`, and qpdf is used as the
+    independent reader for the version itself.
+
 ## [0.15.2] - 2026-07-26
 
 ### Documentation

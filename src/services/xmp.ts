@@ -27,6 +27,13 @@ export interface XmpOptions {
   subject?: string;
   /** pdf:Keywords（Info の Keywords に対応。空白区切りの 1 文字列） */
   keywords?: string;
+  /**
+   * pdf:Producer（Info の Producer に対応。Table 349 NOTE 6）。
+   *
+   * PDF 2.0 出力（B-16）では Info /Producer が非推奨になるため、**この経路が
+   * 「PDF を書いた道具」の唯一の記録場所になる**。1.7 出力では Info 側が持つので省略される。
+   */
+  producer?: string;
   /** PDF/UA 宣言を含める場合の part（1 | 2） */
   pdfuaPart?: number;
   /**
@@ -36,10 +43,14 @@ export interface XmpOptions {
   pdfaPart?: number;
   /**
    * PDF/A の conformance level（`'A'` | `'B'` | `'U'`）。B-8 のターゲットは `'B'`。
-   * **PDF/A-4 は conformance level を持たない**（`pdfaid:conformance` を書かず `pdfaid:rev` を使う）ので、
-   * -4 に広げるときはここを分岐させる（B-20 / `specs/16-pdfa4-roadmap.md`）。
+   * **PDF/A-4 は conformance level を持たない**ので、-4 では**渡さない**（B-20）。
    */
   pdfaConformance?: string;
+  /**
+   * `pdfaid:rev` — PDF/A-4 が conformance level の代わりに使う版の年（例 `2020`）。
+   * -1〜-3 では使わない。
+   */
+  pdfaRev?: number;
   /** dc:language */
   lang?: string;
   /**
@@ -139,10 +150,14 @@ export function buildXmpPacket(opts: XmpOptions): string {
       opts.pdfaConformance !== undefined
         ? `      <pdfaid:conformance>${escapeXml(opts.pdfaConformance)}</pdfaid:conformance>\n`
         : '';
+    // PDF/A-4 は conformance level を持たず、代わりに rev（版の年）を名乗る
+    const rev =
+      opts.pdfaRev !== undefined ? `      <pdfaid:rev>${opts.pdfaRev}</pdfaid:rev>\n` : '';
     parts.push(
       `    <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">\n` +
         `      <pdfaid:part>${opts.pdfaPart}</pdfaid:part>\n` +
         conformance +
+        rev +
         `    </rdf:Description>`,
     );
   }
@@ -187,11 +202,17 @@ export function buildXmpPacket(opts: XmpOptions): string {
     );
   }
 
+  // pdf: 名前空間は Keywords と Producer を共有する。片方だけでも出す
+  const pdfNs: string[] = [];
   if (opts.keywords) {
+    pdfNs.push(`      <pdf:Keywords>${escapeXml(opts.keywords)}</pdf:Keywords>`);
+  }
+  if (opts.producer) {
+    pdfNs.push(`      <pdf:Producer>${escapeXml(opts.producer)}</pdf:Producer>`);
+  }
+  if (pdfNs.length > 0) {
     parts.push(
-      `    <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n` +
-        `      <pdf:Keywords>${escapeXml(opts.keywords)}</pdf:Keywords>\n` +
-        `    </rdf:Description>`,
+      `    <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">\n${pdfNs.join('\n')}\n    </rdf:Description>`,
     );
   }
 
@@ -268,7 +289,7 @@ export function syncXmpWithInfo(
    * 既存 XMP の値より優先して書き込む宣言（B-8 の `ensure_pdfa` 用）。
    * 保持ではなく**上書き**なので、新たに PDF/A を名乗らせるときに使う。
    */
-  overrides?: { pdfaPart?: number; pdfaConformance?: string },
+  overrides?: { pdfaPart?: number; pdfaConformance?: string; pdfaRev?: number },
 ): XmpSyncResult {
   const none: XmpSyncResult = { updated: false, catalogTouched: false, warnings: [] };
   const raw = doc.catalog.get(PDFName.of('Metadata'));
@@ -310,6 +331,12 @@ export function syncXmpWithInfo(
   const pdfaConformance = /<pdfaid:conformance>\s*([^<\s]+)\s*<\/pdfaid:conformance>/.exec(
     text,
   )?.[1];
+  const pdfaRev = /<pdfaid:rev>\s*(\d+)\s*<\/pdfaid:rev>/.exec(text)?.[1];
+
+  // part を上書きするなら、level と rev も**その宣言の一部**として一緒に決まる。
+  // 既存値へのフォールバックを残すと、-3b から -4 へ載せ替えたときに
+  // `pdfaid:conformance` が生き残り、**conformance level を持たない -4 が level を名乗る**。
+  const redeclaring = overrides?.pdfaPart !== undefined;
 
   const packet = buildXmpPacket({
     title: doc.getTitle(),
@@ -318,7 +345,8 @@ export function syncXmpWithInfo(
     keywords: doc.getKeywords(),
     pdfuaPart: part !== undefined ? Number(part) : undefined,
     pdfaPart: overrides?.pdfaPart ?? (pdfaPart !== undefined ? Number(pdfaPart) : undefined),
-    pdfaConformance: overrides?.pdfaConformance ?? pdfaConformance,
+    pdfaConformance: redeclaring ? overrides?.pdfaConformance : pdfaConformance,
+    pdfaRev: redeclaring ? overrides?.pdfaRev : pdfaRev !== undefined ? Number(pdfaRev) : undefined,
     lang,
     // W-6: 既存 XMP に xmp:CreateDate が無ければ Info /CreationDate から補う
     createDate: createDate ?? infoCreationDateIso(doc),
@@ -353,6 +381,7 @@ export function declarePdfa(
   doc: PDFDocument,
   part: number,
   conformance: string | undefined,
+  rev?: number,
 ): XmpSyncResult {
   if (doc.catalog.get(PDFName.of('Metadata')) === undefined) {
     const lang = doc.catalog.lookup(PDFName.of('Lang'));
@@ -363,13 +392,14 @@ export function declarePdfa(
       keywords: doc.getKeywords(),
       pdfaPart: part,
       pdfaConformance: conformance,
+      pdfaRev: rev,
       lang: lang instanceof PDFString ? lang.asString() : undefined,
       // W-6: 既存 PDF に XMP を新設する経路。作成日時は Info /CreationDate から引き継ぐ
       createDate: infoCreationDateIso(doc),
     });
     return { updated: true, catalogTouched: true, warnings: [] };
   }
-  return syncXmpWithInfo(doc, { pdfaPart: part, pdfaConformance: conformance });
+  return syncXmpWithInfo(doc, { pdfaPart: part, pdfaConformance: conformance, pdfaRev: rev });
 }
 
 export interface PdfuaCatalogOptions {

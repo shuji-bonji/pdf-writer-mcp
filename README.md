@@ -23,7 +23,22 @@ Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji
 | `create_markdown_pdf` | Markdown — headings, paragraphs, bullet/ordered lists, code blocks, quotes, rules, tables |
 | `create_table_pdf` | Ruled tables — automatic column widths, cell wrapping, headers repeated across page breaks |
 
-Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `author`, `onMissingGlyph`, `tagged`, `lang`.
+Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `author`, `onMissingGlyph`, `tagged`, `lang`, `pdfVersion`.
+
+### PDF 2.0 output (v0.16.0)
+
+Pass `pdfVersion: "2.0"` to write an ISO 32000-2 file. The default stays `"1.7"`, and its bytes are unchanged.
+
+The version is not only a header. ISO 32000-2 attaches two obligations to it, and both are met:
+
+- **trailer `/ID`** becomes Required (Table 15). Both elements are equal on a first write (R-14.4-6), and the value stays deterministic under `SOURCE_DATE_EPOCH`.
+- **the Info dictionary** keeps only `CreationDate` and `ModDate` (§14.3.3); the title, author and producer move to the XMP metadata stream, where PDF 2.0 says document metadata belongs.
+
+```jsonc
+{ "text": "Body.", "title": "Report", "pdfVersion": "2.0" }
+```
+
+`tagged: true` cannot be combined with it. The only accessibility declaration this server writes is PDF/UA-1 (ISO 14289-1), which is built on PDF 1.7 — putting it in a 2.0 file would be a claim nothing could measure. PDF/UA-2 output is not implemented, so the combination is refused rather than silently produced.
 
 ### Tagged PDF / PDF/UA (v0.5.0)
 
@@ -75,7 +90,7 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
 | `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
 | `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1 (nest widgets in `Form`, set `/Tabs S`, add `/TU` alternate names; pass `labels` for human-readable names). Idempotent |
 | `ensure_tagged` | Put an existing PDF into the PDF/UA-1 container → [Scaffolding an untagged PDF](#scaffolding-an-untagged-pdf-ensure_tagged) |
-| `ensure_pdfa` | Put an existing PDF into the **PDF/A-3b** container → [The archival container](#the-archival-container-ensure_pdfa) |
+| `ensure_pdfa` | Put an existing PDF into the **PDF/A-3b / PDF/A-4 / PDF/A-4f** container (`flavour`) → [The archival container](#the-archival-container-ensure_pdfa) |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |
 
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
@@ -106,6 +121,16 @@ Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
 > [!WARNING]
 > Content streams, fonts and the structure tree are untouched — so this **does not make a PDF conform**. Write the declaration, then measure it: verify with pdf-verify-mcp's `validate_conformance(flavour: "pdfa-3b")`. Measured on the electronic-bookkeeping sample: veraPDF **146/146 COMPLIANT**, PDF/UA-1 still **106/106**, attachment preserved.
+
+#### PDF/A-4 (v0.16.0)
+
+`flavour: "pdfa-4"` targets ISO 19005-4 instead. It is built on PDF 2.0, so on top of the three items above it rewrites the header to 2.0 and **removes the Info dictionary** — PDF/A-4 does not allow one unless the catalog has `/PieceInfo`, which is stricter than ISO 32000-2 §14.3.3. `pdfaid:rev` is written and `pdfaid:conformance` is not, because PDF/A-4 has no conformance level.
+
+**If the document carries attachments, use `"pdfa-4f"`.** Plain PDF/A-4 requires every embedded file to be PDF/A itself, so attaching a CSV or JSON — the electronic-bookkeeping case — makes it non-conformant. `"pdfa-4f"` is the variant for exactly that.
+
+Measured with veraPDF 1.30.0: `pdfa-4` **109/109 COMPLIANT**, and the same document with a CSV attached is 108/109 as `pdfa-4` but **109/109 as `pdfa-4f`**.
+
+`preserveSignatures` is refused with a PDF/A-4 flavour unless the input is already PDF 2.0: an incremental update cannot rewrite byte 0 of the file, and doing so anyway would break the signature it was meant to preserve.
 
 ## Install
 

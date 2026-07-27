@@ -14,6 +14,7 @@ import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { LIMITS, PAGE_SIZES, type PageSizeName } from '../constants.js';
 import { invalidArg } from '../errors.js';
+import { PDF_VERSIONS } from '../services/pdf-version.js';
 import type { BookmarkInput } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -97,6 +98,15 @@ export const commonCreateShape = {
       '文書の自然言語(BCP 47。例 "ja" / "en-US")。tagged 時に省略すると本文から推定し、' +
         '推定結果を warnings で報告する。誤った言語宣言はスクリーンリーダの誤読を招くため、' +
         '確実な場合は明示すること。',
+    ),
+  pdfVersion: z
+    .enum(PDF_VERSIONS)
+    .optional()
+    .describe(
+      '出力する PDF の版。既定 "1.7"。"2.0"(ISO 32000-2)にすると版の宣言だけでなく、' +
+        '版に紐づく義務も満たす: trailer /ID を付与し(Table 15 で Required)、' +
+        'Info 辞書を CreationDate / ModDate に絞って題名・作成者・Producer は XMP へ移す(§14.3.3)。' +
+        'tagged: true とは併用できない(writer が書けるのは PDF 1.7 基盤の PDF/UA-1 宣言のみ)。',
     ),
 } as const;
 
@@ -458,6 +468,19 @@ export const ensureTaggedShape = {
 
 export const ensurePdfaShape = {
   inputPath,
+  flavour: z
+    .enum(['pdfa-3b', 'pdfa-4', 'pdfa-4f'])
+    .optional()
+    .describe(
+      '名乗らせる PDF/A。既定 "pdfa-3b"。"pdfa-4"(ISO 19005-4) は PDF 2.0 基盤なので、' +
+        '/ID・OutputIntent・XMP pdfaid に加えて**ヘッダを 2.0 にし、Info 辞書を落とす**' +
+        '(-4 は PieceInfo が無い限り Info を許さない)。' +
+        '**-4 は conformance level を持たない**ため pdfaid:conformance を書かず pdfaid:rev を書く。' +
+        '**添付がある文書は "pdfa-4f" を使うこと** — 素の "pdfa-4" は添付ファイル自身が PDF/A で' +
+        'あることを要求するので、JSON や CSV を添える電帳法の使い方では非適合になる。' +
+        '署名保持(preserveSignatures)との併用は、入力が既に PDF 2.0 でない限り拒否する' +
+        '(増分更新では先頭のヘッダを書き換えられず、書き換えれば署名が壊れるため)。',
+    ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
