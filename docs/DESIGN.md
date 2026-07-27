@@ -6,8 +6,8 @@
 | 対象システム | `@shuji-bonji/pdf-writer-mcp` |
 | バージョン | 0.16.0（**B-16 + B-20**。B-20 = `ensure_pdfa(flavour: "pdfa-4" / "pdfa-4f")` で PDF/A-4 を名乗らせる（ヘッダ 2.0・Info 削除・pdfaid:rev。veraPDF 109/109 COMPLIANT。添付があるときは -4f）。B-16 = PDF 2.0 出力。create 系 3 ツールの `pdfVersion: '2.0'` で、版の宣言に加えて trailer `/ID`（Table 15 で Required）と Info の縮約（§14.3.3 = 日付 2 つ以外は XMP へ）まで行う。`tagged` とは併用不可。1.7 出力は 0.15.2 とバイト一致）。0.15.2（**W-6** = XMP 新設・再構築時に xmp:CreateDate を Info /CreationDate から補う（R-14.3.4-4。発見 = 制約テーブル PoC CT-META-4）。0.15.1 = initialize の instructions）。0.15.0（**B-8 = `ensure_pdfa`**。既存 PDF を PDF/A-3b の器に載せる（trailer /ID・sRGB OutputIntent・XMP pdfaid）。実測 veraPDF 146/146 COMPLIANT・pdfua-1 106/106 維持・添付生存）。0.14.1 = B-17 = `create_markdown_pdf` の `stripInline` が `snake_case` の `_` を消す欠陥を修正。CommonMark の語中強調規則を Unicode 対応で実装）。0.14.0 = B-14 = 埋め込みフォントの条文適合。CFF は CIDFontType0 + FontFile3 /OpenType へ・サブセット名タグ・Length1・Info↔XMP 日時の一本化。0.13.1 = W-1 hotfix / 0.13.0 = B-10a/b + B-13 + SPEC-AUDIT Phase 2-4。19 ツール） |
 | リポジトリ | https://github.com/shuji-bonji/pdf-writer-mcp |
-| 最終更新 | 2026-07-25 |
-| ステータス | create 系 3（PDF/UA 対応）+ 編集系 17 = **20 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応。**`ensure_pdfa`（B-8 = PDF/A-3b）を追加**（veraPDF 146/146 COMPLIANT・PDF/UA-1 106/106 維持） |
+| 最終更新 | 2026-07-27 |
+| ステータス | create 系 3（PDF/UA 対応・**PDF 2.0 出力**）+ 編集系 17 = **20 ツール**実装済み。add_annotation は `preserveSignatures` で署名済み PDF に増分更新対応。**`ensure_pdfa` は PDF/A-3b（B-8）/ PDF/A-4 / PDF/A-4f（B-20）に対応**（veraPDF 実測: -3b 146/146・-4 と -4f 109/109 COMPLIANT・PDF/UA-1 106/106 維持） |
 
 > **本書のバージョン行は `package.json` と同期させること。** リリース手順（CLAUDE.md）に
 > 「DESIGN.md ヘッダの更新」を含める。v0.3.1→v0.6.0 の間、本書が未更新のまま放置され、
@@ -55,10 +55,19 @@ Tier の呼称は PDFfamily specs/05 の体系に従う。create 系は当初ど
   文書レベル要件のみを補い、本文・構造木・フォントには触らない。**適合の保証ではない**
   （判定は pdf-verify-mcp の `validate_conformance`）
 
+**対象（編集系 Tier B。v0.16.0 実装済み）**
+
+- **PDF 2.0 出力（B-16）** — create 系の `pdfVersion: '2.0'`。版の宣言に加えて trailer `/ID`
+  （Table 15 で Required）と Info の縮約（§14.3.3）まで行う。`tagged` とは併用不可
+- **PDF/A-4 / PDF/A-4f の器付け（B-20）** — `ensure_pdfa` の `flavour`。ヘッダ 2.0 化・Info 削除・
+  `pdfaid:rev`。**添付があるときは -4f**（素の -4 は添付自身が PDF/A であることを要求する）。
+  veraPDF 実測 109/109 COMPLIANT
+
 **対象外（将来 = Tier C ほか）**
 
 - 本文テキスト編集・タグ木保守（ensure_tagged）・署名を保持する増分更新（Tier C。pdf-engine-core と合流）
-- **PDF/A-4**（PDF 2.0 出力 = B-16 と verify の flavour 拡張が前提。B-20）
+- **PDF/UA-2 出力**（PDF 2.0 基盤のアクセシビリティ宣言。これが無いため `tagged` × `pdfVersion: '2.0'` は拒否している）
+- **PDF/A-4e**（3D / 工学系。writer は 3D を書かないので実需が無い）
 - 電子署名の**付与**（verify との対称性から別 MCP `pdf-signature-mcp` として切り出す案が有力。specs/05 §7-3）
 - 画像埋め込み・ヘッダー/フッター、.ttc フェイス自動抽出、見出し/本文のフォント分け
 
