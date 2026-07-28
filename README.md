@@ -122,6 +122,8 @@ Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 > [!WARNING]
 > Content streams, fonts and the structure tree are untouched — so this **does not make a PDF conform**. Write the declaration, then measure it: verify with pdf-verify-mcp's `validate_conformance(flavour: "pdfa-3b")`. Measured on the electronic-bookkeeping sample: veraPDF **146/146 COMPLIANT**, PDF/UA-1 still **106/106**, attachment preserved.
 
+Since v0.17.0 the result also carries `declarationRisks` when the claim is **already known to be false**. The only risk reported today is `FONT_NOT_EMBEDDED`: PDF/A requires every font to be embedded and `ensure_pdfa` does not embed fonts, so a document drawn with the standard 14 faces fails validation regardless of how correct its document-level structure is. The declaration is still written — the verdict belongs to veraPDF — but the caller can now branch on the risk instead of parsing the warning text.
+
 #### PDF/A-4 (v0.16.0)
 
 `flavour: "pdfa-4"` targets ISO 19005-4 instead. It is built on PDF 2.0, so on top of the three items above it rewrites the header to 2.0 and **removes the Info dictionary** — PDF/A-4 does not allow one unless the catalog has `/PieceInfo`, which is stricter than ISO 32000-2 §14.3.3. `pdfaid:rev` is written and `pdfaid:conformance` is not, because PDF/A-4 has no conformance level.

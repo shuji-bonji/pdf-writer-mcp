@@ -122,6 +122,8 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 > [!WARNING]
 > 本文・フォント・構造木には触らないため、**これは適合の保証ではありません**。宣言を書いたら測ること — pdf-verify-mcp の `validate_conformance(flavour: "pdfa-3b")` で確認してください。電帳法の検体で実測: veraPDF **146/146 COMPLIANT**・PDF/UA-1 は **106/106** 維持・添付も生存。
 
+**v0.17.0 から、書いた宣言が「測ると落ちる」と既に分かっている場合は `declarationRisks` に構造化して返します。** 現在報告するのは `FONT_NOT_EMBEDDED` の 1 種で、PDF/A は全フォントの埋め込みを要求する一方 `ensure_pdfa` はフォントを埋め込まないため、標準 14 書体で描かれた文書は文書レベルの構造がどれだけ正しくても検証で落ちます。**宣言そのものは書きます**（判定を下すのは veraPDF の役目）が、呼び出し側は警告文を読まずに分岐できます。
+
 #### PDF/A-4（v0.16.0）
 
 `flavour: "pdfa-4"` は ISO 19005-4 を狙います。PDF 2.0 基盤なので、上の 3 項目に加えて**ヘッダを 2.0 にし、Info 辞書を削除**します — PDF/A-4 は catalog に `/PieceInfo` が無い限り Info を許さず、これは ISO 32000-2 §14.3.3 より厳しい要求です。`pdfaid:rev` を書き、`pdfaid:conformance` は書きません（PDF/A-4 は conformance level を持たないため）。

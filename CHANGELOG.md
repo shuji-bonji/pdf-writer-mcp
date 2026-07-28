@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0] - 2026-07-28
+
+### Added
+
+- **`ensure_pdfa` now says when the claim it just wrote is already known to be false (B-21).**
+  The result carries `declarationRisks`, and the first — and so far only — risk it reports is
+  `FONT_NOT_EMBEDDED`: PDF/A requires every font to be embedded, `ensure_pdfa` does not embed
+  fonts, and a document drawn with the standard 14 faces therefore fails validation no matter
+  how correct its document-level structure is.
+
+  The tool already warned that conformance had not been checked. That warning is prose, and it
+  covers everything from encryption to LZW — it cannot distinguish "we did not look" from **"we
+  looked and it will fail."** The second one is worth naming, because it is observable at the
+  moment of writing.
+
+  The declaration is still written. Refusing would break existing callers, and the family's
+  position is that the verdict belongs to veraPDF — not to the writer. What changed is that the
+  report can now branch on the risk instead of parsing English.
+
+  Found while building `scripts/verify-published.mjs`: the specimen used Helvetica, veraPDF
+  returned 108/109, and the failing rule was the font-embedding one. The specimen was at fault,
+  not the writer — but the same audit this family ran against another library
+  (`pdfnative-audit` F-1: *a PDF/A claim over unembedded fonts*) had listed "enforce embedding,
+  or refuse to write the claim" as a lesson to bring home. It had not been brought home.
+
+- **`scripts/verify-published.mjs`** (`npm run verify:published`) — acceptance check for a
+  published release: clean install from the registry, the electronic-bookkeeping chain end to
+  end, structural measurement, `qpdf --check`, and the PDF/A verdict via pdf-verify-mcp.
+  It skips the verdict rather than guessing when veraPDF or an embeddable font is missing.
+
 ## [0.16.0] - 2026-07-27
 
 ### Added

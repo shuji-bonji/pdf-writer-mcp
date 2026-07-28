@@ -1,6 +1,6 @@
 {
   "name": "@shuji-bonji/pdf-writer-mcp",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "MCP server that generates and edits PDFs (text/Markdown/table creation, metadata & page operations) using pdf-lib, with Japanese font embedding (fontkit subset).",
   "type": "module",
   "bin": {
@@ -29,7 +29,8 @@
     "format": "biome format ./src ./tests",
     "format:fix": "biome format --write ./src ./tests",
     "check": "biome check ./src ./tests",
-    "check:fix": "biome check --fix ./src ./tests"
+    "check:fix": "biome check --fix ./src ./tests",
+    "verify:published": "node scripts/verify-published.mjs"
   },
   "keywords": [
     "mcp",

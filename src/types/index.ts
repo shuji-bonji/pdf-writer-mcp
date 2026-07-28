@@ -367,6 +367,26 @@ export interface EnsurePdfaArgs extends CommonEditOptions, PreservableEditOption
   flavour?: EnsurePdfaFlavour;
 }
 
+/**
+ * 書いた宣言が**測ると落ちる**と分かっている理由（B-21）。
+ *
+ * `ensure_pdfa` は文書レベルの要件しか補わないので、**適合しない文書にも宣言を書ける**。
+ * 警告文でそう述べてはいたが散文だったため、レポート側が分岐できなかった。
+ * ここは**観測**であって判定ではない（判定は veraPDF が下す）。
+ */
+export interface PdfaDeclarationRisk {
+  code: 'FONT_NOT_EMBEDDED';
+  /** 人間向けの説明 */
+  detail: string;
+  /** 該当した対象（フォント名など） */
+  affected: string[];
+  /**
+   * 実測に基づく規則 ID。**ISO 19005 はコーパス外（T2）なので条文は引けない** —
+   * これは「veraPDF がこの規則で落とした」という観測の記録である。
+   */
+  measuredRuleId?: string;
+}
+
 export interface EnsurePdfaResult extends EditResult {
   /** 名乗らせた PDF/A のフレーバー（例 `"3b"`） */
   flavour: string;
@@ -377,6 +397,11 @@ export interface EnsurePdfaResult extends EditResult {
    * **自称と実体は別物** — 適合しているかは `pdf-verify-mcp` の `validate_conformance` で確かめる。
    */
   wasDeclared: boolean;
+  /**
+   * **この宣言は測ると落ちる**と分かっている理由。空でないなら、
+   * 書いたのは「まだ真ではない主張」である（B-21）。
+   */
+  declarationRisks?: PdfaDeclarationRisk[];
 }
 
 export interface TagFormFieldsResult extends EditResult {

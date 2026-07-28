@@ -69,6 +69,8 @@ import { logger } from '../utils/logger.js';
 const CTX = 'FontConformance';
 
 const KEY = {
+  /** Type1 の埋め込み先（B-21 の検出でのみ使う） */
+  fontFile: PDFName.of('FontFile'),
   fontFile2: PDFName.of('FontFile2'),
   fontFile3: PDFName.of('FontFile3'),
   subtype: PDFName.of('Subtype'),
@@ -394,6 +396,55 @@ function collectEmbeddedFonts(doc: PDFDocument): EmbeddedFont[] {
       });
       break;
     }
+  }
+  return found;
+}
+
+/**
+ * 埋め込まれていないフォントを列挙する（B-21）。
+ *
+ * **PDF/A はすべてのフォントプログラムの埋め込みを要求する**（実測: veraPDF が
+ * PDF/A-4 で `ISO 19005-4:2020 6.2.10.4.1-1` を落とす。ISO 19005 は family の
+ * コーパス外なので条文は引けない = T2）。`ensure_pdfa` は**文書レベルの要件しか補わない**ため、
+ * 標準 14 書体で描かれた文書に宣言を書くと「測ると必ず落ちる宣言」ができる。
+ *
+ * ここが返すのは**観測**であって判定ではない。判定は veraPDF が下す。
+ *
+ * - Type3 は対象外（フォントプログラムではなく内容ストリームで描かれる）
+ * - 標準 14 書体は `FontDescriptor` 自体を持たないことが多く、その場合も未埋め込みとして数える
+ */
+export function findNonEmbeddedFonts(doc: PDFDocument): { baseFont: string; subtype: string }[] {
+  const found: { baseFont: string; subtype: string }[] = [];
+  const seen = new Set<string>();
+
+  const hasProgram = (descriptor: unknown): boolean =>
+    descriptor instanceof PDFDict &&
+    [KEY.fontFile, KEY.fontFile2, KEY.fontFile3].some((key) => descriptor.has(key));
+
+  for (const [, object] of doc.context.enumerateIndirectObjects()) {
+    if (!(object instanceof PDFDict)) continue;
+    if (object.get(KEY.type)?.toString() !== '/Font') continue;
+
+    const subtype = object.get(KEY.subtype)?.toString().replace(/^\//, '') ?? '(none)';
+    if (subtype === 'Type3') continue;
+
+    // Type0 は子（CIDFont）側に FontDescriptor がある
+    let holder: PDFDict = object;
+    if (subtype === 'Type0') {
+      const descendants = object.lookup(KEY.descendantFonts);
+      if (!(descendants instanceof PDFArray) || descendants.size() === 0) continue;
+      const cidFont = descendants.lookup(0);
+      if (!(cidFont instanceof PDFDict)) continue;
+      holder = cidFont;
+    }
+
+    if (hasProgram(holder.lookup(KEY.fontDescriptor))) continue;
+
+    const baseFont = object.get(KEY.baseFont)?.toString().replace(/^\//, '') ?? '(no BaseFont)';
+    const key = `${subtype}:${baseFont}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push({ baseFont, subtype });
   }
   return found;
 }

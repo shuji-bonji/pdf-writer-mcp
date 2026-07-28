@@ -224,6 +224,47 @@ describe('ensure_pdfa', () => {
     expect(hasPdfaDeclaration(doc)).toBe(true);
   });
 
+  it('B-21: 標準 14 書体の文書には「測ると落ちる」を構造化して返す', async () => {
+    const input = join(dir, 'standard14.pdf');
+    const output = join(dir, 'standard14-pdfa.pdf');
+    // fontPath を渡さない = StandardFonts.Helvetica（埋め込まれない）
+    await makeTagged(input);
+
+    const result = await ensurePdfa({ inputPath: input, outputPath: output });
+
+    // 宣言は書く（非破壊）。ただし「これは測ると落ちる」と名指しする
+    expect(result.flavour).toBe('3b');
+    expect(result.declarationRisks).toBeDefined();
+    const risks = result.declarationRisks as NonNullable<typeof result.declarationRisks>;
+    expect(risks).toHaveLength(1);
+    expect(risks[0].code).toBe('FONT_NOT_EMBEDDED');
+    expect(risks[0].affected.some((a) => a.includes('Helvetica'))).toBe(true);
+
+    // 散文の警告にも出す（構造化フィールドを読まない利用者のため）
+    expect((result.warnings ?? []).some((w) => w.includes('Known to fail'))).toBe(true);
+  });
+
+  it.skipIf(!process.env.TEST_FONT_PATH)(
+    'B-21: フォントを埋め込んだ文書では risk を作らない（何にでも付けない）',
+    async () => {
+      const input = join(dir, 'embedded.pdf');
+      const output = join(dir, 'embedded-pdfa.pdf');
+      await handleCreateTextPdf({
+        text: 'invoice body',
+        title: 'Invoice',
+        lang: 'en',
+        tagged: true,
+        fontPath: process.env.TEST_FONT_PATH,
+        outputPath: input,
+      });
+
+      const result = await ensurePdfa({ inputPath: input, outputPath: output });
+
+      // ここが常に発火するなら「PDF/A 宣言は全部危険」と言っているのと同じで情報量がない
+      expect(result.declarationRisks).toBeUndefined();
+    },
+  );
+
   it('always warns that conformance was not checked (it only writes the claim)', async () => {
     const input = join(dir, 'honest.pdf');
     const output = join(dir, 'honest-pdfa.pdf');

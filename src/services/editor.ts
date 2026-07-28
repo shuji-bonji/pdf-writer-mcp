@@ -37,6 +37,7 @@ import type {
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
+  PdfaDeclarationRisk,
   SetMetadataArgs,
   StampPageNumbersArgs,
   StampResult,
@@ -49,6 +50,7 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict, parseHexColor } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { ensureTaggedStructure } from './ensure-tagged.js';
+import { findNonEmbeddedFonts } from './font-conformance.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
 import {
   applyFieldValue,
@@ -918,6 +920,30 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
       'and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text.',
   );
 
+  // **B-21: 「測ると落ちる」と既に分かっている宣言は、そう名指しする。**
+  // 上の警告は「検査していない」としか言っておらず、散文なのでレポート側が分岐できない。
+  // 埋め込まれていないフォントは *この場で観測できる* 不適合であり、
+  // 黙って宣言だけ書くのは pdfnative 監査（F-1）で自分たちが問題にした形そのものである。
+  // ただし**宣言は書く**（破壊的変更を避ける）— 判定を下すのは veraPDF の役目。
+  const declarationRisks: PdfaDeclarationRisk[] = [];
+  const nonEmbedded = findNonEmbeddedFonts(doc);
+  if (nonEmbedded.length > 0) {
+    const affected = nonEmbedded.map((f) => `${f.baseFont} (${f.subtype})`);
+    declarationRisks.push({
+      code: 'FONT_NOT_EMBEDDED',
+      detail:
+        `${nonEmbedded.length} font(s) have no embedded font program, so this ${label} claim ` +
+        'will fail validation. PDF/A requires every font to be embedded, and ensure_pdfa does ' +
+        'not embed fonts — re-create the document with fontPath (or PDF_WRITER_FONT) set, ' +
+        'rather than relying on the standard 14 faces.',
+      affected,
+      measuredRuleId: isPdfa4 ? 'ISO 19005-4:2020 6.2.10.4.1-1' : undefined,
+    });
+    warnings.push(
+      `Known to fail: ${affected.join(', ')} — no embedded font program (see declarationRisks).`,
+    );
+  }
+
   logger.info(
     'Editor',
     `Applied ${label} document requirements (${addedRequirements.length} item(s))`,
@@ -946,6 +972,7 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
     flavour: isPdfa4 ? (pdfa4Variant ? '4f' : '4') : '3b',
     addedRequirements,
     wasDeclared,
+    declarationRisks: declarationRisks.length > 0 ? declarationRisks : undefined,
     warnings: all.length > 0 ? all : undefined,
   };
 }
