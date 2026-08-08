@@ -8,6 +8,7 @@
  * の両方をここから導出する。閾値は constants.ts に集約（変更なし）。
  *
  * フィールドの description もここに置く — ツール説明と実検証の乖離を防ぐ。
+ * description は英語が正典（B-21）。日本語はサイト側の翻訳メモリが持つ。
  */
 
 import { isAbsolute } from 'node:path';
@@ -54,39 +55,44 @@ const zPageSize = z.enum(Object.keys(PAGE_SIZES) as [PageSizeName, ...PageSizeNa
 export const commonCreateShape = {
   outputPath: zPath
     .optional()
-    .describe('保存先ファイルパス（絶対パス）。省略した場合は base64 文字列を返す。'),
+    .describe(
+      'Destination file path (absolute). When omitted, a base64 string is returned instead.',
+    ),
   returnBase64: z
     .boolean()
     .optional()
-    .describe('true の場合、保存に加えて base64 文字列も結果に含める。'),
+    .describe('When true, include a base64 string in the result in addition to saving.'),
   fontPath: zPath
     .optional()
     .describe(
-      '埋め込むフォントファイル(.ttf / .otf)の絶対パス。日本語など非ラテン文字を含む場合は必須。' +
-        '.ttc(TrueTypeCollection)は非対応。環境変数 PDF_WRITER_FONT でも指定可。',
+      'Absolute path of the font file to embed (.ttf / .otf). Required for non-Latin text such as Japanese. ' +
+        '.ttc (TrueType Collection) is not supported. Can also be set via the PDF_WRITER_FONT environment variable.',
     ),
-  fontSize: zFontSize.optional().describe('本文フォントサイズ(pt)。既定 11。範囲 4〜96。'),
-  pageSize: zPageSize.optional().describe('ページサイズ。既定 A4。'),
-  margin: zMargin.optional().describe('上下左右マージン(pt)。既定 56(≒20mm)。範囲 0〜300。'),
+  fontSize: zFontSize.optional().describe('Body font size (pt). Default 11. Range 4-96.'),
+  pageSize: zPageSize.optional().describe('Page size. Default A4.'),
+  margin: zMargin
+    .optional()
+    .describe('Margin on all sides (pt). Default 56 (about 20 mm). Range 0-300.'),
   title: z
     .string()
     .optional()
-    .describe('PDF タイトル。メタデータに設定し、本文冒頭にも見出しとして描画する。'),
-  author: z.string().optional().describe('PDF 作成者(メタデータ)。'),
+    .describe('PDF title. Set in the metadata and also drawn as a heading at the top of the body.'),
+  author: z.string().optional().describe('PDF author (metadata).'),
   onMissingGlyph: z
     .enum(['error', 'replace', 'ignore'])
     .optional()
     .describe(
-      'フォントに存在しない文字(例: Noto Sans JP に無い ✔ U+2714)の扱い。' +
-        'error(既定)=欠落文字を列挙してエラー / replace=〓 に置換して警告 / ignore=空白のまま描画して警告。',
+      'What to do with characters the font lacks (e.g. ✔ U+2714, missing from Noto Sans JP). ' +
+        'error (default) = fail, listing the missing characters / replace = substitute 〓 with a warning / ' +
+        'ignore = render as blanks with a warning.',
     ),
   tagged: z
     .boolean()
     .optional()
     .describe(
-      'タグ付き PDF(PDF/UA-1・ISO 14289)として生成する。既定 false。' +
-        'true にすると構造木・PDF/UA 宣言・/Lang・DisplayDocTitle を付与し、' +
-        'スクリーンリーダで読める文書になる。PDF/UA はタイトルを要求するため title が必須。',
+      'Generate as a tagged PDF (PDF/UA-1, ISO 14289). Default false. ' +
+        'When true, a structure tree, the PDF/UA declaration, /Lang and DisplayDocTitle are added, ' +
+        'making the document readable by screen readers. PDF/UA requires a title, so title becomes required.',
     ),
   lang: z
     .string()
@@ -95,39 +101,41 @@ export const commonCreateShape = {
     })
     .optional()
     .describe(
-      '文書の自然言語(BCP 47。例 "ja" / "en-US")。tagged 時に省略すると本文から推定し、' +
-        '推定結果を warnings で報告する。誤った言語宣言はスクリーンリーダの誤読を招くため、' +
-        '確実な場合は明示すること。',
+      'Natural language of the document (BCP 47, e.g. "ja" / "en-US"). When omitted with tagged, ' +
+        'it is inferred from the text and the guess is reported in warnings. A wrong language declaration ' +
+        'makes screen readers misread — state it explicitly when you know it.',
     ),
   pdfVersion: z
     .enum(PDF_VERSIONS)
     .optional()
     .describe(
-      '出力する PDF の版。既定 "1.7"。"2.0"(ISO 32000-2)にすると版の宣言だけでなく、' +
-        '版に紐づく義務も満たす: trailer /ID を付与し(Table 15 で Required)、' +
-        'Info 辞書を CreationDate / ModDate に絞って題名・作成者・Producer は XMP へ移す(§14.3.3)。' +
-        'tagged: true とは併用できない(writer が書けるのは PDF 1.7 基盤の PDF/UA-1 宣言のみ)。',
+      'PDF version to output. Default "1.7". "2.0" (ISO 32000-2) satisfies not just the version claim but ' +
+        'the duties bound to it: a trailer /ID is added (Required per Table 15), and the Info dictionary is ' +
+        'trimmed to CreationDate / ModDate with title, author and Producer moved to XMP (§14.3.3). ' +
+        'Cannot be combined with tagged: true (the only declaration the writer can produce is PDF/UA-1, built on PDF 1.7).',
     ),
 } as const;
 
 export const commonEditShape = {
   outputPath: zPath
     .optional()
-    .describe('保存先ファイルパス（絶対パス）。省略した場合は base64 文字列を返す。'),
+    .describe(
+      'Destination file path (absolute). When omitted, a base64 string is returned instead.',
+    ),
   returnBase64: z
     .boolean()
     .optional()
-    .describe('true の場合、保存に加えて base64 文字列も結果に含める。'),
+    .describe('When true, include a base64 string in the result in addition to saving.'),
   allowBreakingSignatures: z
     .boolean()
     .optional()
     .describe(
-      '編集対象が電子署名済み(/ByteRange 検知)の場合、既定ではエラーにする。' +
-        'true を指定すると署名が無効化されることを承知の上で編集を続行する。',
+      'When the target is digitally signed (detected via /ByteRange), the default is an error. ' +
+        'Set true to proceed, accepting that the signatures become invalid.',
     ),
 } as const;
 
-const inputPath = zPath.describe('対象 PDF の絶対パス。');
+const inputPath = zPath.describe('Absolute path of the target PDF.');
 
 // ---------------------------------------------------------------------------
 // ツール別スキーマ（shape = MCP 公開用 / schema = 実行時検証用）
@@ -137,12 +145,12 @@ export const createTextShape = {
   text: z
     .string()
     .max(LIMITS.TEXT_MAX_LENGTH)
-    .describe('本文テキスト。\\n で改行、空行で段落区切り。'),
+    .describe('Body text. \\n breaks lines; blank lines separate paragraphs.'),
   ...commonCreateShape,
 } as const;
 
 export const createMarkdownShape = {
-  markdown: z.string().max(LIMITS.TEXT_MAX_LENGTH).describe('Markdown 文字列。'),
+  markdown: z.string().max(LIMITS.TEXT_MAX_LENGTH).describe('Markdown string.'),
   ...commonCreateShape,
 } as const;
 
@@ -151,11 +159,13 @@ export const createTableShape = {
     .array(z.string())
     .min(1)
     .max(LIMITS.TABLE_MAX_COLS)
-    .describe('ヘッダ行(列見出し)の配列。'),
+    .describe('Header row (column titles).'),
   rows: z
     .array(z.array(z.string()))
     .max(LIMITS.TABLE_MAX_ROWS)
-    .describe('データ行の配列。各行は文字列の配列で、headers と同じ列数を推奨。'),
+    .describe(
+      'Data rows. Each row is an array of strings; the same column count as headers is recommended.',
+    ),
   ...commonCreateShape,
 } as const;
 
@@ -164,18 +174,18 @@ const zPreserveSignatures = z
   .boolean()
   .optional()
   .describe(
-    '署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で編集する。既定 false。' +
-      '元のバイト列には一切触れないため /ByteRange が保たれる。' +
-      '認証署名（DocMDP）の許可レベルに反する変更は拒否される。',
+    'Edit a signed PDF via an incremental update (appending) without invalidating existing signatures. ' +
+      'Default false. The original bytes are untouched, so /ByteRange holds. ' +
+      'Changes beyond the certification (DocMDP) permission level are refused.',
   );
 
 export const setMetadataShape = {
-  inputPath: zPath.describe('編集対象 PDF の絶対パス。'),
-  title: z.string().optional().describe('タイトル。'),
-  author: z.string().optional().describe('作成者。'),
-  subject: z.string().optional().describe('サブタイトル・件名。'),
-  keywords: z.array(z.string()).optional().describe('キーワードの配列。'),
-  creator: z.string().optional().describe('作成アプリケーション名。'),
+  inputPath: zPath.describe('Absolute path of the PDF to edit.'),
+  title: z.string().optional().describe('Title.'),
+  author: z.string().optional().describe('Author.'),
+  subject: z.string().optional().describe('Subject.'),
+  keywords: z.array(z.string()).optional().describe('Array of keywords.'),
+  creator: z.string().optional().describe('Creating application name.'),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
@@ -185,37 +195,39 @@ export const mergePdfsShape = {
     .array(zPath)
     .min(2)
     .max(LIMITS.MERGE_MAX_INPUTS)
-    .describe('結合する PDF の絶対パスの配列(結合順・2 件以上)。'),
+    .describe('Absolute paths of the PDFs to merge (in merge order, 2 or more).'),
   ...commonEditShape,
 } as const;
 
 export const splitPdfShape = {
-  inputPath: zPath.describe('分割対象 PDF の絶対パス。'),
+  inputPath: zPath.describe('Absolute path of the PDF to split.'),
   ranges: z
     .array(z.string().min(1))
     .min(1)
     .max(LIMITS.SPLIT_MAX_PARTS)
     .describe(
-      'ページ範囲指定の配列。各要素は "1-3" / "5" / "7-" / "-2" 形式(1 始まり)。例: ["1-3", "4-"]。',
+      'Array of page ranges. Each element is "1-3" / "5" / "7-" / "-2" (1-based). Example: ["1-3", "4-"].',
     ),
-  outputDir: zPath.describe('出力先ディレクトリ（絶対パス）。'),
+  outputDir: zPath.describe('Output directory (absolute path).'),
   prefix: z
     .string()
     .min(1)
     .optional()
-    .describe('出力ファイル名の接頭辞。既定は "<入力ファイル名>-part"。'),
+    .describe('Output filename prefix. Default "<input name>-part".'),
   allowBreakingSignatures: commonEditShape.allowBreakingSignatures,
 } as const;
 
 export const extractPagesShape = {
   inputPath,
-  pages: zPageSpec.describe('ページ指定。"1,3-5,8-" 形式(1 始まり)。指定順が出力順になる。'),
+  pages: zPageSpec.describe(
+    'Pages to extract, "1,3-5,8-" (1-based). The given order becomes the output order.',
+  ),
   ...commonEditShape,
 } as const;
 
 export const deletePagesShape = {
   inputPath,
-  pages: zPageSpec.describe('削除するページ指定。"1,3-5,8-" 形式(1 始まり)。'),
+  pages: zPageSpec.describe('Pages to delete, "1,3-5,8-" (1-based).'),
   ...commonEditShape,
 } as const;
 
@@ -224,7 +236,7 @@ export const reorderPagesShape = {
   order: z
     .array(z.number().int())
     .min(1)
-    .describe('新しいページ順(1 始まり)。例: 5 ページの逆順は [5,4,3,2,1]。'),
+    .describe('New page order (1-based). Example: [5,4,3,2,1] reverses a 5-page document.'),
   ...commonEditShape,
 } as const;
 
@@ -234,19 +246,21 @@ export const rotatePagesShape = {
   // anyOf を落として型を見失うクライアントが実在し、rotate_pages が呼べなくなっていた（B-13）。
   // z.literal([...]) なら等価な意味のまま平坦な {type:'number', enum:[...]} になる。
   // 実行時の厳格さは不変（文字列 "90" は引き続き拒否）。値の列挙は anyOf ではなく enum で表すこと。
-  rotation: z.literal([90, 180, 270]).describe('時計回りの回転角(度)。90 / 180 / 270。'),
-  pages: zPageSpec
-    .optional()
-    .describe('対象ページ指定。"1,3-5" 形式(1 始まり)。省略時は全ページ。'),
+  rotation: z.literal([90, 180, 270]).describe('Clockwise rotation (degrees): 90 / 180 / 270.'),
+  pages: zPageSpec.optional().describe('Target pages, "1,3-5" (1-based). All pages when omitted.'),
   ...commonEditShape,
 } as const;
 
 const bookmarkSchema: z.ZodType<BookmarkInput> = z.lazy(() =>
   z.object({
-    title: z.string().min(1).describe('表示名。'),
-    page: z.number().int().min(1).describe('移動先ページ(1 始まり)。'),
-    open: z.boolean().optional().describe('子項目を展開した状態で表示するか。既定 true。'),
-    children: z.array(bookmarkSchema).min(1).optional().describe('子しおりの配列(同じ形)。'),
+    title: z.string().min(1).describe('Display name.'),
+    page: z.number().int().min(1).describe('Destination page (1-based).'),
+    open: z.boolean().optional().describe('Whether children start expanded. Default true.'),
+    children: z
+      .array(bookmarkSchema)
+      .min(1)
+      .optional()
+      .describe('Array of child bookmarks (same shape).'),
   }),
 );
 
@@ -256,8 +270,8 @@ export const addBookmarksShape = {
     .array(bookmarkSchema)
     .min(1)
     .describe(
-      'しおりの配列。各要素は { title, page, open?, children? }。' +
-        'page は 1 始まり。children で階層化でき、最大 8 階層・合計 2000 件まで。',
+      'Array of bookmarks, each { title, page, open?, children? }. page is 1-based. ' +
+        'Nest via children — up to 8 levels and 2000 entries in total.',
     ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
@@ -265,10 +279,10 @@ export const addBookmarksShape = {
 
 export const addAnnotationShape = {
   inputPath,
-  page: z.number().int().min(1).describe('対象ページ(1 始まり)。'),
+  page: z.number().int().min(1).describe('Target page (1-based).'),
   type: z
     .enum(['text', 'highlight', 'square'])
-    .describe('text=付箋アイコン / highlight=ハイライト / square=矩形。'),
+    .describe('text = sticky note icon / highlight = highlight / square = rectangle.'),
   rect: z
     .object({
       x1: z.number().finite(),
@@ -279,36 +293,36 @@ export const addAnnotationShape = {
     .refine((r) => r.x1 < r.x2 && r.y1 < r.y2, {
       message: 'rect must satisfy x1 < x2 and y1 < y2',
     })
-    .describe('注釈の矩形。PDF 座標系(左下原点・pt)。x1<x2 かつ y1<y2 であること。'),
-  contents: z.string().optional().describe('注釈の本文(日本語可)。'),
-  author: z.string().optional().describe('作成者名。'),
+    .describe(
+      'Annotation rectangle in PDF space (origin bottom-left, pt). Must satisfy x1<x2 and y1<y2.',
+    ),
+  contents: z.string().optional().describe('Annotation body text (CJK fine).'),
+  author: z.string().optional().describe('Author name.'),
   alt: z
     .string()
     .optional()
     .describe(
-      '支援技術向けの代替テキスト。タグ付き PDF では注釈が Annot 構造要素に内包される' +
-        '(PDF/UA 7.18.1-1)ため、その要素の /Alt になる。タグ無し文書では無視される。',
+      'Alt text for assistive technology. In tagged PDFs the annotation is enclosed in an Annot structure ' +
+        "element (PDF/UA 7.18.1-1) and this becomes that element's /Alt. Ignored in untagged documents.",
     ),
   color: z
     .string()
     .optional()
-    .describe(
-      '#rrggbb 形式。既定は type ごと(text=#ffd400 / highlight=#ffff00 / square=#ff0000)。',
-    ),
-  interiorColor: z.string().optional().describe('square の塗り色(#rrggbb)。'),
+    .describe('#rrggbb. Defaults per type (text=#ffd400 / highlight=#ffff00 / square=#ff0000).'),
+  interiorColor: z.string().optional().describe('Fill colour for square (#rrggbb).'),
   icon: z
     .enum(['Note', 'Comment', 'Key', 'Help', 'NewParagraph', 'Paragraph', 'Insert'])
     .optional()
-    .describe('text のアイコン。既定 Note。'),
-  open: z.boolean().optional().describe('text を開いた状態にするか。既定 false。'),
+    .describe('Icon for text notes. Default Note.'),
+  open: z.boolean().optional().describe('Whether the text note starts open. Default false.'),
   preserveSignatures: z
     .boolean()
     .optional()
     .describe(
-      '署名済み PDF に対し、既存署名を無効化せず増分更新（末尾追記）で注釈を追加する。' +
-        '既定 false。元のバイト列には一切触れないため /ByteRange が保たれる。' +
-        'タグ付き PDF では Annot 構造要素への内包も増分に含めて PDF/UA 準拠を維持する。' +
-        '認証署名（DocMDP）では P=3 のときのみ許可。',
+      'Add the annotation to a signed PDF via an incremental update (appending) without invalidating ' +
+        'existing signatures. Default false. The original bytes are untouched, so /ByteRange holds. ' +
+        'In tagged PDFs the enclosure in an Annot structure element rides the same update, preserving ' +
+        'PDF/UA conformance. Under a certification signature (DocMDP), allowed only at P=3.',
     ),
   ...commonEditShape,
 } as const;
@@ -323,64 +337,71 @@ export const stampPageNumbersShape = {
     })
     .optional()
     .describe(
-      '書式。{n}=現在ページ、{total}=総ページ数。既定 "{n}"。' +
-        '例: "- {n} -" / "{n} / {total}" / "{n} ページ"。{n} を必ず含めること。',
+      'Format. {n} = current page, {total} = total pages. Default "{n}". ' +
+        'Examples: "- {n} -" / "{n} / {total}" / "Page {n}". Must contain {n}.',
     ),
   position: z
     .enum(['bottom-left', 'bottom-center', 'bottom-right', 'top-left', 'top-center', 'top-right'])
     .optional()
-    .describe('配置。既定 bottom-center。ページの回転(/Rotate)を考慮した見た目の位置。'),
-  margin: zMargin.optional().describe('端からの余白(pt)。既定 24。範囲 0〜300。'),
-  fontSize: zFontSize.optional().describe('フォントサイズ(pt)。既定 9。範囲 4〜96。'),
-  color: z.string().min(1).optional().describe('#rrggbb。既定 #666666。'),
+    .describe(
+      'Placement. Default bottom-center. Visual position, taking page /Rotate into account.',
+    ),
+  margin: zMargin.optional().describe('Margin from the edge (pt). Default 24. Range 0-300.'),
+  fontSize: zFontSize.optional().describe('Font size (pt). Default 9. Range 4-96.'),
+  color: z.string().min(1).optional().describe('#rrggbb. Default #666666.'),
   fontPath: zPath
     .optional()
     .describe(
-      '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
-        '日本語を含む書式には必須。',
+      'Font to embed (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, then the standard font. ' +
+        'Required for formats containing CJK text.',
     ),
   pages: zPageSpec
     .optional()
     .describe(
-      '番号を刻むページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。' +
-        '表紙を除くなら "2-" のように指定する。',
+      'Pages to stamp, "1,3-5,8-" (1-based). All when omitted. Use "2-" to skip a cover page.',
     ),
   startAt: z
     .number()
     .int()
     .optional()
-    .describe('最初に刻む番号。既定 1。表紙を除いて 1 から始めたい場合などに使う。'),
+    .describe(
+      'First number to stamp. Default 1. Useful to start at 1 after skipping a cover page.',
+    ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
 
 export const addWatermarkShape = {
   inputPath,
-  text: z.string().min(1).describe('透かし文字。例: "社外秘" / "DRAFT" / "COPY"。'),
-  fontSize: zFontSize.optional().describe('フォントサイズ(pt)。既定 60。範囲 4〜96。'),
-  color: z.string().min(1).optional().describe('#rrggbb。既定 #808080(灰)。'),
+  text: z.string().min(1).describe('Watermark text, e.g. "社外秘" / "DRAFT" / "COPY".'),
+  fontSize: zFontSize.optional().describe('Font size (pt). Default 60. Range 4-96.'),
+  color: z.string().min(1).optional().describe('#rrggbb. Default #808080 (grey).'),
   opacity: z
     .number()
     .min(0)
     .max(1)
     .optional()
-    .describe('不透明度 0(透明)〜1(不透明)。既定 0.15。本文を読める程度に薄くする。'),
-  angle: z.number().finite().optional().describe('反時計回りの角度(度)。既定 45。0 で水平。'),
+    .describe(
+      'Opacity, 0 (transparent) to 1 (opaque). Default 0.15 — faint enough to keep the content readable.',
+    ),
+  angle: z
+    .number()
+    .finite()
+    .optional()
+    .describe('Counter-clockwise angle (degrees). Default 45. 0 = horizontal.'),
   behind: z
     .boolean()
     .optional()
     .describe(
-      '本文の背面に敷くか。既定 true。false にすると本文の上に重なる(改ざん防止の主張を強めたい場合)。',
+      'Draw behind the content. Default true. false draws over it (to strengthen the tamper-deterrent claim).',
     ),
   fontPath: zPath
     .optional()
     .describe(
-      '埋め込むフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
-        '日本語の透かしには必須。',
+      'Font to embed (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, then the standard font. ' +
+        'Required for CJK watermarks.',
     ),
-  pages: zPageSpec
-    .optional()
-    .describe('対象ページ指定。"1,3-5,8-" 形式(1 始まり)。省略時は全ページ。'),
+  pages: zPageSpec.optional().describe('Target pages, "1,3-5,8-" (1-based). All when omitted.'),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
@@ -393,27 +414,27 @@ export const fillFormShape = {
       message: 'fields must contain at least one field to fill',
     })
     .describe(
-      'フィールド名 → 値のオブジェクト。値の型はフィールド種別に対応する: ' +
-        'text=文字列か数値 / checkbox=真偽値 / dropdown・optionlist=文字列か文字列配列 / radio=文字列。' +
-        '例: {"user.name": "山田 太郎", "agree": true, "plan": "A"}',
+      'Object of field name → value. Value type matches the field kind: ' +
+        'text = string or number / checkbox = boolean / dropdown, optionlist = string or string array / radio = string. ' +
+        'Example: {"user.name": "山田 太郎", "agree": true, "plan": "A"}',
     ),
   fontPath: zPath
     .optional()
     .describe(
-      '値の描画に使うフォント(.ttf/.otf)。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
-        '日本語の値には必須。',
+      'Font used to render values (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, ' +
+        'then the standard font. Required for CJK values.',
     ),
   flatten: z
     .boolean()
     .optional()
     .describe(
-      '記入後にフラット化して非対話にするか。既定 false。true にすると値は編集できなくなる。',
+      'Flatten to non-interactive after filling. Default false. When true, values can no longer be edited.',
     ),
   allowBreakingTags: z
     .boolean()
     .optional()
     .describe(
-      'タグ付き PDF でもフラット化を許すか。既定 false。true にすると PDF/UA-1 準拠が壊れる。',
+      'Allow flattening even on a tagged PDF. Default false. When true, PDF/UA-1 conformance breaks.',
     ),
   ...commonEditShape,
 } as const;
@@ -423,13 +444,13 @@ export const flattenFormShape = {
   fontPath: zPath
     .optional()
     .describe(
-      '外観生成に使うフォント。省略時は環境変数 PDF_WRITER_FONT → 標準フォント。' +
-        '既存の外観をそのまま使える場合は不要だが、再生成が必要な日本語フォームでは要る。',
+      'Font for appearance regeneration. Falls back to the PDF_WRITER_FONT environment variable, then the ' +
+        'standard font. Not needed when existing appearances can be reused, but required for CJK forms that need regeneration.',
     ),
   allowBreakingTags: z
     .boolean()
     .optional()
-    .describe('タグ付き PDF でもフラット化を許すか。既定 false。'),
+    .describe('Allow flattening even on a tagged PDF. Default false.'),
   ...commonEditShape,
 } as const;
 
@@ -439,10 +460,10 @@ export const tagFormFieldsShape = {
     .record(z.string(), z.string().min(1))
     .optional()
     .describe(
-      'フィールド名 → 人間可読な代替名(/TU)。スクリーンリーダが読み上げる名前で、' +
-        '例: {"user.name": "氏名", "agree": "利用規約に同意する"}。' +
-        '省略したフィールドはフィールド名を /TU に代用し、warnings で報告する。' +
-        '存在しないフィールド名を指定するとエラーに全フィールド名が列挙される。',
+      'Field name → human-readable alternate name (/TU) — what a screen reader speaks. ' +
+        'Example: {"user.name": "氏名", "agree": "利用規約に同意する"}. ' +
+        'Omitted fields fall back to the field name as /TU, reported in warnings. ' +
+        'A nonexistent field name errors, listing every field name.',
     ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
@@ -454,14 +475,14 @@ export const ensureTaggedShape = {
     .string()
     .min(1)
     .optional()
-    .describe('文書タイトル(PDF/UA-1 7.1 で必須)。省略時は既存 Info の Title を使う。'),
+    .describe('Document title (required by PDF/UA-1 7.1). Falls back to the existing Info Title.'),
   lang: z
     .string()
     .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, {
       message: 'must be a BCP 47 language tag like "ja" or "en-US"',
     })
     .optional()
-    .describe('文書の自然言語(BCP 47。例 "ja")。PDF/UA-1 7.2 で必須。'),
+    .describe('Natural language of the document (BCP 47, e.g. "ja"). Required by PDF/UA-1 7.2.'),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
@@ -472,14 +493,14 @@ export const ensurePdfaShape = {
     .enum(['pdfa-3b', 'pdfa-4', 'pdfa-4f'])
     .optional()
     .describe(
-      '名乗らせる PDF/A。既定 "pdfa-3b"。"pdfa-4"(ISO 19005-4) は PDF 2.0 基盤なので、' +
-        '/ID・OutputIntent・XMP pdfaid に加えて**ヘッダを 2.0 にし、Info 辞書を落とす**' +
-        '(-4 は PieceInfo が無い限り Info を許さない)。' +
-        '**-4 は conformance level を持たない**ため pdfaid:conformance を書かず pdfaid:rev を書く。' +
-        '**添付がある文書は "pdfa-4f" を使うこと** — 素の "pdfa-4" は添付ファイル自身が PDF/A で' +
-        'あることを要求するので、JSON や CSV を添える電帳法の使い方では非適合になる。' +
-        '署名保持(preserveSignatures)との併用は、入力が既に PDF 2.0 でない限り拒否する' +
-        '(増分更新では先頭のヘッダを書き換えられず、書き換えれば署名が壊れるため)。',
+      'The PDF/A to claim. Default "pdfa-3b". "pdfa-4" (ISO 19005-4) is built on PDF 2.0, so beyond ' +
+        '/ID, OutputIntent and XMP pdfaid it **sets the header to 2.0 and drops the Info dictionary** ' +
+        '(-4 forbids Info unless PieceInfo is present). ' +
+        '**-4 has no conformance level**, so pdfaid:rev is written instead of pdfaid:conformance. ' +
+        '**Documents with attachments must use "pdfa-4f"** — plain "pdfa-4" requires every attachment to be ' +
+        'PDF/A itself, so bundling JSON or CSV (the Japanese e-bookkeeping-law pattern) would not conform. ' +
+        'Combination with preserveSignatures is refused unless the input is already PDF 2.0 ' +
+        '(an incremental update cannot rewrite the header, and rewriting it would break the signatures).',
     ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
@@ -487,25 +508,32 @@ export const ensurePdfaShape = {
 
 export const attachFileShape = {
   inputPath,
-  attachmentPath: zPath.describe('埋め込むファイルの絶対パス。'),
+  attachmentPath: zPath.describe('Absolute path of the file to embed.'),
   name: z
     .string()
     .min(1)
     .optional()
-    .describe('PDF 内での表示名。省略時は元のファイル名。既存の添付と同名にはできない。'),
-  description: z.string().min(1).optional().describe('添付の説明(/Desc・日本語可)。'),
+    .describe(
+      'Display name inside the PDF. Defaults to the original filename. Must not duplicate an existing attachment.',
+    ),
+  description: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Description of the attachment (/Desc; CJK fine).'),
   mimeType: z
     .string()
     .min(1)
     .optional()
-    .describe('MIME 型。省略時は拡張子から推定(例 .csv → text/csv)。'),
+    .describe('MIME type. Inferred from the extension when omitted (e.g. .csv → text/csv).'),
   relationship: z
     .enum(['Source', 'Data', 'Alternative', 'Supplement', 'Unspecified'])
     .optional()
     .describe(
-      '本文との関係(PDF/A-3 §6.8)。Data=本文と同じ内容の機械可読データ(請求書の XML/CSV 等) / ' +
-        'Source=本文の元データ / Alternative=代替表現 / Supplement=補足資料 / Unspecified=不明(既定)。' +
-        'PDF/A-3 では意味のある値が必須のため、省略すると警告する。',
+      'Relation to the document content (PDF/A-3 §6.8). Data = machine-readable data with the same content ' +
+        'as the document (invoice XML/CSV etc.) / Source = the source data of the document / ' +
+        'Alternative = an alternative representation / Supplement = supplementary material / ' +
+        'Unspecified = unknown (default). PDF/A-3 requires a meaningful value, so omission warns.',
     ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,

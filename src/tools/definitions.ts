@@ -4,6 +4,9 @@
  * 入力スキーマ（shape）は utils/validation.ts の Zod スキーマから導出する —
  * 公開スキーマと実行時検証の情報源は一つ。実装は handlers.ts。
  *
+ * description は英語が正典（B-21）。日本語はサイト側の翻訳メモリ
+ * （pdf-agent-stack/scripts/i18n/pdf-writer.ja.json）が持つ。
+ *
  * annotations（E-4）:
  *   - readOnlyHint: writer は全ツールがファイルを書くため常に false
  *   - destructiveHint: 情報が失われる操作（delete_pages / flatten_form）のみ true
@@ -62,16 +65,17 @@ const base: ToolAnnotations = {
  * rotate_pages は in-place なので該当しない。
  */
 const PAGE_COPY_NOTE =
-  'ページを新しい文書へ複製するため、文書レベルの情報（タグ付き構造・XMP・添付・AcroForm・' +
-  'しおり等）は引き継がれない。失われたものは warnings で報告するので、必要なら出力に対して ' +
-  'attach_file / ensure_tagged / add_bookmarks / set_metadata を後がけすること。';
+  'Pages are copied into a new document, so document-level information (tagged structure, ' +
+  'XMP, attachments, AcroForm, bookmarks, etc.) is not carried over. Anything lost is reported ' +
+  'in warnings; follow up on the output with attach_file / ensure_tagged / add_bookmarks / ' +
+  'set_metadata as needed.';
 
 export const tools: ToolDefinition[] = [
   {
     name: 'create_text_pdf',
     title: 'Create PDF from Plain Text',
     description:
-      'プレーンテキストから PDF を生成する。改行(\\n)を尊重し、空行を段落区切りとして扱う。長い行は自動で折り返す。',
+      'Create a PDF from plain text. Honours line breaks (\\n) and treats blank lines as paragraph breaks. Long lines wrap automatically.',
     shape: createTextShape,
     annotations: base,
   },
@@ -79,8 +83,8 @@ export const tools: ToolDefinition[] = [
     name: 'create_markdown_pdf',
     title: 'Create PDF from Markdown',
     description:
-      'Markdown から PDF を生成する。見出し・段落・箇条書き/番号リスト・コードブロック・引用・水平線・表に対応。' +
-      'インライン装飾の記号は除去し字面のみ反映する(単一フォントのため)。',
+      'Create a PDF from Markdown. Supports headings, paragraphs, bullet/numbered lists, code blocks, quotes, horizontal rules and tables. ' +
+      'Inline decoration markers are stripped and the text rendered plain (single font).',
     shape: createMarkdownShape,
     annotations: base,
   },
@@ -88,7 +92,7 @@ export const tools: ToolDefinition[] = [
     name: 'create_table_pdf',
     title: 'Create Table PDF',
     description:
-      'ヘッダと行データから罫線付きの表 PDF を生成する。列幅は内容から自動算出し、セル内は折り返す。改ページ時はヘッダを再描画する。',
+      'Create a ruled table PDF from headers and row data. Column widths are computed from the content, cells wrap, and the header row is redrawn after page breaks.',
     shape: createTableShape,
     annotations: base,
   },
@@ -96,10 +100,10 @@ export const tools: ToolDefinition[] = [
     name: 'set_metadata',
     title: 'Set PDF Metadata',
     description:
-      '既存 PDF のメタデータ(Info 辞書)を更新する。指定したフィールドのみ変更し、他は保持する。' +
-      'title / author / subject / keywords / creator のうち最低 1 つが必要。' +
-      'XMP(/Metadata)を持つ文書では dc:title 等も同期して不整合を防ぐ。' +
-      '署名済み PDF には preserveSignatures: true で署名を保持したまま更新できる。',
+      "Update an existing PDF's metadata (the Info dictionary). Only the given fields change; the rest are preserved. " +
+      'At least one of title / author / subject / keywords / creator is required. ' +
+      'In documents with XMP (/Metadata), dc:title etc. are synchronized to prevent divergence. ' +
+      'For signed PDFs, preserveSignatures: true updates while keeping the signatures intact.',
     shape: setMetadataShape,
     annotations: base,
   },
@@ -107,7 +111,7 @@ export const tools: ToolDefinition[] = [
     name: 'merge_pdfs',
     title: 'Merge PDFs',
     description:
-      '複数の PDF を指定順に 1 つへ結合する。文書メタデータは先頭ファイルから引き継ぐ。' +
+      'Merge multiple PDFs into one, in the given order. Document metadata is carried over from the first file. ' +
       PAGE_COPY_NOTE,
     shape: mergePdfsShape,
     annotations: base,
@@ -116,8 +120,8 @@ export const tools: ToolDefinition[] = [
     name: 'split_pdf',
     title: 'Split PDF',
     description:
-      'PDF をページ範囲ごとに複数ファイルへ分割する。ranges の各要素が 1 ファイルになる。' +
-      '出力は "<prefix>1.pdf", "<prefix>2.pdf", ... の連番。' +
+      'Split a PDF into multiple files by page range. Each element of ranges becomes one file, ' +
+      'named "<prefix>1.pdf", "<prefix>2.pdf", and so on. ' +
       PAGE_COPY_NOTE,
     shape: splitPdfShape,
     annotations: base,
@@ -126,7 +130,7 @@ export const tools: ToolDefinition[] = [
     name: 'extract_pages',
     title: 'Extract Pages',
     description:
-      '指定ページだけを含む新しい PDF を作る。指定順を保持するため、ページの並べ替えを兼ねた抽出も可能。' +
+      'Create a new PDF containing only the given pages. The given order is preserved, so extraction doubles as reordering. ' +
       PAGE_COPY_NOTE,
     shape: extractPagesShape,
     annotations: base,
@@ -134,14 +138,14 @@ export const tools: ToolDefinition[] = [
   {
     name: 'delete_pages',
     title: 'Delete Pages',
-    description: `指定ページを削除した新しい PDF を作る。全ページの削除はエラー。${PAGE_COPY_NOTE}`,
+    description: `Create a new PDF with the given pages removed. Deleting every page is an error. ${PAGE_COPY_NOTE}`,
     shape: deletePagesShape,
     annotations: { ...base, destructiveHint: true },
   },
   {
     name: 'reorder_pages',
     title: 'Reorder Pages',
-    description: `ページを並べ替える。order には全ページを新しい順序で 1 回ずつ列挙する。${PAGE_COPY_NOTE}`,
+    description: `Reorder pages. order must list every page exactly once, in the new order. ${PAGE_COPY_NOTE}`,
     shape: reorderPagesShape,
     annotations: base,
   },
@@ -149,8 +153,8 @@ export const tools: ToolDefinition[] = [
     name: 'add_bookmarks',
     title: 'Add Bookmarks (Outline)',
     description:
-      'PDF にしおり(アウトライン)を設定する。既存のしおりは置換される。children で入れ子にできる。' +
-      '署名済み PDF には preserveSignatures: true で署名を保持したまま設定できる。',
+      'Set the bookmarks (outline) of a PDF. Existing bookmarks are replaced. Nest with children. ' +
+      'For signed PDFs, preserveSignatures: true sets them while keeping the signatures intact.',
     shape: addBookmarksShape,
     annotations: base,
   },
@@ -158,10 +162,10 @@ export const tools: ToolDefinition[] = [
     name: 'add_annotation',
     title: 'Add Annotation',
     description:
-      'ページに注釈を 1 つ追加する。付箋(text) / ハイライト(highlight) / 矩形(square) に対応。' +
-      '座標は PDF 座標系(左下原点・pt)で指定する。' +
-      '署名済み PDF には preserveSignatures: true で、既存署名を無効化せず増分更新で追加できる' +
-      '(タグ付き文書では Annot 構造要素への内包も増分に含まれ PDF/UA 準拠を維持する)。',
+      'Add one annotation to a page: sticky note (text), highlight, or rectangle (square). ' +
+      'Coordinates are in PDF space (origin bottom-left, pt). ' +
+      'For signed PDFs, preserveSignatures: true appends an incremental update without invalidating existing signatures ' +
+      '(in tagged documents the enclosure in an Annot structure element rides the same update, preserving PDF/UA conformance).',
     shape: addAnnotationShape,
     annotations: { ...base, idempotentHint: false },
   },
@@ -169,8 +173,8 @@ export const tools: ToolDefinition[] = [
     name: 'stamp_page_numbers',
     title: 'Stamp Page Numbers',
     description:
-      '各ページにページ番号を刻む。タグ付き PDF では Artifact として囲むため PDF/UA 準拠を維持する。' +
-      '日本語を含む書式を使う場合は fontPath か環境変数 PDF_WRITER_FONT が必要。',
+      'Stamp a page number on each page. In tagged PDFs the stamp is wrapped as an Artifact, preserving PDF/UA conformance. ' +
+      'Formats containing CJK text need fontPath or the PDF_WRITER_FONT environment variable.',
     shape: stampPageNumbersShape,
     annotations: base,
   },
@@ -178,9 +182,9 @@ export const tools: ToolDefinition[] = [
     name: 'add_watermark',
     title: 'Add Watermark',
     description:
-      '各ページの中央に斜めの透かし文字を重ねる("社外秘" / "DRAFT" / "COPY" 等)。' +
-      '既定では本文の背面に薄く敷く。タグ付き PDF では Artifact として囲むため PDF/UA 準拠を維持する。' +
-      '日本語の透かしには fontPath か環境変数 PDF_WRITER_FONT が必要。',
+      'Overlay a diagonal watermark across the middle of each page ("社外秘" / "DRAFT" / "COPY", etc.). ' +
+      'Drawn faintly behind the content by default. In tagged PDFs it is wrapped as an Artifact, preserving PDF/UA conformance. ' +
+      'CJK watermarks need fontPath or the PDF_WRITER_FONT environment variable.',
     shape: addWatermarkShape,
     annotations: base,
   },
@@ -188,11 +192,11 @@ export const tools: ToolDefinition[] = [
     name: 'fill_form',
     title: 'Fill Form (AcroForm)',
     description:
-      '既存 PDF の対話フォーム(AcroForm)にフィールド値を流し込む。' +
-      'フィールド名が分からない場合は、存在しない名前を指定するとエラーに全フィールド名と型が列挙される。' +
-      '日本語の値には fontPath か環境変数 PDF_WRITER_FONT が必要。' +
-      'flatten: true で記入後に非対話化できるが、タグ付き PDF では PDF/UA 準拠が壊れるため ' +
-      'allowBreakingTags: true も要る。XFA フォームは非対応。',
+      "Fill field values into an existing PDF's interactive form (AcroForm). " +
+      'If you do not know the field names, pass a nonexistent one — the error lists every field name and type. ' +
+      'CJK values need fontPath or the PDF_WRITER_FONT environment variable. ' +
+      'flatten: true makes the form non-interactive after filling, but on a tagged PDF that breaks PDF/UA conformance ' +
+      'and additionally requires allowBreakingTags: true. XFA forms are not supported.',
     shape: fillFormShape,
     annotations: base,
   },
@@ -200,11 +204,11 @@ export const tools: ToolDefinition[] = [
     name: 'flatten_form',
     title: 'Flatten Form',
     description:
-      '既存 PDF の対話フォーム(AcroForm)をフラット化し、記入済みの見た目を保ったまま非対話にする。' +
-      '配布前に値を固定したい場合に使う。外観の再生成が要る場合に備え、既存の値に日本語が' +
-      '含まれるなら fontPath か環境変数 PDF_WRITER_FONT を指定しておくこと。' +
-      'タグ付き PDF では Widget 注釈が消えて Form 構造要素が宙に浮くため既定で拒否する' +
-      '(allowBreakingTags: true で強行可)。',
+      "Flatten an existing PDF's interactive form (AcroForm), keeping the filled appearance while removing interactivity. " +
+      'Use it to freeze values before distribution. If existing values contain CJK text, set fontPath or ' +
+      'PDF_WRITER_FONT in case appearances must be regenerated. ' +
+      'On tagged PDFs, Widget annotations disappear and Form structure elements are left dangling, ' +
+      'so it refuses by default (allowBreakingTags: true to force).',
     shape: flattenFormShape,
     annotations: { ...base, destructiveHint: true },
   },
@@ -212,12 +216,12 @@ export const tools: ToolDefinition[] = [
     name: 'tag_form_fields',
     title: 'Tag Form Fields (PDF/UA repair)',
     description:
-      'タグ付き PDF のフォームを PDF/UA-1 準拠へ修復する。Widget 注釈を Form 構造要素に内包し' +
-      '(7.18.4-1)、対象ページに /Tabs S を立て(7.18.3-1)、フィールドに代替名 /TU を付与する' +
-      '(7.18.1-3)。labels でスクリーンリーダ向けの人間可読な名前を渡すこと。' +
-      '既に構造木に結ばれた Widget はスキップするため何度実行しても安全。' +
-      'タグ無し文書は対象外(create 系の tagged: true でゼロから作るか、将来の ensure_tagged を待つ)。' +
-      '署名済み PDF には preserveSignatures: true で署名を保持したまま修復できる(承認署名のみ。認証署名は拒否)。',
+      "Repair a tagged PDF's form to PDF/UA-1: enclose Widget annotations in Form structure elements " +
+      '(7.18.4-1), set /Tabs S on the affected pages (7.18.3-1), and give fields alternate names /TU ' +
+      '(7.18.1-3). Pass human-readable names for screen readers via labels. ' +
+      'Widgets already bound to the structure tree are skipped, so it is safe to run repeatedly. ' +
+      "Untagged documents are out of scope (rebuild with the create tools' tagged: true, or run ensure_tagged first). " +
+      'For signed PDFs, preserveSignatures: true repairs while keeping the signatures intact (approval signatures only; certification signatures are refused).',
     shape: tagFormFieldsShape,
     annotations: base,
   },
@@ -225,14 +229,14 @@ export const tools: ToolDefinition[] = [
     name: 'ensure_tagged',
     title: 'Ensure Tagged (PDF/UA scaffold & repair)',
     description:
-      '既存 PDF を PDF/UA-1 の「器」に載せる。既にタグ付きなら構造木には触らず、' +
-      '欠落した文書レベル要件(MarkInfo / Lang / DisplayDocTitle / XMP の pdfuaid:part・dc:title)' +
-      'のみ補う。タグ無し文書には最小限の構造木(各ページ = 1 つの P 要素)を新設して' +
-      '本文を支援技術から到達可能にする。' +
-      '**重要**: 機械は意味を推定できないため、見出し・表・リスト・読み順・図の代替テキストは' +
-      '作られない。新設は「足場」であって「アクセシブルな文書」ではなく、人手のレビューが要る。' +
-      '構造を最初から正しく作れる場合は create 系の tagged: true を使うこと。' +
-      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。',
+      'Put an existing PDF onto the PDF/UA-1 "vessel". If it is already tagged, the structure tree is untouched and ' +
+      'only missing document-level requirements are supplied (MarkInfo / Lang / DisplayDocTitle / XMP pdfuaid:part and dc:title). ' +
+      'For untagged documents, a minimal structure tree (each page = one P element) is created so the content ' +
+      'becomes reachable by assistive technology. ' +
+      '**IMPORTANT**: machines cannot infer meaning — headings, tables, lists, reading order and figure alt text are ' +
+      'NOT created. The new tree is a scaffold, not an accessible document; it needs human review. ' +
+      "If you can build the structure right from the start, use the create tools' tagged: true. " +
+      'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused).',
     shape: ensureTaggedShape,
     annotations: base,
   },
@@ -240,25 +244,25 @@ export const tools: ToolDefinition[] = [
     name: 'ensure_pdfa',
     title: 'Ensure PDF/A (archival conformance scaffold)',
     description:
-      '既存 PDF を PDF/A の「器」に載せる(ensure_tagged の PDF/A 版)。' +
-      'flavour で "pdfa-3b"(既定) / "pdfa-4" / "pdfa-4f" を選ぶ。' +
-      '文書レベルの欠落要件だけを補う: trailer の /ID(ISO 32000-1 14.4)・' +
-      'sRGB の OutputIntent(GTS_PDFA1。ICC プロファイルを生成して埋め込む)・XMP の pdfaid。' +
-      '**-4 系はさらにヘッダを PDF 2.0 にし、Info 辞書を削除する**' +
-      '(-4 は catalog に /PieceInfo が無い限り Info を許さない。ISO 32000-2 14.3.3 より厳しい)。' +
-      '**本文・構造木・フォントには触らない**。' +
-      '**添付がある文書は "pdfa-4f" を使うこと** — 素の "pdfa-4" は添付ファイル自身が PDF/A で' +
-      'あることを要求するため、CSV や JSON を添える電帳法の使い方では非適合になる。' +
-      '**重要**: これは「PDF/A を名乗るための下準備」であって適合の保証ではない。' +
-      'フォント未埋め込み・暗号化・JavaScript・LZW などの違反は直らない。' +
-      '**XMP に pdfaid を書く = その文書が「PDF/A です」と名乗る**ため、' +
-      '適合していない文書に適用すると**嘘を名乗る PDF ができる**(だから適用時は常に警告を返す)。' +
-      '適合したかは pdf-verify-mcp の validate_conformance(flavour: 同じ値) で必ず確認すること' +
-      '(判定は veraPDF が下す。ISO 19005 は条文を引けないため「veraPDF はこう判定した」までしか言えない)。' +
-      '電帳法の文脈では attach_file で機械可読データを添付した**後**に適用する。' +
-      '署名済み PDF には preserveSignatures: true(承認署名のみ。認証署名は拒否)。' +
-      'ただし **-4 系 × preserveSignatures は、入力が既に PDF 2.0 でない限り拒否する**' +
-      '(増分更新では先頭のヘッダを書き換えられず、書き換えれば署名が壊れるため)。',
+      'Put an existing PDF onto the PDF/A "vessel" (the PDF/A counterpart of ensure_tagged). ' +
+      'Choose the flavour: "pdfa-3b" (default) / "pdfa-4" / "pdfa-4f". ' +
+      'Supplies only the missing document-level requirements: the trailer /ID (ISO 32000-1 14.4), ' +
+      'an sRGB OutputIntent (GTS_PDFA1; an ICC profile is generated and embedded), and XMP pdfaid. ' +
+      '**The -4 flavours additionally set the header to PDF 2.0 and delete the Info dictionary** ' +
+      '(-4 forbids Info unless the catalog has /PieceInfo — stricter than ISO 32000-2 14.3.3). ' +
+      '**Content, structure tree and fonts are never touched.** ' +
+      '**Documents with attachments must use "pdfa-4f"** — plain "pdfa-4" requires every attachment to be ' +
+      'PDF/A itself, so bundling CSV or JSON (the Japanese e-bookkeeping-law pattern) would not conform. ' +
+      '**IMPORTANT**: this is preparation for claiming PDF/A, not a guarantee of conformance. ' +
+      'Violations such as unembedded fonts, encryption, JavaScript or LZW are not repaired. ' +
+      '**Writing pdfaid into XMP is the document claiming "I am PDF/A"** — applied to a non-conforming ' +
+      'document it produces **a PDF that lies about itself** (which is why a warning is always returned). ' +
+      "Always confirm with pdf-verify-mcp's validate_conformance (flavour: the same value) — the verdict is " +
+      'veraPDF\'s, and since ISO 19005 clauses cannot be quoted, the strongest statement is "veraPDF judged it so". ' +
+      'In the e-bookkeeping-law context, apply it **after** attaching machine-readable data with attach_file. ' +
+      'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
+      'However, **the -4 flavours combined with preserveSignatures are refused unless the input is already PDF 2.0** ' +
+      '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures).',
     shape: ensurePdfaShape,
     annotations: base,
   },
@@ -266,16 +270,16 @@ export const tools: ToolDefinition[] = [
     name: 'attach_file',
     title: 'Attach File (Embedded File)',
     description:
-      'PDF にファイルを埋め込む(添付する)。/Names /EmbeddedFiles と catalog /AF に登録し、' +
-      'AFRelationship を付与する。PDF/A-3(ISO 19005-3)や電子帳簿保存法の文脈で、' +
-      '「人が読む請求書 PDF + 機械可読データ(CSV/XML)」を 1 ファイルに束ねる用途に使う。',
+      'Embed (attach) a file into a PDF. Registers it under /Names /EmbeddedFiles and the catalog /AF, ' +
+      'with an AFRelationship. For PDF/A-3 (ISO 19005-3) and Japanese e-bookkeeping-law (電子帳簿保存法) workflows ' +
+      'that bundle "a human-readable invoice PDF + machine-readable data (CSV/XML)" into one file.',
     shape: attachFileShape,
     annotations: base,
   },
   {
     name: 'rotate_pages',
     title: 'Rotate Pages',
-    description: 'ページを時計回りに回転する(90/180/270 度)。pages 省略時は全ページ。',
+    description: 'Rotate pages clockwise (90/180/270 degrees). All pages when pages is omitted.',
     shape: rotatePagesShape,
     annotations: base,
   },

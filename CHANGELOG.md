@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0] - 2026-08-08
+
+### Changed
+
+- **All tool and parameter descriptions are now English (B-22).** pdf-writer was the only server
+  in the family whose `tools/list` spoke Japanese; the repository convention (English-first for
+  public repos) and the site's generated reference both expect English as the source of truth.
+  Japanese now lives where the other three servers keep it: the site's translation memory
+  (`pdf-agent-stack/scripts/i18n/pdf-writer.ja.json`), which the reference generator applies to
+  the ja pages. The original Japanese descriptions were carried over there verbatim, so no
+  wording was lost — only its home changed.
+
+  Behaviour, schemas, error codes and validation are untouched: this release changes only the
+  `description` strings in `tools/definitions.ts` and `utils/validation.ts`. Two incidental
+  fixes rode along: the `tag_form_fields` description no longer says "wait for a future
+  ensure_tagged" (it exists), and CJK-specific notes now say "CJK" where they said 日本語 while
+  keeping Japanese examples (社外秘, 氏名) that illustrate real usage.
+
 ## [0.17.0] - 2026-07-28
 
 ### Added
