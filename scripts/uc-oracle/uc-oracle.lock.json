@@ -7,8 +7,8 @@
  },
  "verifyRan": true,
  "counts": {
-  "measured": 23,
-  "unavailable": 1,
+  "measured": 25,
+  "unavailable": 0,
   "failed": 0,
   "structureUnreadable": 1
  },
@@ -24,7 +24,7 @@
    "shapes": {
     "cff": 16,
     "std14": 1,
-    "truetype": 1
+    "truetype": 2
    },
    "distinct": 3
   },
@@ -32,9 +32,18 @@
    "shapes": {
     "false": 6,
     "repaired": 1,
-    "true": 6
+    "true": 7
    },
    "distinct": 3
+  },
+  "flavour": {
+   "shapes": {
+    "pdfa-3b": 2,
+    "pdfa-4": 1,
+    "pdfa-4f": 1,
+    "pdfua-1": 2
+   },
+   "distinct": 4
   },
   "content": {
    "shapes": {
@@ -59,15 +68,6 @@
     "true": 3
    },
    "distinct": 1
-  },
-  "flavour": {
-   "shapes": {
-    "pdfa-3b": 1,
-    "pdfa-4": 1,
-    "pdfa-4f": 1,
-    "pdfua-1": 2
-   },
-   "distinct": 4
   },
   "form": {
    "shapes": {
@@ -227,8 +227,76 @@
     "font": "truetype",
     "tagged": true
    },
-   "status": "unavailable",
-   "reason": "フォントが無い: truetype"
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_text_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "LiberationSans-Regular.ttf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "28df21d017245f3109b85c65cc7edde322f517063b74b94d983843869db07f29",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 19
+   }
+  },
+  "conformance-ttf-pdfa3b": {
+   "uc": "UC-4",
+   "axes": {
+    "flavour": "pdfa-3b",
+    "font": "truetype",
+    "tagged": true
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "ensure_pdfa",
+     "response": {
+      "pageCount": 1,
+      "flavour": "3b",
+      "addedRequirements": [
+       "trailer /ID (file identifier)",
+       "sRGB output intent (GTS_PDFA1)",
+       "XMP pdfaid (part 3, conformance B)"
+      ],
+      "wasDeclared": false,
+      "warnings": [
+       "This file now CLAIMS PDF/A-3b (pdfaid:part=3, conformance=B), but conformance was NOT checked here. Only document-level requirements were supplied; unembedded fonts, encryption, JavaScript, LZW compression and similar violations are left as they are. If the document does not actually conform, that claim is now false. Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: \"pdfa-3b\") — and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "732b94f113249871c38639f34019b88f30dc0935f5062264d6fa3a19efc300c2",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 21
+   },
+   "verify": [
+    {
+     "flavour": "pdfa-3b",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 146,
+     "checkedRules": 146,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
   },
   "create-markdown-cff-17-tagged": {
    "uc": "UC-2",

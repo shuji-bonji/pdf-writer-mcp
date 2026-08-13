@@ -64,6 +64,9 @@ node scripts/uc-oracle/run.mjs --filter input-signed --keep /tmp/x   # 1 件だ�
   （実例: `dss-pades-5sigs-doctimestamp.pdf` は入力の時点で page tree ノードに `/Type /Page` が無く、
   qpdf 10 は override して進み qpdf 12 は拒む）
 - **読み手（qpdf）の版が違えば警告が出る**。差が実装のものか読み手のものか切り分けられないため
-- **1 形しか無い軸は毎回警告が出る**。現在の空席 = TrueType 埋め込み（`.ttf` が手元に無い）
+- **1 形しか無い軸は毎回警告が出る**。フォント種別の軸は 2026-08-14 に埋めた
+  （`fonts/LiberationSans-Regular.ttf` = SIL OFL 1.1・同梱の `.LICENSE.txt` に出所と全文。
+  公開パッケージには入らない）。`.otf` は `CIDFontType0 + FontFile3`、`.ttf` は
+  `CIDFontType2 + FontFile2` と**別の辞書になることを実測してから**足している
 - **計器自身も T-3 を通す**。実際、初版はページの中身を 1 バイトも見ておらず、
   色を変えても差が出なかった

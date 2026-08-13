@@ -531,7 +531,9 @@ try {
         'pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。' +
         '実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。' +
         'veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。',
-      capturedAt: new Date().toISOString().slice(0, 10),
+      // 日付だけだと「どの日に測ったか」が時差で 1 日ずれる（実測: JST 8/14 00:07 の採取が
+      // 2026-08-13 と記録された）。測った時刻は基準の身元なので丸めない
+      capturedAt: new Date().toISOString(),
       writerVersion,
       tooling: identity,
       verifyRan: WITH_VERIFY,

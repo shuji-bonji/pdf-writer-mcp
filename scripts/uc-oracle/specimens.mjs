@@ -33,13 +33,21 @@ export const stackRoot = join(repoRoot, '..', '..');
 export const FONT_CFF = process.env.TEST_FONT_PATH ?? join(repoRoot, 'NotoSansJP-Regular.otf');
 
 /**
- * 埋め込み TrueType フォント。
- * **手元に 1 本も無い**（2026-08-13 実測: `pdf-agent-stack` 配下に `.ttf` が 0 件）。
- * W-2（CFF を `CIDFontType2 + FontFile2` で埋めていた = R-9.9.1-33/-34 違反）は
- * **まさにこの軸の欠落で生き延びた**欠陥なので、TrueType 検体を足すまで
- * 「フォント辞書型が正しく分岐する」ことは測れていない。
+ * 埋め込み TrueType フォント（Liberation Sans・SIL OFL 1.1・`fonts/` に同梱）。
+ *
+ * **なぜ 2 種類のフォントを置くのか**: W-2（CFF ベースの `.otf` を
+ * `CIDFontType2 + FontFile2` で埋めていた = R-9.9.1-33/-34 の shall 違反）は
+ * **フォント種別の軸が 1 形しか無かったせいで生き延びた**欠陥である。
+ * CFF と TrueType では出るべき辞書が違うことを実測で確認済み（2026-08-14）:
+ *
+ *   `.otf`（CFF）  → `/Subtype /CIDFontType0` + `/FontFile3 /Subtype /OpenType`
+ *   `.ttf`（glyf） → `/Subtype /CIDFontType2` + `/FontFile2`
+ *
+ * 片方だけで測っている限り、分岐を取り違えても緑のままになる。
+ * ライセンスと出所は `fonts/LiberationSans-Regular.LICENSE.txt`。
  */
-export const FONT_TTF = process.env.TEST_FONT_TTF ?? null;
+export const FONT_TTF =
+  process.env.TEST_FONT_TTF ?? join(here, 'fonts', 'LiberationSans-Regular.ttf');
 
 const specimen = (path) => join(stackRoot, 'docs', 'specimens', path);
 const pdf20 = (name) => join(stackRoot, 'lib', 'normativepdf', 'corpus', 'pdf20examples', name);
@@ -122,6 +130,17 @@ export const SPECIMENS = [
         args: { text: 'TrueType body', title: 'TTF', font: 'truetype', tagged: true, lang: 'en' },
       },
     ],
+  },
+  {
+    id: 'conformance-ttf-pdfa3b',
+    uc: 'UC-4',
+    // 同じ適合宣言を**フォント種別を変えて**測る。PDF/A のフォント規則（埋め込み・
+    // CIDSet・ToUnicode）は辞書型ごとに別経路なので、CFF 側だけ緑でも保証にならない
+    axes: { flavour: 'pdfa-3b', font: 'truetype', tagged: true },
+    steps: [
+      { tool: 'ensure_pdfa', args: { inputPath: '{{create-text-ttf-17-tagged}}', flavour: 'pdfa-3b' } },
+    ],
+    verify: [{ flavour: 'pdfa-3b', expect: 'compliant' }],
   },
   {
     id: 'create-markdown-cff-17-tagged',

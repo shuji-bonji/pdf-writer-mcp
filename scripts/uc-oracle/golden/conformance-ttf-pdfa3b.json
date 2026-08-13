@@ -1,0 +1,290 @@
+{
+ "root": {
+  "/Lang": "en",
+  "/MarkInfo": {
+   "/Marked": true
+  },
+  "/Metadata": {
+   "/Subtype": "/XML",
+   "/Type": "/Metadata",
+   "@stream": {
+    "basis": "filtered",
+    "kind": "xmp",
+    "xmp": {
+     "pdfaidPart": "3",
+     "pdfaidRev": null,
+     "pdfaidConformance": "B",
+     "pdfuaidPart": "1",
+     "dcTitle": "TTF",
+     "dcLanguage": "en",
+     "hasCreateDate": true,
+     "hasModifyDate": true,
+     "shape": "<x:xmpmeta ,<rdf:RDF ,<rdf:Description ,<pdfaid:part>,<pdfaid:conformance>,<rdf:Description ,<pdfuaid:part>,<rdf:Description ,<pdfaExtension:schemas>,<rdf:Bag>,<rdf:li ,<pdfaSchema:schema>,<pdfaSchema:namespaceURI>,<pdfaSchema:prefix>,<pdfaSchema:property>,<rdf:Seq>,<rdf:li ,<pdfaProperty:name>,<pdfaProperty:valueType>,<pdfaProperty:category>,<pdfaProperty:description>,<rdf:Description ,<dc:title>,<rdf:Alt>,<rdf:li ,<dc:language>,<rdf:Bag>,<rdf:li>,<rdf:Description ,<xmp:CreatorTool>,<xmp:CreateDate>,<xmp:ModifyDate>"
+    }
+   }
+  },
+  "/OutputIntents": [
+   {
+    "/DestOutputProfile": {
+     "/N": 3,
+     "@stream": {
+      "basis": "filtered",
+      "kind": "binary",
+      "bytes": 548,
+      "sha256": "b1cd40f777b1b5f0"
+     }
+    },
+    "/Info": "sRGB IEC61966-2.1",
+    "/OutputConditionIdentifier": "sRGB IEC61966-2.1",
+    "/S": "/GTS_PDFA1",
+    "/Type": "/OutputIntent"
+   }
+  ],
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/StructTreeRoot": {
+   "/K": {
+    "/K": [
+     {
+      "/K": 0,
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/H1",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": 1,
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/P",
+      "/Type": "/StructElem"
+     }
+    ],
+    "/S": "/Document",
+    "/Type": "/StructElem"
+   },
+   "/ParentTree": {
+    "@numtree": {
+     "entries": 1,
+     "targets": {
+      "?": 1
+     }
+    }
+   },
+   "/ParentTreeNextKey": 1,
+   "/Type": "/StructTreeRoot"
+  },
+  "/Type": "/Catalog",
+  "/ViewerPreferences": {
+   "/DisplayDocTitle": true
+  }
+ },
+ "pages": [
+  {
+   "/Annots": [],
+   "/Contents": [
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#1 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:54> Tj T* ET Q EMC"
+     }
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    595.28,
+    841.89
+   ],
+   "/Resources": {
+    "/ExtGState": {},
+    "/Font": {
+     "/Font#0": {
+      "/BaseFont": "/QZXVZW+LiberationSans",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/QZXVZW+LiberationSans",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/CIDToGIDMap": "/Identity",
+        "/FontDescriptor": {
+         "/Ascent": 905.2734,
+         "/CapHeight": 687.9883,
+         "/Descent": -211.9141,
+         "/Flags": 4,
+         "/FontBBox": [
+          -203.125,
+          -303.2227,
+          1050.293,
+          910.1563
+         ],
+         "/FontFile2": {
+          "/Length1": 10764,
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 10764,
+           "sha256": "67c0af418462c271"
+          }
+         },
+         "/FontName": "/QZXVZW+LiberationSans",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 528.3203
+        },
+        "/Subtype": "/CIDFontType2",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          365.2344,
+          277.832,
+          277.832,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          610.8398,
+          610.8398,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          333.0078,
+          556.1523,
+          500,
+          350.0977
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 665,
+        "sha256": "462e6e1fe3ffd054"
+       }
+      },
+      "/Type": "/Font"
+     },
+     "/Font#1": {
+      "/BaseFont": "/QZXVZW+LiberationSans",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/QZXVZW+LiberationSans",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/CIDToGIDMap": "/Identity",
+        "/FontDescriptor": {
+         "/Ascent": 905.2734,
+         "/CapHeight": 687.9883,
+         "/Descent": -211.9141,
+         "/Flags": 4,
+         "/FontBBox": [
+          -203.125,
+          -303.2227,
+          1050.293,
+          910.1563
+         ],
+         "/FontFile2": {
+          "/Length1": 10764,
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 10764,
+           "sha256": "67c0af418462c271"
+          }
+         },
+         "/FontName": "/QZXVZW+LiberationSans",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 528.3203
+        },
+        "/Subtype": "/CIDFontType2",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          365.2344,
+          277.832,
+          277.832,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          610.8398,
+          610.8398,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          556.1523,
+          333.0078,
+          556.1523,
+          500,
+          350.0977
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 665,
+        "sha256": "462e6e1fe3ffd054"
+       }
+      },
+      "/Type": "/Font"
+     }
+    },
+    "/XObject": {}
+   },
+   "/StructParents": 0,
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Creator": "<opaque>",
+  "/Producer": "<opaque>",
+  "/Title": "TTF"
+ },
+ "pageCount": 1,
+ "encrypted": false
+}
