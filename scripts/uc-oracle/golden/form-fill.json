@@ -1,0 +1,1335 @@
+{
+ "root": {
+  "/AcroForm": {
+   "/DR": {
+    "/Font": {
+     "/Helvetica": {
+      "/BaseFont": "/Helvetica",
+      "/Encoding": "/WinAnsiEncoding",
+      "/Subtype": "/Type1",
+      "/Type": "/Font"
+     },
+     "/NotoSansJP-Regular": {
+      "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 3624,
+           "sha256": "a0237e80d86e2237"
+          }
+         },
+         "/FontName": "/BNYFRL+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          657,
+          633,
+          563,
+          510,
+          275,
+          606,
+          388,
+          468,
+          1000,
+          1000,
+          1000,
+          1000
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 511,
+        "sha256": "c626d7bc931481ca"
+       }
+      },
+      "/Type": "/Font"
+     }
+    }
+   },
+   "/Fields": [
+    {
+     "/Kids": [
+      {
+       "/DA": "0 0 0 rg\n/NotoSansJP-Regular 18 Tf",
+       "/FT": "/Tx",
+       "/Ff": 0,
+       "/Kids": [
+        {
+         "/AP": {
+          "/N": {
+           "/BBox": [
+            0,
+            0,
+            201,
+            25
+           ],
+           "/Matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+           ],
+           "/Resources": {
+            "/Font": {
+             "/Font#0": {
+              "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+              "/DescendantFonts": [
+               {
+                "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+                "/CIDSystemInfo": {
+                 "/Ordering": "Identity",
+                 "/Registry": "Adobe",
+                 "/Supplement": 0
+                },
+                "/FontDescriptor": {
+                 "/Ascent": 1160,
+                 "/CapHeight": 733,
+                 "/Descent": -288,
+                 "/Flags": 4,
+                 "/FontBBox": [
+                  -1002,
+                  -1048,
+                  2928,
+                  1808
+                 ],
+                 "/FontFile3": {
+                  "/Subtype": "/OpenType",
+                  "@stream": {
+                   "basis": "filtered",
+                   "kind": "binary",
+                   "bytes": 3624,
+                   "sha256": "a0237e80d86e2237"
+                  }
+                 },
+                 "/FontName": "/BNYFRL+NotoSansJP-Regular",
+                 "/ItalicAngle": 0,
+                 "/StemV": 0,
+                 "/Type": "/FontDescriptor",
+                 "/XHeight": 543
+                },
+                "/Subtype": "/CIDFontType0",
+                "/Type": "/Font",
+                "/W": [
+                 0,
+                 [
+                  1000,
+                  657,
+                  633,
+                  563,
+                  510,
+                  275,
+                  606,
+                  388,
+                  468,
+                  1000,
+                  1000,
+                  1000,
+                  1000
+                 ]
+                ]
+               }
+              ],
+              "/Encoding": "/Identity-H",
+              "/Subtype": "/Type0",
+              "/ToUnicode": {
+               "@stream": {
+                "basis": "filtered",
+                "kind": "binary",
+                "bytes": 511,
+                "sha256": "c626d7bc931481ca"
+               }
+              },
+              "/Type": "/Font"
+             }
+            }
+           },
+           "/Subtype": "/Form",
+           "/Type": "/XObject",
+           "@stream": {
+            "basis": "filtered",
+            "kind": "binary",
+            "bytes": 297,
+            "sha256": "db5b20b792b29a14"
+           }
+          }
+         },
+         "/BS": {
+          "/W": 1
+         },
+         "/F": 4,
+         "/MK": {
+          "/BC": [
+           0,
+           0,
+           0
+          ],
+          "/BG": [
+           1,
+           1,
+           1
+          ],
+          "/R": 0
+         },
+         "/Rect": [
+          49.5,
+          199.5,
+          250.5,
+          224.5
+         ],
+         "/Subtype": "/Widget",
+         "/Type": "/Annot"
+        }
+       ],
+       "/T": "name",
+       "/V": "山田太郎"
+      }
+     ],
+     "/T": "user"
+    },
+    {
+     "/DA": "0 0 0 rg\n/dummy__noop 0 Tf",
+     "/FT": "/Btn",
+     "/Kids": [
+      {
+       "/AP": {
+        "/D": {
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 150,
+           "sha256": "114fb8c0d4d82724"
+          }
+         },
+         "/Yes": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 239,
+           "sha256": "ba9c17dd8cca3e01"
+          }
+         }
+        },
+        "/N": {
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 144,
+           "sha256": "31e0d341743e573e"
+          }
+         },
+         "/Yes": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 233,
+           "sha256": "e487ce32ca6211b3"
+          }
+         }
+        }
+       },
+       "/AS": "/Yes",
+       "/BS": {
+        "/W": 1
+       },
+       "/F": 4,
+       "/MK": {
+        "/BC": [
+         0,
+         0,
+         0
+        ],
+        "/BG": [
+         1,
+         1,
+         1
+        ],
+        "/R": 0
+       },
+       "/Rect": [
+        49.5,
+        149.5,
+        66.5,
+        166.5
+       ],
+       "/Subtype": "/Widget",
+       "/Type": "/Annot"
+      }
+     ],
+     "/T": "agree",
+     "/V": "/Yes"
+    },
+    {
+     "/DA": "0 0 0 rg\n/Helvetica 18 Tf",
+     "/FT": "/Ch",
+     "/Ff": 131072,
+     "/Kids": [
+      {
+       "/AP": {
+        "/N": {
+         "/BBox": [
+          0,
+          0,
+          121,
+          25
+         ],
+         "/Matrix": [
+          1,
+          0,
+          0,
+          1,
+          0,
+          0
+         ],
+         "/Resources": {
+          "/Font": {
+           "/Font#0": {
+            "/BaseFont": "/Font#0",
+            "/Encoding": "/WinAnsiEncoding",
+            "/Subtype": "/Type1",
+            "/Type": "/Font"
+           }
+          }
+         },
+         "/Subtype": "/Form",
+         "/Type": "/XObject",
+         "@stream": {
+          "basis": "filtered",
+          "kind": "binary",
+          "bytes": 269,
+          "sha256": "8fb25466b461b78f"
+         }
+        }
+       },
+       "/BS": {
+        "/W": 1
+       },
+       "/F": 4,
+       "/MK": {
+        "/BC": [
+         0,
+         0,
+         0
+        ],
+        "/BG": [
+         1,
+         1,
+         1
+        ],
+        "/R": 0
+       },
+       "/Rect": [
+        49.5,
+        99.5,
+        170.5,
+        124.5
+       ],
+       "/Subtype": "/Widget",
+       "/Type": "/Annot"
+      }
+     ],
+     "/Opt": [
+      [
+       "Basic",
+       "Basic"
+      ],
+      [
+       "Pro",
+       "Pro"
+      ]
+     ],
+     "/T": "plan",
+     "/V": "Basic"
+    },
+    {
+     "/DA": "0 0 0 rg\n/dummy__noop 0 Tf",
+     "/FT": "/Btn",
+     "/Ff": 32768,
+     "/Kids": [
+      {
+       "/AP": {
+        "/D": {
+         "/0": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 665,
+           "sha256": "5ba7004a18d99e24"
+          }
+         },
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 311,
+           "sha256": "f391fd65a50f8c2b"
+          }
+         }
+        },
+        "/N": {
+         "/0": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 659,
+           "sha256": "6316d4bbe4296761"
+          }
+         },
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 305,
+           "sha256": "acf815666cf5db99"
+          }
+         }
+        }
+       },
+       "/AS": "/Off",
+       "/BS": {
+        "/W": 1
+       },
+       "/F": 4,
+       "/MK": {
+        "/BC": [
+         0,
+         0,
+         0
+        ],
+        "/BG": [
+         1,
+         1,
+         1
+        ],
+        "/R": 0
+       },
+       "/Rect": [
+        49.5,
+        59.5,
+        66.5,
+        76.5
+       ],
+       "/Subtype": "/Widget",
+       "/Type": "/Annot"
+      },
+      {
+       "/AP": {
+        "/D": {
+         "/1": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 665,
+           "sha256": "5ba7004a18d99e24"
+          }
+         },
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 311,
+           "sha256": "f391fd65a50f8c2b"
+          }
+         }
+        },
+        "/N": {
+         "/1": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 659,
+           "sha256": "6316d4bbe4296761"
+          }
+         },
+         "/Off": {
+          "/BBox": [
+           0,
+           0,
+           17,
+           17
+          ],
+          "/Matrix": [
+           1,
+           0,
+           0,
+           1,
+           0,
+           0
+          ],
+          "/Subtype": "/Form",
+          "/Type": "/XObject",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 305,
+           "sha256": "acf815666cf5db99"
+          }
+         }
+        }
+       },
+       "/AS": "/Off",
+       "/BS": {
+        "/W": 1
+       },
+       "/F": 4,
+       "/MK": {
+        "/BC": [
+         0,
+         0,
+         0
+        ],
+        "/BG": [
+         1,
+         1,
+         1
+        ],
+        "/R": 0
+       },
+       "/Rect": [
+        79.5,
+        59.5,
+        96.5,
+        76.5
+       ],
+       "/Subtype": "/Widget",
+       "/Type": "/Annot"
+      }
+     ],
+     "/Opt": [
+      "red",
+      "blue"
+     ],
+     "/T": "color"
+    }
+   ]
+  },
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/Type": "/Catalog"
+ },
+ "pages": [
+  {
+   "/Annots": [
+    {
+     "/AP": {
+      "/N": {
+       "/BBox": [
+        0,
+        0,
+        201,
+        25
+       ],
+       "/Matrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+       ],
+       "/Resources": {
+        "/Font": {
+         "/Font#0": {
+          "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+          "/DescendantFonts": [
+           {
+            "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+            "/CIDSystemInfo": {
+             "/Ordering": "Identity",
+             "/Registry": "Adobe",
+             "/Supplement": 0
+            },
+            "/FontDescriptor": {
+             "/Ascent": 1160,
+             "/CapHeight": 733,
+             "/Descent": -288,
+             "/Flags": 4,
+             "/FontBBox": [
+              -1002,
+              -1048,
+              2928,
+              1808
+             ],
+             "/FontFile3": {
+              "/Subtype": "/OpenType",
+              "@stream": {
+               "basis": "filtered",
+               "kind": "binary",
+               "bytes": 3624,
+               "sha256": "a0237e80d86e2237"
+              }
+             },
+             "/FontName": "/BNYFRL+NotoSansJP-Regular",
+             "/ItalicAngle": 0,
+             "/StemV": 0,
+             "/Type": "/FontDescriptor",
+             "/XHeight": 543
+            },
+            "/Subtype": "/CIDFontType0",
+            "/Type": "/Font",
+            "/W": [
+             0,
+             [
+              1000,
+              657,
+              633,
+              563,
+              510,
+              275,
+              606,
+              388,
+              468,
+              1000,
+              1000,
+              1000,
+              1000
+             ]
+            ]
+           }
+          ],
+          "/Encoding": "/Identity-H",
+          "/Subtype": "/Type0",
+          "/ToUnicode": {
+           "@stream": {
+            "basis": "filtered",
+            "kind": "binary",
+            "bytes": 511,
+            "sha256": "c626d7bc931481ca"
+           }
+          },
+          "/Type": "/Font"
+         }
+        }
+       },
+       "/Subtype": "/Form",
+       "/Type": "/XObject",
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 297,
+        "sha256": "db5b20b792b29a14"
+       }
+      }
+     },
+     "/BS": {
+      "/W": 1
+     },
+     "/F": 4,
+     "/MK": {
+      "/BC": [
+       0,
+       0,
+       0
+      ],
+      "/BG": [
+       1,
+       1,
+       1
+      ],
+      "/R": 0
+     },
+     "/Rect": [
+      49.5,
+      199.5,
+      250.5,
+      224.5
+     ],
+     "/Subtype": "/Widget",
+     "/Type": "/Annot"
+    },
+    {
+     "/AP": {
+      "/D": {
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 150,
+         "sha256": "114fb8c0d4d82724"
+        }
+       },
+       "/Yes": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 239,
+         "sha256": "ba9c17dd8cca3e01"
+        }
+       }
+      },
+      "/N": {
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 144,
+         "sha256": "31e0d341743e573e"
+        }
+       },
+       "/Yes": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 233,
+         "sha256": "e487ce32ca6211b3"
+        }
+       }
+      }
+     },
+     "/AS": "/Yes",
+     "/BS": {
+      "/W": 1
+     },
+     "/F": 4,
+     "/MK": {
+      "/BC": [
+       0,
+       0,
+       0
+      ],
+      "/BG": [
+       1,
+       1,
+       1
+      ],
+      "/R": 0
+     },
+     "/Rect": [
+      49.5,
+      149.5,
+      66.5,
+      166.5
+     ],
+     "/Subtype": "/Widget",
+     "/Type": "/Annot"
+    },
+    {
+     "/AP": {
+      "/N": {
+       "/BBox": [
+        0,
+        0,
+        121,
+        25
+       ],
+       "/Matrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+       ],
+       "/Resources": {
+        "/Font": {
+         "/Font#0": {
+          "/BaseFont": "/Font#0",
+          "/Encoding": "/WinAnsiEncoding",
+          "/Subtype": "/Type1",
+          "/Type": "/Font"
+         }
+        }
+       },
+       "/Subtype": "/Form",
+       "/Type": "/XObject",
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 269,
+        "sha256": "8fb25466b461b78f"
+       }
+      }
+     },
+     "/BS": {
+      "/W": 1
+     },
+     "/F": 4,
+     "/MK": {
+      "/BC": [
+       0,
+       0,
+       0
+      ],
+      "/BG": [
+       1,
+       1,
+       1
+      ],
+      "/R": 0
+     },
+     "/Rect": [
+      49.5,
+      99.5,
+      170.5,
+      124.5
+     ],
+     "/Subtype": "/Widget",
+     "/Type": "/Annot"
+    },
+    {
+     "/AP": {
+      "/D": {
+       "/0": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 665,
+         "sha256": "5ba7004a18d99e24"
+        }
+       },
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 311,
+         "sha256": "f391fd65a50f8c2b"
+        }
+       }
+      },
+      "/N": {
+       "/0": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 659,
+         "sha256": "6316d4bbe4296761"
+        }
+       },
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 305,
+         "sha256": "acf815666cf5db99"
+        }
+       }
+      }
+     },
+     "/AS": "/Off",
+     "/BS": {
+      "/W": 1
+     },
+     "/F": 4,
+     "/MK": {
+      "/BC": [
+       0,
+       0,
+       0
+      ],
+      "/BG": [
+       1,
+       1,
+       1
+      ],
+      "/R": 0
+     },
+     "/Rect": [
+      49.5,
+      59.5,
+      66.5,
+      76.5
+     ],
+     "/Subtype": "/Widget",
+     "/Type": "/Annot"
+    },
+    {
+     "/AP": {
+      "/D": {
+       "/1": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 665,
+         "sha256": "5ba7004a18d99e24"
+        }
+       },
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 311,
+         "sha256": "f391fd65a50f8c2b"
+        }
+       }
+      },
+      "/N": {
+       "/1": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 659,
+         "sha256": "6316d4bbe4296761"
+        }
+       },
+       "/Off": {
+        "/BBox": [
+         0,
+         0,
+         17,
+         17
+        ],
+        "/Matrix": [
+         1,
+         0,
+         0,
+         1,
+         0,
+         0
+        ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject",
+        "@stream": {
+         "basis": "filtered",
+         "kind": "binary",
+         "bytes": 305,
+         "sha256": "acf815666cf5db99"
+        }
+       }
+      }
+     },
+     "/AS": "/Off",
+     "/BS": {
+      "/W": 1
+     },
+     "/F": 4,
+     "/MK": {
+      "/BC": [
+       0,
+       0,
+       0
+      ],
+      "/BG": [
+       1,
+       1,
+       1
+      ],
+      "/R": 0
+     },
+     "/Rect": [
+      79.5,
+      59.5,
+      96.5,
+      76.5
+     ],
+     "/Subtype": "/Widget",
+     "/Type": "/Annot"
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    400,
+    300
+   ],
+   "/Resources": {
+    "/ExtGState": {},
+    "/Font": {},
+    "/XObject": {}
+   },
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Creator": "<opaque>",
+  "/Producer": "<opaque>"
+ },
+ "pageCount": 1,
+ "encrypted": false
+}

@@ -1,0 +1,66 @@
+{
+ "root": {
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/Type": "/Catalog"
+ },
+ "pages": [
+  {
+   "/Annots": [],
+   "/Contents": [
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "q BT 0 0 0 rg /Font#1 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:16> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#2 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:46> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 721.54 Tm <str:32> Tj T* ET Q"
+     }
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    595.28,
+    841.89
+   ],
+   "/Resources": {
+    "/ExtGState": {},
+    "/Font": {
+     "/Font#0": {
+      "/BaseFont": "/Helvetica",
+      "/Encoding": "/WinAnsiEncoding",
+      "/Subtype": "/Type1",
+      "/Type": "/Font"
+     },
+     "/Font#1": {
+      "/BaseFont": "/Helvetica",
+      "/Encoding": "/WinAnsiEncoding",
+      "/Subtype": "/Type1",
+      "/Type": "/Font"
+     },
+     "/Font#2": {
+      "/BaseFont": "/Helvetica",
+      "/Encoding": "/WinAnsiEncoding",
+      "/Subtype": "/Type1",
+      "/Type": "/Font"
+     }
+    },
+    "/XObject": {}
+   },
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Creator": "<opaque>",
+  "/Producer": "<opaque>",
+  "/Title": "Invoice"
+ },
+ "pageCount": 1,
+ "encrypted": false
+}

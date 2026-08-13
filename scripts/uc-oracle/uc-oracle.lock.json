@@ -1,0 +1,1099 @@
+{
+ "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
+ "capturedAt": "2026-08-13",
+ "writerVersion": "0.19.0",
+ "tooling": {
+  "qpdf": "12.4.0"
+ },
+ "verifyRan": true,
+ "counts": {
+  "measured": 23,
+  "unavailable": 1,
+  "failed": 0,
+  "structureUnreadable": 1
+ },
+ "axisCoverage": {
+  "pdfVersion": {
+   "shapes": {
+    "1.7": 6,
+    "2.0": 6
+   },
+   "distinct": 2
+  },
+  "font": {
+   "shapes": {
+    "cff": 16,
+    "std14": 1,
+    "truetype": 1
+   },
+   "distinct": 3
+  },
+  "tagged": {
+   "shapes": {
+    "false": 6,
+    "repaired": 1,
+    "true": 6
+   },
+   "distinct": 3
+  },
+  "content": {
+   "shapes": {
+    "markdown": 2,
+    "table": 1
+   },
+   "distinct": 2
+  },
+  "op": {
+   "shapes": {
+    "annotate": 2,
+    "doc-level": 1,
+    "merge": 1,
+    "page-number": 1,
+    "page-ops": 1,
+    "watermark": 1
+   },
+   "distinct": 6
+  },
+  "attachment": {
+   "shapes": {
+    "true": 3
+   },
+   "distinct": 1
+  },
+  "flavour": {
+   "shapes": {
+    "pdfa-3b": 1,
+    "pdfa-4": 1,
+    "pdfa-4f": 1,
+    "pdfua-1": 2
+   },
+   "distinct": 4
+  },
+  "form": {
+   "shapes": {
+    "fill": 1,
+    "tag+flatten": 1
+   },
+   "distinct": 2
+  },
+  "origin": {
+   "shapes": {
+    ">0": 1
+   },
+   "distinct": 1
+  },
+  "inputXref": {
+   "shapes": {
+    "chain": 1,
+    "stream": 1,
+    "table": 1
+   },
+   "distinct": 3
+  },
+  "signed": {
+   "shapes": {
+    "true": 2
+   },
+   "distinct": 1
+  },
+  "revisions": {
+   "shapes": {
+    "8": 1
+   },
+   "distinct": 1
+  }
+ },
+ "specimens": {
+  "create-text-std14-17": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "std14",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_text_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "Helvetica",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "9d3f09ee369f9022d5132b52fe2c503e9c9875b462eb0b11609df6507a489fa2",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 8
+   }
+  },
+  "create-text-cff-17": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "cff",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_text_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "d6aa875308b4a9303e75e2b896d1bfcbf13a7ec54334035b5c3cf2a68b7e24b3",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 13
+   }
+  },
+  "create-text-cff-20": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "2.0",
+    "font": "cff",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_text_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "a342b564692b2a1e1fe19a048ec4a89bb2309db50667e883c353a172f2f2b3a5",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 14
+   }
+  },
+  "create-text-cff-17-tagged": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "cff",
+    "tagged": true
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_text_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "88aa6ada10d8a245cc2505a10d1b82587896a8bc12711bc097d3b19388037f4e",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 20
+   }
+  },
+  "create-text-ttf-17-tagged": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "truetype",
+    "tagged": true
+   },
+   "status": "unavailable",
+   "reason": "フォントが無い: truetype"
+  },
+  "create-markdown-cff-17-tagged": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "cff",
+    "tagged": true,
+    "content": "markdown"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_markdown_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "23edc220ecea430013ae80473de4c9735868c6b3af767549e0ecc33ae99f0366",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 33
+   }
+  },
+  "create-markdown-cff-20": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "2.0",
+    "font": "cff",
+    "tagged": false,
+    "content": "markdown"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_markdown_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "4b1e9368b45f10ae31c342c0e7e8693d376f77de4e917b2b8ef91c10992ac2d6",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 14
+   }
+  },
+  "create-table-cff-17-tagged": {
+   "uc": "UC-2",
+   "axes": {
+    "pdfVersion": "1.7",
+    "font": "cff",
+    "tagged": true,
+    "content": "table"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "create_table_pdf",
+     "response": {
+      "pageCount": 1,
+      "font": "NotoSansJP-Regular.otf",
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "82cd31a9e8422db5ecd7be5577c0830554a573df0d94bf18209e5c75d72426db",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 32
+   }
+  },
+  "edit-merge": {
+   "uc": "UC-2",
+   "axes": {
+    "op": "merge",
+    "font": "cff"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "merge_pdfs",
+     "response": {
+      "pageCount": 2,
+      "warnings": [
+       "The input XMP declares conformance (pdfuaid/pdfaid) that this output can no longer meet — the structure tree is not carried over yet — so it was dropped rather than copied. Copying it would make the file claim PDF/UA or PDF/A conformance it does not have, which is worse than losing the claim: a validator would then check it against that flavour and fail. Use ensure_tagged + set_metadata on the output to rebuild an honest declaration.",
+       "merge_pdfs did not carry over the tagged structure (/StructTreeRoot, /MarkInfo) that the input had (ISO 32000-2 §14.7.2 / §14.8.1): the output is untagged — PDF/UA-1 conformance, reading order, headings and alt text are gone. Assistive technology now sees an unstructured page.",
+       "merge_pdfs did not carry over the XMP metadata (/Metadata) that the input had (ISO 32000-2 §14.3.2): only the Info dictionary survives — the pdfuaid/pdfaid identification, dc:title and any PDF/A or PDF/UA claim no longer travel with the file.",
+       "These are lost because page copying rebuilds the document from the pages alone. Attachments, /AF, /Lang, /ViewerPreferences and /OutputIntents are carried over; the rest either need the structure tree (B-10c) or depend on page numbers and page references that these operations change. Re-apply the document-level step to the output if you need them (e.g. ensure_tagged / add_bookmarks / set_metadata)."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "e3041705e2d16217ebdd5e23f9ec6ebd626591da8e264e3e427623b011df8881",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 23
+   }
+  },
+  "edit-page-ops": {
+   "uc": "UC-2",
+   "axes": {
+    "op": "page-ops"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "rotate_pages",
+     "response": {
+      "pageCount": 2,
+      "isError": false
+     }
+    },
+    {
+     "tool": "reorder_pages",
+     "response": {
+      "pageCount": 2,
+      "isError": false
+     }
+    },
+    {
+     "tool": "extract_pages",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "f6320e10fb871c42f32dde12dbcaba7fd6e10b45b3b4ce69ef74f9a5b980d07e",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 15
+   }
+  },
+  "edit-watermark": {
+   "uc": "UC-2",
+   "axes": {
+    "op": "watermark",
+    "font": "cff"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_watermark",
+     "response": {
+      "pageCount": 1,
+      "watermarked": 1,
+      "artifact": true,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "a7427b7a83702e117574b2ebd6d78aab410c7e6ed40738a1e22791a8fe7d5ac8",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 30
+   }
+  },
+  "edit-page-numbers": {
+   "uc": "UC-2",
+   "axes": {
+    "op": "page-number",
+    "font": "cff"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "stamp_page_numbers",
+     "response": {
+      "pageCount": 2,
+      "stamped": 2,
+      "artifact": false,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "582c8376fcf995ed8eac7d05aae13e1a776ee9bc55f70a5e7fa55d105606e83d",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 35
+   }
+  },
+  "edit-bookmarks-annotation-metadata": {
+   "uc": "UC-2",
+   "axes": {
+    "op": "doc-level"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_bookmarks",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    },
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    },
+    {
+     "tool": "set_metadata",
+     "response": {
+      "pageCount": 1,
+      "warnings": [
+       "The document carries XMP metadata (/Metadata); it was regenerated to stay consistent with the updated Info dictionary (dc:title etc.)."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "291c8a91209b0e2fe52a561d3ce2921c895852520101fe022b3f7c6a6a34bc7e",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 42
+   }
+  },
+  "conformance-attach-pdfa3b": {
+   "uc": "UC-4",
+   "axes": {
+    "attachment": true,
+    "flavour": "pdfa-3b",
+    "font": "cff",
+    "tagged": true
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "attach_file",
+     "response": {
+      "pageCount": 1,
+      "attachment": {
+       "name": "invoice.csv",
+       "bytes": 28,
+       "mimeType": "text/csv",
+       "relationship": "Data"
+      },
+      "attachments": [
+       "invoice.csv"
+      ],
+      "isError": false
+     }
+    },
+    {
+     "tool": "ensure_pdfa",
+     "response": {
+      "pageCount": 1,
+      "flavour": "3b",
+      "addedRequirements": [
+       "trailer /ID (file identifier)",
+       "sRGB output intent (GTS_PDFA1)",
+       "XMP pdfaid (part 3, conformance B)"
+      ],
+      "wasDeclared": false,
+      "warnings": [
+       "This file now CLAIMS PDF/A-3b (pdfaid:part=3, conformance=B), but conformance was NOT checked here. Only document-level requirements were supplied; unembedded fonts, encryption, JavaScript, LZW compression and similar violations are left as they are. If the document does not actually conform, that claim is now false. Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: \"pdfa-3b\") — and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "3a069f1089f9baaaf6006c9f136e07531607d2d0d64933c00a34300b0a5b20ab",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 39
+   },
+   "verify": [
+    {
+     "flavour": "pdfa-3b",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 146,
+     "checkedRules": 146,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
+  },
+  "conformance-attach-pdfa4f": {
+   "uc": "UC-4",
+   "axes": {
+    "attachment": true,
+    "flavour": "pdfa-4f",
+    "pdfVersion": "2.0",
+    "font": "cff",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "attach_file",
+     "response": {
+      "pageCount": 1,
+      "attachment": {
+       "name": "invoice.csv",
+       "bytes": 28,
+       "mimeType": "text/csv",
+       "relationship": "Data"
+      },
+      "attachments": [
+       "invoice.csv"
+      ],
+      "isError": false
+     }
+    },
+    {
+     "tool": "ensure_pdfa",
+     "response": {
+      "pageCount": 1,
+      "flavour": "4f",
+      "addedRequirements": [
+       "sRGB output intent (GTS_PDFA1)",
+       "XMP pdfaid (part 4, conformance F, rev 2020)",
+       "removed the Info dictionary (PDF/A-4 6.1.3-4)"
+      ],
+      "wasDeclared": false,
+      "warnings": [
+       "The document already has a trailer /ID; it was left unchanged.",
+       "This file now CLAIMS PDF/A-4f (pdfaid:part=4, conformance=F, rev=2020), but conformance was NOT checked here. Only document-level requirements were supplied; unembedded fonts, encryption, JavaScript, LZW compression and similar violations are left as they are. If the document does not actually conform, that claim is now false. Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: \"pdfa-4f\") — and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "1a212ea4104189430643995886142c084e0028e053c8023e9fbb1095b2f9518b",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 20
+   },
+   "verify": [
+    {
+     "flavour": "pdfa-4f",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 109,
+     "checkedRules": 109,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
+  },
+  "conformance-attach-pdfa4-bare": {
+   "uc": "UC-4",
+   "axes": {
+    "attachment": true,
+    "flavour": "pdfa-4",
+    "pdfVersion": "2.0",
+    "font": "cff",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "attach_file",
+     "response": {
+      "pageCount": 1,
+      "attachment": {
+       "name": "invoice.csv",
+       "bytes": 28,
+       "mimeType": "text/csv",
+       "relationship": "Data"
+      },
+      "attachments": [
+       "invoice.csv"
+      ],
+      "isError": false
+     }
+    },
+    {
+     "tool": "ensure_pdfa",
+     "response": {
+      "pageCount": 1,
+      "flavour": "4",
+      "addedRequirements": [
+       "sRGB output intent (GTS_PDFA1)",
+       "XMP pdfaid (part 4, rev 2020)",
+       "removed the Info dictionary (PDF/A-4 6.1.3-4)"
+      ],
+      "wasDeclared": false,
+      "warnings": [
+       "The document already has a trailer /ID; it was left unchanged.",
+       "This file now CLAIMS PDF/A-4 (pdfaid:part=4, rev=2020), but conformance was NOT checked here. Only document-level requirements were supplied; unembedded fonts, encryption, JavaScript, LZW compression and similar violations are left as they are. If the document does not actually conform, that claim is now false. Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: \"pdfa-4\") — and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "02e561b05b44c849ba53312a8f9869d8f6488678e67eb361a0ad4ac6e3c89fe1",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 20
+   },
+   "verify": [
+    {
+     "flavour": "pdfa-4",
+     "status": "decided",
+     "compliant": false,
+     "passedRules": 108,
+     "checkedRules": 109,
+     "violations": [
+      "ISO 19005-4:2020 6.9-3"
+     ],
+     "expect": "non-compliant"
+    }
+   ]
+  },
+  "conformance-ensure-tagged-ua1": {
+   "uc": "UC-2",
+   "axes": {
+    "tagged": "repaired",
+    "font": "cff",
+    "flavour": "pdfua-1"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "ensure_tagged",
+     "response": {
+      "pageCount": 1,
+      "wasTagged": false,
+      "createdStructure": true,
+      "wrappedPages": 1,
+      "addedRequirements": [
+       "StructTreeRoot(Document > P)",
+       "MarkInfo/Marked",
+       "Lang",
+       "ViewerPreferences/DisplayDocTitle",
+       "XMP(pdfuaid:part, dc:title)"
+      ],
+      "warnings": [
+       "This document had no structure tree. A minimal scaffold was created: each page is wrapped in a single P (paragraph) element. The text is now reachable by assistive technology, but headings, lists, tables, reading order and figure alt text are NOT represented — machine tagging cannot infer meaning. Treat this as a starting point, not as an accessible document, and have a human review the structure."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "932e921067029fe54c3188a908ea171c3f8d8c19373b4d688c3b95ec47003cca",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 24
+   },
+   "verify": [
+    {
+     "flavour": "pdfua-1",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 106,
+     "checkedRules": 106,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
+  },
+  "conformance-tagged-ua1": {
+   "uc": "UC-2",
+   "axes": {
+    "tagged": true,
+    "font": "cff",
+    "flavour": "pdfua-1"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_bookmarks",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "567c6fa8b70029d31711c603f2da8fc9a1fc1faaa596516339018b793589776b",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 36
+   },
+   "verify": [
+    {
+     "flavour": "pdfua-1",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 106,
+     "checkedRules": 106,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
+  },
+  "form-fill": {
+   "uc": "UC-2",
+   "axes": {
+    "form": "fill",
+    "font": "cff"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "fill_form",
+     "response": {
+      "pageCount": 1,
+      "filled": 2,
+      "flattened": false,
+      "fields": [
+       {
+        "name": "user.name",
+        "kind": "text",
+        "readOnly": false,
+        "required": false,
+        "value": "山田太郎"
+       },
+       {
+        "name": "agree",
+        "kind": "checkbox",
+        "readOnly": false,
+        "required": false,
+        "value": true
+       },
+       {
+        "name": "plan",
+        "kind": "dropdown",
+        "readOnly": false,
+        "required": false,
+        "value": [
+         "Basic"
+        ],
+        "options": [
+         "Basic",
+         "Pro"
+        ]
+       },
+       {
+        "name": "color",
+        "kind": "radio",
+        "readOnly": false,
+        "required": false,
+        "value": "",
+        "options": [
+         "red",
+         "blue"
+        ]
+       }
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "2bad26654bc40481990aca762e54814b81a4f56a0d3ba5dba3486d63c4829a31",
+   "meta": {
+    "producer": "uc-oracle frozen input",
+    "creator": "uc-oracle frozen input",
+    "objectCount": 43
+   }
+  },
+  "form-tag-then-flatten": {
+   "uc": "UC-2",
+   "axes": {
+    "form": "tag+flatten",
+    "font": "cff"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "ensure_tagged",
+     "response": {
+      "pageCount": 1,
+      "wasTagged": false,
+      "createdStructure": true,
+      "wrappedPages": 1,
+      "addedRequirements": [
+       "StructTreeRoot(Document > P)",
+       "MarkInfo/Marked",
+       "Lang",
+       "ViewerPreferences/DisplayDocTitle",
+       "XMP(pdfuaid:part, dc:title)"
+      ],
+      "warnings": [
+       "This document had no structure tree. A minimal scaffold was created: each page is wrapped in a single P (paragraph) element. The text is now reachable by assistive technology, but headings, lists, tables, reading order and figure alt text are NOT represented — machine tagging cannot infer meaning. Treat this as a starting point, not as an accessible document, and have a human review the structure."
+      ],
+      "isError": false
+     }
+    },
+    {
+     "tool": "tag_form_fields",
+     "response": {
+      "pageCount": 1,
+      "taggedWidgets": 5,
+      "skippedWidgets": 0,
+      "fields": [
+       {
+        "name": "user.name",
+        "kind": "text",
+        "readOnly": false,
+        "required": false,
+        "value": "Taro"
+       },
+       {
+        "name": "agree",
+        "kind": "checkbox",
+        "readOnly": false,
+        "required": false,
+        "value": false
+       },
+       {
+        "name": "plan",
+        "kind": "dropdown",
+        "readOnly": false,
+        "required": false,
+        "value": [
+         "Basic"
+        ],
+        "options": [
+         "Basic",
+         "Pro"
+        ]
+       },
+       {
+        "name": "color",
+        "kind": "radio",
+        "readOnly": false,
+        "required": false,
+        "value": "",
+        "options": [
+         "red",
+         "blue"
+        ]
+       }
+      ],
+      "warnings": [
+       "No label given for 2 field(s); the field name was used as /TU (plan, color). Pass \"labels\" with human-readable names — screen readers announce /TU, and \"user.name\" reads poorly."
+      ],
+      "isError": false
+     }
+    },
+    {
+     "tool": "flatten_form",
+     "response": {
+      "pageCount": 1,
+      "filled": 0,
+      "flattened": true,
+      "fields": [],
+      "warnings": [
+       "Flattened a tagged PDF: the Form structure elements now point to removed widgets and the baked-in appearances are untagged. The document is no longer PDF/UA-1 conforming."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "bbf7992be3c2ce9eb434e437d26e3d5bdc31df3aeb38a71ca347571ab5a96d49",
+   "meta": {
+    "producer": "uc-oracle frozen input",
+    "creator": "uc-oracle frozen input",
+    "objectCount": 56
+   }
+  },
+  "input-origin-nonzero": {
+   "uc": "UC-2",
+   "axes": {
+    "origin": ">0",
+    "inputXref": "table",
+    "pdfVersion": "2.0"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "76abb4c5654991422545817d3b4930188f48bb6bbfadf095525c200c80a981e1",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 13
+   }
+  },
+  "input-incremental-save": {
+   "uc": "UC-2",
+   "axes": {
+    "inputXref": "chain",
+    "pdfVersion": "2.0"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "set_metadata",
+     "response": {
+      "pageCount": 1,
+      "warnings": [
+       "The document carries XMP metadata (/Metadata); it was regenerated to stay consistent with the updated Info dictionary (dc:title etc.)."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "b5af796c28b8a4b387623a78cb3ed6d95d8ba7ecdbadff7520319f2391c1c432",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 11
+   }
+  },
+  "input-signed-preserve": {
+   "uc": "UC-7",
+   "axes": {
+    "signed": true,
+    "inputXref": "stream",
+    "op": "annotate"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "incremental": true,
+      "warnings": [
+       "The document is tagged and the annotation was nested in an Annot structure element. Pass \"alt\" to give assistive technology a description of it."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "3780d5d91183caf42ef90f12493d94004229ed6326b4c024152e3ad2ec0e682a",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.18.0; pyHanko 0.36.2",
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "objectCount": 42
+   },
+   "signatures": {
+    "status": "decided",
+    "count": 2,
+    "valid": 2,
+    "digestMatches": 2,
+    "expectValid": 2
+   }
+  },
+  "input-signed-5sigs": {
+   "uc": "UC-7",
+   "axes": {
+    "signed": true,
+    "revisions": 8,
+    "op": "annotate"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "incremental": true,
+      "warnings": [
+       "The document is tagged and the annotation was nested in an Annot structure element. Pass \"alt\" to give assistive technology a description of it."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "qpdf: <file>: unable to find page tree",
+   "structure": {
+    "status": "unreadable",
+    "reason": "qpdf: <dir>/input-signed-5sigs--0-add_annotation.pdf: unable to find page tree",
+    "inputReadable": false
+   },
+   "signatures": {
+    "status": "decided",
+    "count": 6,
+    "valid": 5,
+    "digestMatches": 6,
+    "expectValid": 5
+   }
+  }
+ }
+}

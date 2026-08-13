@@ -1,0 +1,360 @@
+{
+ "root": {
+  "/Lang": "en",
+  "/MarkInfo": {
+   "/Marked": true
+  },
+  "/Metadata": {
+   "/Subtype": "/XML",
+   "/Type": "/Metadata",
+   "@stream": {
+    "basis": "filtered",
+    "kind": "xmp",
+    "xmp": {
+     "pdfaidPart": null,
+     "pdfaidRev": null,
+     "pdfaidConformance": null,
+     "pdfuaidPart": "1",
+     "dcTitle": "Tagged",
+     "dcLanguage": "en",
+     "hasCreateDate": true,
+     "hasModifyDate": true,
+     "shape": "<x:xmpmeta ,<rdf:RDF ,<rdf:Description ,<pdfuaid:part>,<rdf:Description ,<pdfaExtension:schemas>,<rdf:Bag>,<rdf:li ,<pdfaSchema:schema>,<pdfaSchema:namespaceURI>,<pdfaSchema:prefix>,<pdfaSchema:property>,<rdf:Seq>,<rdf:li ,<pdfaProperty:name>,<pdfaProperty:valueType>,<pdfaProperty:category>,<pdfaProperty:description>,<rdf:Description ,<dc:title>,<rdf:Alt>,<rdf:li ,<dc:language>,<rdf:Bag>,<rdf:li>,<rdf:Description ,<xmp:CreatorTool>,<xmp:CreateDate>,<xmp:ModifyDate>"
+    }
+   }
+  },
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/StructTreeRoot": {
+   "/K": {
+    "/K": [
+     {
+      "/K": 0,
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/H1",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": 1,
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/P",
+      "/Type": "/StructElem"
+     }
+    ],
+    "/S": "/Document",
+    "/Type": "/StructElem"
+   },
+   "/ParentTree": {
+    "@numtree": {
+     "entries": 1,
+     "targets": {
+      "?": 1
+     }
+    }
+   },
+   "/ParentTreeNextKey": 1,
+   "/Type": "/StructTreeRoot"
+  },
+  "/Type": "/Catalog",
+  "/ViewerPreferences": {
+   "/DisplayDocTitle": true
+  }
+ },
+ "pages": [
+  {
+   "/Annots": [],
+   "/Contents": [
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "/Artifact BMC q /ExtGState#0 gs BT 0.502 0.502 0.502 rg /Font#2 60 Tf 24 TL 0.7071 0.7071 -0.7071 0.7071 247.1101 340.7167 Tm <str:22> Tj T* ET Q EMC"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "q"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:26> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#1 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:66> Tj T* ET Q EMC"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "Q"
+     }
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    595.28,
+    841.89
+   ],
+   "/Resources": {
+    "/ExtGState": {
+     "/ExtGState#0": {
+      "/Type": "/ExtGState",
+      "/ca": 0.15
+     }
+    },
+    "/Font": {
+     "/Font#2": {
+      "/BaseFont": "/QMMOTG+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/QMMOTG+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 2384,
+           "sha256": "eb022b066a27b421"
+          }
+         },
+         "/FontName": "/QMMOTG+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          608,
+          688,
+          552,
+          635,
+          599
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 412,
+        "sha256": "dd36f22bc6cfeb5c"
+       }
+      },
+      "/Type": "/Font"
+     },
+     "/Font#0": {
+      "/BaseFont": "/ODEXMN+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/ODEXMN+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 4640,
+           "sha256": "48447f782dcc3c56"
+          }
+         },
+         "/FontName": "/ODEXMN+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          224,
+          278,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          599,
+          563,
+          618,
+          620,
+          554,
+          564,
+          606,
+          377,
+          498,
+          521,
+          340
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 665,
+        "sha256": "b54172b2a757d34d"
+       }
+      },
+      "/Type": "/Font"
+     },
+     "/Font#1": {
+      "/BaseFont": "/ODEXMN+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/ODEXMN+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 4640,
+           "sha256": "48447f782dcc3c56"
+          }
+         },
+         "/FontName": "/ODEXMN+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          224,
+          278,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          599,
+          563,
+          618,
+          620,
+          554,
+          564,
+          606,
+          377,
+          498,
+          521,
+          340
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 665,
+        "sha256": "b54172b2a757d34d"
+       }
+      },
+      "/Type": "/Font"
+     }
+    },
+    "/XObject": {}
+   },
+   "/StructParents": 0,
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Creator": "<opaque>",
+  "/Producer": "<opaque>",
+  "/Title": "Tagged"
+ },
+ "pageCount": 1,
+ "encrypted": false
+}

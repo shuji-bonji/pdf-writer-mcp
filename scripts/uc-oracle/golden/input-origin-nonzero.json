@@ -1,0 +1,228 @@
+{
+ "root": {
+  "/Metadata": {
+   "/Subtype": "/XML",
+   "/Type": "/Metadata",
+   "@stream": {
+    "basis": "filtered",
+    "kind": "xmp",
+    "xmp": {
+     "pdfaidPart": null,
+     "pdfaidRev": null,
+     "pdfaidConformance": null,
+     "pdfuaidPart": null,
+     "dcTitle": "A simple PDF 2.0 example file",
+     "dcLanguage": null,
+     "hasCreateDate": false,
+     "hasModifyDate": false,
+     "shape": "<x:xmpmeta ,<rdf:RDF ,<rdf:Description ,<pdf:Producer>,<pdf:Copyright>,<pdf:Keywords>,<rdf:Description ,<xap:CreateDate>,<xap:MetadataDate>,<xap:ModifyDate>,<xap:CreatorTool>,<rdf:Description ,<dc:format>,<dc:title>,<rdf:Alt>,<rdf:li ,<dc:creator>,<rdf:Seq>,<rdf:li>,<dc:description>,<rdf:Alt>,<rdf:li ,<dc:rights>,<rdf:Alt>,<rdf:li ,<rdf:Description ,<xapRights:Marked>,<rdf:Description ,<cc:license ,<rdf:Description ,<xapMM:DocumentID>,<xapMM:InstanceID>"
+    }
+   }
+  },
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/Type": "/Catalog"
+ },
+ "pages": [
+  {
+   "/Annots": [
+    {
+     "/AP": {
+      "/N": {
+       "/BBox": [
+        0,
+        0,
+        228,
+        20
+       ],
+       "/Matrix": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+       ],
+       "/Subtype": "/Form",
+       "/Type": "/XObject",
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 153,
+        "sha256": "a5803eff66dfc56f"
+       }
+      }
+     },
+     "/C": [
+      1,
+      0.8314,
+      0
+     ],
+     "/Contents": "origin > 0",
+     "/F": 4,
+     "/M": "<date>",
+     "/Name": "/Note",
+     "/Open": false,
+     "/Rect": [
+      72,
+      700,
+      300,
+      720
+     ],
+     "/Subtype": "/Text",
+     "/Type": "/Annot"
+    }
+   ],
+   "/Contents": [
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "BT /Font#0 24 Tf 100 100 Td <str:28> Tj ET"
+     }
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    612,
+    396
+   ],
+   "/Resources": {
+    "/Font": {
+     "/Font#0": {
+      "/BaseFont": "/Helvetica",
+      "/FirstChar": 33,
+      "/FontDescriptor": {
+       "/Ascent": 718,
+       "/CapHeight": 718,
+       "/Descent": -207,
+       "/Flags": 32,
+       "/FontBBox": [
+        -166,
+        -225,
+        1000,
+        931
+       ],
+       "/FontName": "/Helvetica",
+       "/ItalicAngle": 0,
+       "/MissingWidth": 278,
+       "/StemV": 88,
+       "/Type": "/FontDescriptor"
+      },
+      "/LastChar": 126,
+      "/Subtype": "/Type1",
+      "/Type": "/Font",
+      "/Widths": {
+       "0": 278,
+       "1": 355,
+       "2": 556,
+       "3": 556,
+       "4": 889,
+       "5": 667,
+       "6": 222,
+       "7": 333,
+       "8": 333,
+       "9": 389,
+       "10": 584,
+       "11": 278,
+       "12": 333,
+       "13": 278,
+       "14": 278,
+       "15": 556,
+       "16": 556,
+       "17": 556,
+       "18": 556,
+       "19": 556,
+       "20": 556,
+       "21": 556,
+       "22": 556,
+       "23": 556,
+       "24": 556,
+       "25": 278,
+       "26": 278,
+       "27": 584,
+       "28": 584,
+       "29": 584,
+       "30": 556,
+       "31": 1015,
+       "32": 667,
+       "33": 667,
+       "34": 722,
+       "35": 722,
+       "36": 667,
+       "37": 611,
+       "38": 778,
+       "39": 722,
+       "40": 278,
+       "41": 500,
+       "42": 667,
+       "43": 556,
+       "44": 833,
+       "45": 722,
+       "46": 778,
+       "47": 667,
+       "48": 778,
+       "49": 722,
+       "50": 667,
+       "51": 611,
+       "52": 722,
+       "53": 667,
+       "54": 944,
+       "55": 667,
+       "56": 667,
+       "57": 611,
+       "58": 278,
+       "59": 278,
+       "60": 278,
+       "61": 469,
+       "62": 556,
+       "63": 222,
+       "64": 556,
+       "65": 556,
+       "66": 500,
+       "67": 556,
+       "68": 556,
+       "69": 278,
+       "70": 556,
+       "71": 556,
+       "72": 222,
+       "73": 222,
+       "74": 500,
+       "75": 222,
+       "76": 833,
+       "77": 556,
+       "78": 556,
+       "79": 556,
+       "80": 556,
+       "81": 333,
+       "82": 500,
+       "83": 278,
+       "84": 556,
+       "85": 500,
+       "86": 722,
+       "87": 500,
+       "88": 500,
+       "89": 500,
+       "90": 334,
+       "91": 260,
+       "92": 334,
+       "93": 584
+      }
+     }
+    }
+   },
+   "/Type": "/Page"
+  }
+ ],
+ "info": {},
+ "pageCount": 1,
+ "encrypted": false
+}

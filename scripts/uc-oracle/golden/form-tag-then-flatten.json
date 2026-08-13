@@ -1,0 +1,336 @@
+{
+ "root": {
+  "/Lang": "en",
+  "/MarkInfo": {
+   "/Marked": true
+  },
+  "/Metadata": {
+   "/Subtype": "/XML",
+   "/Type": "/Metadata",
+   "@stream": {
+    "basis": "filtered",
+    "kind": "xmp",
+    "xmp": {
+     "pdfaidPart": null,
+     "pdfaidRev": null,
+     "pdfaidConformance": null,
+     "pdfuaidPart": "1",
+     "dcTitle": "Form",
+     "dcLanguage": "en",
+     "hasCreateDate": true,
+     "hasModifyDate": true,
+     "shape": "<x:xmpmeta ,<rdf:RDF ,<rdf:Description ,<pdfuaid:part>,<rdf:Description ,<pdfaExtension:schemas>,<rdf:Bag>,<rdf:li ,<pdfaSchema:schema>,<pdfaSchema:namespaceURI>,<pdfaSchema:prefix>,<pdfaSchema:property>,<rdf:Seq>,<rdf:li ,<pdfaProperty:name>,<pdfaProperty:valueType>,<pdfaProperty:category>,<pdfaProperty:description>,<rdf:Description ,<dc:title>,<rdf:Alt>,<rdf:li ,<dc:language>,<rdf:Bag>,<rdf:li>,<rdf:Description ,<xmp:CreatorTool>,<xmp:CreateDate>,<xmp:ModifyDate>"
+    }
+   }
+  },
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/StructTreeRoot": {
+   "/K": {
+    "/K": [
+     {
+      "/K": 0,
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/P",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": {
+       "/Pg": {
+        "@page": 0
+       },
+       "/Type": "/OBJR"
+      },
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/Form",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": {
+       "/Pg": {
+        "@page": 0
+       },
+       "/Type": "/OBJR"
+      },
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/Form",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": {
+       "/Pg": {
+        "@page": 0
+       },
+       "/Type": "/OBJR"
+      },
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/Form",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": {
+       "/Pg": {
+        "@page": 0
+       },
+       "/Type": "/OBJR"
+      },
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/Form",
+      "/Type": "/StructElem"
+     },
+     {
+      "/K": {
+       "/Pg": {
+        "@page": 0
+       },
+       "/Type": "/OBJR"
+      },
+      "/Pg": {
+       "@page": 0
+      },
+      "/S": "/Form",
+      "/Type": "/StructElem"
+     }
+    ],
+    "/S": "/Document",
+    "/Type": "/StructElem"
+   },
+   "/ParentTree": {
+    "@numtree": {
+     "entries": 6,
+     "targets": {
+      "/Form": 5,
+      "?": 1
+     }
+    }
+   },
+   "/ParentTreeNextKey": 6,
+   "/Type": "/StructTreeRoot"
+  },
+  "/Type": "/Catalog",
+  "/ViewerPreferences": {
+   "/DisplayDocTitle": true
+  }
+ },
+ "pages": [
+  {
+   "/Annots": [],
+   "/Contents": [
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "q"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "/P <str:10> BDC"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "EMC"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "Q"
+     }
+    },
+    {
+     "@stream": {
+      "basis": "filtered",
+      "kind": "content",
+      "ops": "q 1 0 0 1 49.5 199.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#4 Do Q q 1 0 0 1 49.5 149.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#2 Do Q q 1 0 0 1 49.5 99.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#0 Do Q q 1 0 0 1 49.5 59.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#3 Do Q q 1 0 0 1 79.5 59.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#1 Do Q"
+     }
+    }
+   ],
+   "/MediaBox": [
+    0,
+    0,
+    400,
+    300
+   ],
+   "/Resources": {
+    "/ExtGState": {},
+    "/Font": {},
+    "/XObject": {
+     "/XObject#0": {
+      "/BBox": [
+       0,
+       0,
+       121,
+       25
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Resources": {
+       "/Font": {
+        "/Font#0": {
+         "/BaseFont": "/Font#0",
+         "/Encoding": "/WinAnsiEncoding",
+         "/Subtype": "/Type1",
+         "/Type": "/Font"
+        }
+       }
+      },
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 269,
+       "sha256": "8fb25466b461b78f"
+      }
+     },
+     "/XObject#4": {
+      "/BBox": [
+       0,
+       0,
+       201,
+       25
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Resources": {
+       "/Font": {
+        "/Font#0": {
+         "/BaseFont": "/Font#0",
+         "/Encoding": "/WinAnsiEncoding",
+         "/Subtype": "/Type1",
+         "/Type": "/Font"
+        }
+       }
+      },
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 267,
+       "sha256": "f0f77da2ec516f8a"
+      }
+     },
+     "/XObject#1": {
+      "/BBox": [
+       0,
+       0,
+       17,
+       17
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 305,
+       "sha256": "acf815666cf5db99"
+      }
+     },
+     "/XObject#2": {
+      "/BBox": [
+       0,
+       0,
+       17,
+       17
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 144,
+       "sha256": "31e0d341743e573e"
+      }
+     },
+     "/XObject#3": {
+      "/BBox": [
+       0,
+       0,
+       17,
+       17
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 305,
+       "sha256": "acf815666cf5db99"
+      }
+     }
+    }
+   },
+   "/StructParents": 0,
+   "/Tabs": "/S",
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Creator": "<opaque>",
+  "/Producer": "<opaque>",
+  "/Title": "Form"
+ },
+ "pageCount": 1,
+ "encrypted": false
+}

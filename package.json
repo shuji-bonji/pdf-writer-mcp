@@ -31,7 +31,10 @@
     "format:fix": "biome format --write ./src ./tests",
     "check": "biome check ./src ./tests",
     "check:fix": "biome check --fix ./src ./tests",
-    "verify:published": "node scripts/verify-published.mjs"
+    "verify:published": "node scripts/verify-published.mjs",
+    "oracle": "npm run build && node scripts/uc-oracle/run.mjs",
+    "oracle:verify": "npm run build && node scripts/uc-oracle/run.mjs --verify",
+    "oracle:update": "npm run build && node scripts/uc-oracle/run.mjs --update --verify"
   },
   "keywords": [
     "mcp",
