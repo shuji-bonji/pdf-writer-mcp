@@ -19,7 +19,9 @@ import { logger } from './utils/logger.js';
  * ツール説明にも書いてあるが、`instructions` はツールを 1 つも呼ばないうちに読まれる。
  * 先例は pdf-spec-mcp v0.4.5（Issue #13）。
  */
-const INSTRUCTIONS = `This server WRITES PDFs. It can write a claim of conformance; it cannot make a file conform.
+const INSTRUCTIONS = `${PACKAGE_INFO.name} v${PACKAGE_INFO.version} — the running build identifies itself here so a stale install is visible without a tool call; compare against \`npm view ${PACKAGE_INFO.name} version\` when freshness matters.
+
+This server WRITES PDFs. It can write a claim of conformance; it cannot make a file conform.
 
 ensure_pdfa and ensure_tagged put pdfaid / pdfuaid into the XMP — that is a DECLARATION, the
 document saying of itself that it follows a standard. It is not conformance. Applying them to a

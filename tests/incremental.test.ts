@@ -21,7 +21,7 @@ import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef } from 'p
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
 import { addAnnotation } from '../src/services/editor.js';
-import { detectXrefStyle, readStartXref } from '../src/services/incremental.js';
+import { readPreviousSection } from '../src/services/incremental.js';
 import { handleAddAnnotation, handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { AddAnnotationArgs, EditResult } from '../src/types/index.js';
 
@@ -114,17 +114,14 @@ describe.each([
 
     // 追記部の trailer/xref ストリームが /Prev で旧 startxref を指す
     const appended = Buffer.from(out.subarray(original.length)).toString('latin1');
-    const prevOffset = readStartXref(original);
-    expect(appended).toContain(`/Prev ${prevOffset}`);
-    expect(detectXrefStyle(original, prevOffset)).toBe(useObjectStreams ? 'stream' : 'table');
+    const section = await readPreviousSection(original);
+    expect(appended).toContain(`/Prev ${section.startxref}`);
+    expect(section.style).toBe(useObjectStreams ? 'stream' : 'table');
 
     // 番号衝突の回帰ガード: 新規オブジェクトは元 trailer /Size 以上の番号を使う。
     // pdf-lib はオブジェクトストリーム容器・旧 xref ストリームを登録しないため、
     // 予約なしだと容器と同じ番号を再利用して /Prev 連鎖が壊れる（qpdf 実測）
-    const sizeMatch = /\/Size\s+(\d+)/.exec(
-      Buffer.from(original.subarray(readStartXref(original))).toString('latin1'),
-    );
-    const origSize = Number(sizeMatch?.[1]);
+    const origSize = section.size;
     expect(origSize).toBeGreaterThan(0);
     for (const m of appended.matchAll(/(?:^|\n)(\d+) (\d+) obj\b/g)) {
       const num = Number(m[1]);
@@ -303,10 +300,72 @@ describe('preserveSignatures — 仕様照合による是正（pdf-spec-mcp で�
   });
 });
 
+describe('incremental — ヘッダがファイル先頭に無い PDF（B-22 の回帰）', () => {
+  /**
+   * ISO 32000-2 §7.5.2: 「バイトオフセットは %PDF- の PERCENT SIGN から計算する」。
+   * ヘッダの前にバイトが並ぶファイルは合法で、PDF Association が純正検体
+   * `PDF 2.0 with offset start.pdf` を配っている。
+   *
+   * 🔴 v0.18.0 以前はこの原点を持たず、startxref を**絶対位置**として扱っていた。
+   * origin = 656 の検体で xref 形式を table → stream と誤判定し、追記後のファイルを
+   * qpdf が "file is damaged" と判定していた。**既存のテストが全部 origin = 0 で
+   * 書かれていたため、この面は一度も測られていなかった。**
+   *
+   * T-3: readPreviousSection の origin を無視する、または buildIncrementalUpdate の
+   * cursor から `- origin` を外すと、このテストが落ちる。
+   */
+  function withLeadingBytes(pdf: Uint8Array, lead: string): Uint8Array {
+    const head = Buffer.from(lead, 'latin1');
+    const out = new Uint8Array(head.length + pdf.length);
+    out.set(head, 0);
+    out.set(pdf, head.length);
+    return out;
+  }
+
+  it('原点を %PDF- から数え、追記後も先頭バイトが不変', async () => {
+    const plain = await makeSignedLookingPdf(join(dir, 'offset-base.pdf'), {
+      useObjectStreams: false,
+    });
+    const lead = '%!PS-Adobe-3.0 leading bytes before the header\n';
+    const shifted = withLeadingBytes(plain, lead);
+
+    const section = await readPreviousSection(shifted);
+    expect(section.origin).toBe(lead.length);
+    // 原点を無視すると、この startxref を絶対位置で覗いて形式を取り違える
+    expect(section.style).toBe('table');
+
+    const src = join(dir, 'offset-start.pdf');
+    const dst = join(dir, 'offset-start-out.pdf');
+    await writeFile(src, shifted);
+    await addAnnotation(annotArgs(src, dst));
+
+    const out = new Uint8Array(await readFile(dst));
+    expect(out.length).toBeGreaterThan(shifted.length);
+    expect(Buffer.compare(Buffer.from(out.subarray(0, shifted.length)), Buffer.from(shifted))).toBe(
+      0,
+    );
+
+    // 追記した /Prev は origin 相対（絶対位置を書くとチェーンが切れる）
+    const appended = Buffer.from(out.subarray(shifted.length)).toString('latin1');
+    expect(appended).toContain(`/Prev ${section.startxref}`);
+  });
+});
+
 describe('incremental — 低レベルの安全弁', () => {
-  it('startxref が壊れたファイルは INVALID_PDF', () => {
-    const junk = Buffer.from('%PDF-1.7\nnothing to see here', 'latin1');
-    expect(() => readStartXref(junk)).toThrowError(/startxref/);
+  it('直前セクションを特定できないファイルは INVALID_PDF', async () => {
+    // 構造を取り違えたまま増分更新を進めると、オフセットの狂った——つまり壊れた
+    // ——ファイルができる。推測して進むより拒否するのが正しい（B-22）。
+    const junk = new Uint8Array(Buffer.from('%PDF-1.7\nnothing to see here', 'latin1'));
+    await expect(readPreviousSection(junk)).rejects.toThrowError(/startxref/);
+  });
+
+  it('セクションは読めるが形式を判別できないファイルも INVALID_PDF', async () => {
+    // startxref はあるが、その先が xref テーブルでも相互参照ストリームでもない。
+    // ここで推測すると、追記するセクションの種類を取り違える。
+    const junk = new Uint8Array(
+      Buffer.from('%PDF-1.7\nnot a section here\nstartxref\n9\n%%EOF\n', 'latin1'),
+    );
+    await expect(readPreviousSection(junk)).rejects.toThrowError(/cross-reference section/);
   });
 
   it('生成番号が保たれる（gen>0 の再定義）', () => {

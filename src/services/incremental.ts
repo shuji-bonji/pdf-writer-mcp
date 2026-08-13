@@ -13,7 +13,16 @@
  *      sizeInBytes / copyBytesInto でそのまま直列化する（自前トークナイザを持たない）
  *   3. xref の形式追随 — 元ファイルが古典テーブルなら xref テーブル + trailer を、
  *      相互参照ストリーム（PDF 1.5+）なら /Type /XRef ストリームを追記する
- *      （形式の混在は仕様違反）
+ *
+ * **直前セクションの解析は normativepdf に委譲する**（B-22）。以前はバイトを覗いて
+ * 形式を推測し、startxref の値を**絶対位置として**扱っていた。ISO 32000-2 §7.5.2 は
+ * 「バイトオフセットは %PDF- の PERCENT SIGN から計算する」と定めており、ヘッダ前に
+ * バイトが並ぶ合法なファイル（PDF Association の `PDF 2.0 with offset start.pdf`）では
+ * **形式を誤判定し、追記後のファイルを qpdf が "file is damaged" と判定していた**。
+ *
+ * ただし委譲するのは**セクション 1 つの解析だけ**で、チェーンの走査はしない
+ * （`readPreviousSection` を参照）。位置の特定と回復方針は本モジュールが持つ。
+ * 直列化も pdf-lib のまま — 置き換えたのは読み側の一部だけ。
  *
  * 制約（PoC）:
  *   - 暗号化 PDF は対象外（loadForEdit が先に拒否する）
@@ -21,6 +30,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { dictGet, readXrefSectionAt } from 'normativepdf';
 import {
   PDFArray,
   type PDFContext,
@@ -37,66 +47,117 @@ import {
 } from 'pdf-lib';
 import { PdfWriterError } from '../errors.js';
 
-/** 元ファイル末尾から startxref を読む */
-export function readStartXref(original: Uint8Array): number {
-  // startxref は末尾近傍にある（仕様上は最終 1024 バイト内が慣例。余裕を見て 2048）
+/**
+ * 直前の相互参照セクションについて、増分更新に必要な事実。
+ *
+ * セクションの**解析**は normativepdf に委ねる（原点相対のオフセット・古典テーブルと
+ * 相互参照ストリームの両方・trailer の構造化）。**位置の特定**は本モジュールが持つ —
+ * 同じ切り分けを pdf-verify-mcp の revision-diff でも採っている（`readXrefSectionAt`
+ * の doc コメントが「回復方針は消費者側に残す」と宣言している）。
+ */
+export interface PreviousSection {
+  /** §7.5.2 — `%PDF-` の PERCENT SIGN の位置。全オフセットの原点 */
+  readonly origin: number;
+  /** 直前セクションの位置。**origin 相対**（trailer の /Prev に書く値） */
+  readonly startxref: number;
+  /** 追記するセクションの形式を決める。hybrid は古典テーブルとして扱う（§7.5.8.4） */
+  readonly style: 'table' | 'stream';
+  /** 直前 trailer の /Size。オブジェクト番号の予約に使う */
+  readonly size: number;
+}
+
+/** §7.5.2 — オフセットの原点。ヘッダがファイル先頭に無いファイルは合法 */
+function findOrigin(original: Uint8Array): number {
+  const at = Buffer.from(original.subarray(0, 4096)).toString('latin1').indexOf('%PDF-');
+  if (at < 0) {
+    throw new PdfWriterError(
+      'No "%PDF-" header found near the start of the file (ISO 32000-2 §7.5.2).',
+      'INVALID_PDF',
+    );
+  }
+  return at;
+}
+
+/** §7.5.5 — ファイル末尾の startxref が持つ値（origin 相対） */
+function readStartxrefValue(original: Uint8Array): number {
+  // 末尾近傍を見る。§7.5.5 は「PDF プロセッサは末尾から読むべき」としか言っておらず、
+  // %%EOF の後ろにバイトがあるファイルも実在する（normativepdf 0.3.1 の降格根拠）。
   const tail = Buffer.from(original.subarray(Math.max(0, original.length - 2048))).toString(
     'latin1',
   );
-  const idx = tail.lastIndexOf('startxref');
-  if (idx < 0) {
+  const at = tail.lastIndexOf('startxref');
+  if (at < 0) {
     throw new PdfWriterError(
       'Cannot find "startxref" near the end of the file — not a valid PDF trailer.',
       'INVALID_PDF',
     );
   }
-  const m = /startxref\s+(\d+)/.exec(tail.slice(idx));
-  if (!m) {
+  const m = /startxref\s+(\d+)/.exec(tail.slice(at));
+  if (!m?.[1]) {
     throw new PdfWriterError('Malformed "startxref" entry in the PDF trailer.', 'INVALID_PDF');
   }
   return Number(m[1]);
 }
 
-/** 元ファイルの相互参照が古典テーブルか、相互参照ストリームかを判定する */
-export function detectXrefStyle(original: Uint8Array, startxref: number): 'table' | 'stream' {
-  if (startxref < 0 || startxref >= original.length) {
+/**
+ * 直前の相互参照セクションを読む（§7.5.2 / §7.5.5 / §7.5.8）。
+ *
+ * 🔴 **チェーン全体は歩かない。** 増分更新に要るのは最新セクションだけで、`/Prev` の
+ * 先が読めるかどうかは関係ない。`readXrefChain` で全体を歩いた版では、追えない
+ * `/Prev 0` を持つ**実物の 5 署名 PDF**（`docs/specimens/dss-pades-5sigs-doctimestamp.pdf`）
+ * が巻き添えで拒否された — 署名保持のための経路が、まさに署名付き文書で使えなくなる。
+ * 必要のない検査を通したことによる後退で、実測でリポジトリ内 PDF 2987 件中 4 件が
+ * これに当たっていた。
+ *
+ * セクション自体が読めなければ拒否する。構造を取り違えたまま進むと、オフセットの
+ * 狂った——つまり壊れた——ファイルを作ることになる（B-22）。
+ */
+export async function readPreviousSection(original: Uint8Array): Promise<PreviousSection> {
+  const origin = findOrigin(original);
+  const startxref = readStartxrefValue(original);
+
+  let section: Awaited<ReturnType<typeof readXrefSectionAt>>;
+  try {
+    section = await readXrefSectionAt(original, startxref, origin);
+  } catch (error) {
     throw new PdfWriterError(
-      `startxref points outside the file (${startxref}) — corrupted PDF.`,
+      `Cannot read the cross-reference section the file's startxref points at, so an incremental ` +
+        `update would have to guess its format and offsets: ${error instanceof Error ? error.message : String(error)}`,
       'INVALID_PDF',
     );
   }
-  const head = Buffer.from(original.subarray(startxref, startxref + 32))
-    .toString('latin1')
-    .trimStart();
-  return head.startsWith('xref') ? 'table' : 'stream';
+
+  const size = dictGet(section.trailer, 'Size');
+  if (size === undefined || size.kind !== 'integer') {
+    throw new PdfWriterError(
+      'The active trailer has no integer /Size entry (ISO 32000-2 §7.5.5 Table 15) — refusing to ' +
+        'allocate object numbers that might collide with existing objects.',
+      'INVALID_PDF',
+    );
+  }
+  return {
+    origin,
+    startxref,
+    // §7.5.8.4: hybrid はテーブルに XRefStm がぶら下がった形で、セクション本体は
+    // 古典テーブル。追記もテーブルで揃える。
+    style: section.kind === 'stream' ? 'stream' : 'table',
+    size: size.value,
+  };
 }
 
 /**
- * 元ファイルが実際に使っている最大オブジェクト番号を context に予約する。
+ * 既存オブジェクト番号を予約する（新規採番が既存と衝突しないように）。
  *
- * **増分更新の前に必ず呼ぶこと。** pdf-lib はオブジェクトストリームの「容器」と
- * 相互参照ストリーム自身を indirect object として登録しないため、
- * `largestObjectNumber` が実際より小さくなる。そのまま `register()` すると
- * 新規オブジェクトが**容器と同じ番号を再利用**し、/Prev 連鎖上で
- * 「obj N は圧縮ストリーム」⇔「obj N は注釈辞書」が衝突して読者が壊れる
- * （qpdf: "supposed object stream N is not a stream" を実測）。
- *
- * 真の最大番号は有効な trailer の /Size（= 最大番号 + 1。ISO 32000-1 §7.5.5）から取る。
+ * /Size は**パース済みの trailer から**取る。以前は startxref 以降のバイトを
+ * latin1 にして `/\/Size\s+(\d+)/` で拾っていたが、その region の起点が絶対位置
+ * だったため、origin > 0 のファイルでは無関係なバイト列を走査していた。
  */
-export function reserveExistingObjectNumbers(doc: PDFDocument, original: Uint8Array): void {
-  const startxref = readStartXref(original);
-  // startxref の指す位置からファイル末尾まで（テーブル形式ではエントリ列の後に
-  // trailer 辞書が来る。エントリは数字のみなので /Size の誤検出はない）
-  const region = Buffer.from(original.subarray(startxref)).toString('latin1');
-  const m = /\/Size\s+(\d+)/.exec(region);
-  if (!m) {
-    throw new PdfWriterError(
-      'Cannot determine /Size from the active trailer — refusing to allocate object numbers ' +
-        'that might collide with existing objects.',
-      'INVALID_PDF',
-    );
-  }
-  const maxUsed = Number(m[1]) - 1;
+export async function reserveExistingObjectNumbers(
+  doc: PDFDocument,
+  original: Uint8Array,
+): Promise<void> {
+  const { size } = await readPreviousSection(original);
+  const maxUsed = size - 1;
   if (maxUsed > doc.context.largestObjectNumber) {
     doc.context.largestObjectNumber = maxUsed;
   }
@@ -246,9 +307,18 @@ function parsePreviousTrailer(
   original: Uint8Array,
   startxref: number,
   style: 'table' | 'stream',
+  origin: number,
 ): PDFDict | null {
   try {
-    const region = original.subarray(startxref);
+    // startxref は origin 相対なので、バイト列を切り出すときに原点を足す（§7.5.2）。
+    //
+    // ⚠️ この 1 行は条文的には正しいが、**効果を観測できていない**。origin を足さない
+    // 版と出力を突き合わせた実測（origin > 0 × table / stream の 4 通り、稀な trailer
+    // キーを注入した検体を含む）では、どのケースでも出力が同一だった。table 形式は
+    // `trailer` キーワードを前方検索するので起点が小さすぎても届き、stream 形式で
+    // 誤った辞書を拾っても、その中身は TRAILER_EXCLUDE で落ちるため。
+    // **「直したが、それが効く場面を作れていない」**という状態で置いてある。
+    const region = original.subarray(origin + startxref);
     const text = Buffer.from(region).toString('latin1');
     let dictStart: number;
     if (style === 'table') {
@@ -354,12 +424,13 @@ function updateFileId(
  * 増分更新を構築して「元バイト列 + 追記部」を返す。
  * 戻り値の先頭 original.length バイトは入力と同一であることが保証される。
  */
-export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): IncrementalUpdateResult {
+export async function buildIncrementalUpdate(
+  opts: IncrementalUpdateOptions,
+): Promise<IncrementalUpdateResult> {
   const { original, doc, sinceObjectNumber } = opts;
   const context = doc.context;
 
-  const prevStartXref = readStartXref(original);
-  const style = detectXrefStyle(original, prevStartXref);
+  const { origin, startxref: prevStartXref, style } = await readPreviousSection(original);
 
   // --- 書き出すオブジェクトを収集（新規 = snapshot より大きい番号、+ dirty） ---
   const toWrite = new Map<number, { ref: PDFRef; obj: PDFObject }>();
@@ -384,7 +455,9 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
 
   // --- 本体オブジェクトの直列化（オフセットは 元ファイル長 + 相対位置） ---
   const chunks: Uint8Array[] = [];
-  let cursor = original.length;
+  // §7.5.2: オフセットの原点は %PDF- の PERCENT SIGN。ヘッダ前にバイトがあるファイル
+  // では絶対位置と origin 相対位置がずれる（B-22 の欠陥はここだった）。
+  let cursor = original.length - origin;
   const push = (bytes: Uint8Array): void => {
     chunks.push(bytes);
     cursor += bytes.length;
@@ -417,7 +490,7 @@ export function buildIncrementalUpdate(opts: IncrementalUpdateOptions): Incremen
 
   // §7.5.6: 前 trailer の全エントリ（除外リスト以外）を引き継ぐ
   const warnings: string[] = [];
-  const prevTrailer = parsePreviousTrailer(doc, original, prevStartXref, style);
+  const prevTrailer = parsePreviousTrailer(doc, original, prevStartXref, style, origin);
   const carryOver: Array<[PDFName, PDFObject]> = [];
   if (prevTrailer) {
     for (const [key, value] of prevTrailer.entries()) {

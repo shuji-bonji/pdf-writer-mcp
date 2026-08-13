@@ -243,6 +243,85 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
 > **verify 側に PDF/UA 判定が無く受け入れ基準を機械検証できない**ため、
 > Tier A 編集系を先行する方針に変更済み（`mcps/pdf-family-role-architecture.md` M-1 参照）。
 
+- [x] **B-22. 増分更新が「ヘッダがファイル先頭に無い PDF」を壊す**（2026-08-13 起票・**同日修正**）
+
+  ISO 32000-2 §7.5.2 は「バイトオフセットは `%PDF-` の PERCENT SIGN から計算する」と
+  定めており、ヘッダの前にバイトが並ぶファイルは合法（PDF Association の純正検体
+  `PDF 2.0 with offset start.pdf` がそれ）。`incremental.ts` はこの原点を持っておらず、
+  **`startxref` の値を絶対位置として扱う**。
+
+  **実測（2026-08-13）**: 同検体（origin = 656）で
+
+  - `detectXrefStyle` が `startxref 4248` を絶対位置で覗き、フォント幅配列
+    `" 556 222…"` を見て **`stream` と誤判定**（正しくは `table`。origin+4248 に `xref`）
+  - `buildIncrementalUpdate` のオフセットも `original.length + 相対位置` の絶対値
+  - 結果、追記後のファイルに **`qpdf --check` が "file is damaged"**
+
+  origin = 0 の検体（`Simple PDF 2.0 file.pdf`）は `table` と正しく判定し qpdf も clean
+  なので、**既存テストは全部 origin = 0 で書かれていて、この面を一度も測っていない**。
+
+  **是正方針**: `readStartXref` / `detectXrefStyle` / `parsePreviousTrailer` の手書き
+  パースを **normativepdf の `readXrefChain` に置換**する（`{ origin, startxref,
+  sections[0].kind, sections[0].trailer }` が 1 回の呼び出しで揃う）。同じ型の欠陥を
+  verify の revision-diff でも踏んでおり、そちらは置換で解消済み。
+  **前提 = normativepdf 0.3.0 の公開**（シリアライザを含む版。0.2.0 はパーサのみ）。
+
+  ⚠️ 置換すると、いまの緩いパースが受理していた壊れかけのファイルを **拒否**する
+  可能性がある。増分更新は「構造を取り違えたまま進むと壊れたファイルを作る」操作
+  なので、**推測して進むより拒否するほうが正しい**という判断だが、実ファイルでの
+  回帰はテストで確認すること。
+
+  回帰テストは **origin > 0 の検体を必ず含める**こと（この欠陥はそれでしか出ない）。
+
+  ### 修正（2026-08-13）
+
+  `readStartXref` / `detectXrefStyle` を削除し、**normativepdf 0.3.0 の `readXrefChain`**
+  に委譲する `readPreviousSection` を新設（`{ origin, startxref, style, size }` を 1 回で返す）。
+  `reserveExistingObjectNumbers` の `/\/Size\s+(\d+)/` 正規表現も廃し、**パース済み
+  trailer の /Size** を使う。`buildIncrementalUpdate` のオフセットを origin 相対に是正。
+  直列化は pdf-lib のまま（変換層は作らない = Phase 3 で pdf-lib ごと消える）。
+
+  `reserveExistingObjectNumbers` / `buildIncrementalUpdate` が async 化し、`editor.ts` の
+  10 箇所に `await` を追加。
+
+  **実測**: `PDF 2.0 with offset start.pdf`（origin = 656）で `style` が `stream` 誤判定 →
+  **`table` に是正**、qpdf も **damaged → clean**。pdf20examples 4 件・実署名検体 2 件で
+  前方バイト不変・qpdf 新規苦情ゼロ・**署名 2 本とも VALID 維持**。
+
+  **T-3**: `cursor` から `- origin` を外すと offset-start 検体が damaged に戻る（発火）。
+
+  ### 🔴 移行中に自分で作った後退と、その是正（同日）
+
+  最初の実装は normativepdf の `readXrefChain`（**チェーン全体を歩く**）を使っていた。
+  増分更新に必要なのは**最新セクション 1 つ**だけなので、これは必要のない検査を
+  通したことになる。実測（リポジトリ内 PDF 2987 件）で **17 件が拒否**され、そのうち
+  4 件は意図的破損ではない実ファイルだった。中でも
+  `docs/specimens/dss-pades-5sigs-doctimestamp.pdf` は**実物の 5 署名文書**で、
+  trailer が追えない `/Prev 0` を持つために巻き添えで拒否されていた —
+  **署名保持のための経路が、まさに署名付き文書で使えなくなる**という筋の悪い後退。
+
+  `readXrefSectionAt`（セクション 1 つだけ読む）に変更。位置の特定（origin の算出と
+  末尾からの startxref 走査）は本モジュールが持つ。これは verify の revision-diff と
+  同じ切り分けで、`readXrefSectionAt` の doc コメントが「回復方針は消費者側に残す」と
+  宣言しているとおりの形。**拒否 17 → 10 件**、実ファイル 4 → 3 件（残りは
+  `corrupted.pdf` と verify の `startxref 0` フィクスチャ 2 件で、いずれも意図的）。
+
+  **受入の再測定**: `dss-pades-5sigs-doctimestamp.pdf`（2011 年の実文書・5 署名 +
+  文書タイムスタンプ・失効/期限切れ証明書入り）に増分更新を掛け、**6 署名すべての
+  判定が元と一致**（Signature1 は元から revoked による invalid・他 5 つは valid）。
+  前方バイト不変・qpdf 新規苦情ゼロ。
+
+  ⚠️ **残る 10 件の拒否は「推測して進むより拒否する」の帰結**で、移行前の緩い
+  パースなら通していたもの。壊れた xref を持つファイルに増分更新を掛けたい要求が
+  実際に立ったら、**回復方針は本モジュール側に足す**（library は strict のまま）。
+
+  ⚠️ **`parsePreviousTrailer` の origin 修正は効果を観測できていない。** origin を足さない
+  版と 4 通り（origin > 0 × table / stream、稀な trailer キーを注入した検体を含む）で
+  出力を突き合わせたが、すべて同一だった。table は `trailer` を前方検索するので起点が
+  小さすぎても届き、stream で誤った辞書を拾ってもその中身は `TRAILER_EXCLUDE` で落ちる。
+  条文（§7.5.2）に照らして正しいので残すが、**「直したが、それが効く場面を作れていない」**
+  ものとしてコード側にも明記した。
+
 - [x] **B-5a. 編集系 Tier A 第1波**（v0.2.0）
 - [x] **B-5b. 編集系 Tier A 第2波**（v0.4.0）: `add_bookmarks` / `add_annotation`
 - [x] **B-5c. 編集系 Tier B**（完了・子項目 5 件すべて済み）

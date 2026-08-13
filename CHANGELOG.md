@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.0] - 2026-08-13
+
+### Fixed
+
+- **Incremental updates were corrupting PDFs whose header is not at byte 0.** ISO 32000-2
+  §7.5.2 says "byte offsets shall be calculated from the PERCENT SIGN" of `%PDF-`, so a file
+  may carry bytes in front of its header and still be well formed — the PDF Association ships
+  such a specimen (`PDF 2.0 with offset start.pdf`). This server treated the `startxref` value
+  as an absolute file position. Measured on that specimen (origin = 656): the cross-reference
+  style was misdetected as `stream` when it is a classic `table` — the peek landed in a font
+  width array — and every offset written into the appended section was off by 656, so
+  **`qpdf --check` reported "file is damaged"** on the result.
+
+  **Every existing test was written with origin = 0**, so this face had never been measured.
+  A regression test now covers it.
+
+### Changed
+
+- **Reading the previous cross-reference section is delegated to
+  [normativepdf](https://github.com/shuji-bonji/normativepdf) 0.3.1** (`readXrefSectionAt`).
+  The hand-rolled `readStartXref` / `detectXrefStyle` and the `/Size` regular expression are
+  gone; `readPreviousSection` returns `{ origin, startxref, style, size }` from one parse of
+  the actual section.
+
+  **Only one section is read — the chain is not walked.** An incremental update needs the
+  newest section and nothing else, and walking further drags in failures that have no bearing
+  on it: a first attempt using `readXrefChain` refused
+  `dss-pades-5sigs-doctimestamp.pdf`, a real five-signature document whose trailer carries an
+  unfollowable `/Prev 0` — the signature-preserving path failing on precisely the kind of file
+  it exists for. Locating the section, and the recovery policy for doing so, stay in this
+  server; the same split pdf-verify-mcp uses.
+
+  Serialisation still goes through pdf-lib. No pdf-lib → COS conversion layer was introduced,
+  because it would be discarded when pdf-lib is removed.
+
+- `reserveExistingObjectNumbers` and `buildIncrementalUpdate` are now `async`. The MCP tool
+  surface is unchanged.
+
+- `scripts/sync-plugin-version.mjs` keeps `.claude-plugin/plugin.json` in step with
+  `package.json`, run from the `version` hook and checked by `prepublishOnly`. It was
+  **already out of step at 0.17.0 against a published 0.18.0** — the same drift the script
+  was written to stop in pdf-verify-mcp.
+
+### Known regressions
+
+- A file whose newest cross-reference section departs from §7.5.4 / §7.5.8 is now **refused**
+  for `preserveSignatures` rather than handled by a lenient scan. Measured over the 2,987 PDFs
+  in this repository: **10 refusals**, of which 7 are deliberately broken corpus specimens and
+  3 are fixtures built to be broken. An incremental update that misreads the structure writes
+  a damaged file, so refusing beats guessing — but if a real damaged specimen demands it, the
+  recovery belongs here, in this server, and not in the library.
+
+### Tests
+
+- Acceptance re-measured on `dss-pades-5sigs-doctimestamp.pdf` (a 2011 document with five
+  CAdES signatures, a document timestamp, and revoked/expired certificates): **all six
+  signature verdicts match the original**, the leading bytes are unchanged, and `qpdf` reports
+  nothing the source did not already report.
+
 ## [0.18.0] - 2026-08-08
 
 ### Changed

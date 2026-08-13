@@ -218,7 +218,7 @@ async function saveWithPreservedSignatures(
   since: number,
   what: string,
 ): Promise<EditResult> {
-  const update = buildIncrementalUpdate({
+  const update = await buildIncrementalUpdate({
     original: originalBytes,
     doc,
     dirtyRefs,
@@ -246,7 +246,7 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
   const preserve = args.preserveSignatures === true;
   if (preserve) {
     assertDocMdpAllows(doc, 'metadata-or-outline');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
   const dirty: PDFRef[] = [];
@@ -299,7 +299,7 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
   const preserve = args.preserveSignatures === true;
   if (preserve) {
     assertDocMdpAllows(doc, 'metadata-or-outline');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
 
@@ -327,7 +327,7 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
     assertDocMdpAllows(doc, 'annotation');
 
     // 容器ストリーム等の「登録されない番号」との衝突を防いでから採番を始める
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
     const since = doc.context.largestObjectNumber;
     const added = addAnnotationDict(doc, args);
 
@@ -388,7 +388,7 @@ export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResul
   if (preserve) {
     // 添付は「文書への追加」であり DocMDP の許可種別に無い（認証文書は全レベル拒否）
     assertDocMdpAllows(doc, 'metadata-or-outline');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
 
@@ -444,7 +444,7 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
   if (preserve) {
     // ページ内容への描画追記は DocMDP の許可種別に無い（認証文書は全レベル拒否）
     assertDocMdpAllows(doc, 'content');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
   const total = doc.getPageCount();
@@ -515,7 +515,7 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
   const preserve = args.preserveSignatures === true;
   if (preserve) {
     assertDocMdpAllows(doc, 'content');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
   const total = doc.getPageCount();
@@ -726,7 +726,7 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
   if (preserve) {
     // 構造タグ付けは DocMDP の許可種別に含まれない（認証文書は全レベルで拒否）
     assertDocMdpAllows(doc, 'structure');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
 
@@ -796,7 +796,7 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
   const preserve = args.preserveSignatures === true;
   if (preserve) {
     assertDocMdpAllows(doc, 'structure');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
 
@@ -876,7 +876,7 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   if (preserve) {
     // catalog（/OutputIntents）と trailer を触るので、構造変更と同じ扱いにする
     assertDocMdpAllows(doc, 'structure');
-    reserveExistingObjectNumbers(doc, bytes);
+    await reserveExistingObjectNumbers(doc, bytes);
   }
   const since = doc.context.largestObjectNumber;
 
