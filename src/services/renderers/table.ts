@@ -4,8 +4,9 @@
  * 列幅は内容から自動算出し、セル内は折り返す。改ページ時はヘッダを再描画する。
  */
 
-import { rgb } from 'pdf-lib';
+import { COLORS, toPdfLibColor } from '../color.js';
 import { type LayoutEngine, wrapText } from '../layout.js';
+import type { TextMetrics } from '../metrics.js';
 
 const PAD_X = 5;
 const PAD_Y = 4;
@@ -13,12 +14,14 @@ const CELL_LINE_HEIGHT = 1.3;
 
 export function renderTable(engine: LayoutEngine, headers: string[], rows: string[][]): void {
   const font = engine.defaultFont;
+  // 列幅の算出は測定であって描画ではない。同じ値でも経路を分ける（metrics.ts）
+  const metrics: TextMetrics = engine.defaultMetrics;
   const size = Math.max(6, engine.defaultSize - 1);
   const leading = size * CELL_LINE_HEIGHT;
   const cols = headers.length;
   const tableWidth = engine.contentWidth;
 
-  const measure = (s: string) => font.widthOfTextAtSize(s, size);
+  const measure = (s: string) => metrics.widthOfTextAtSize(s, size);
 
   // 希望列幅（内容の最大幅）を上限でクランプ
   const maxColW = tableWidth * 0.6;
@@ -68,7 +71,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
             y: topY - rowHeight,
             width: w,
             height: rowHeight,
-            color: rgb(0.93, 0.93, 0.96),
+            color: toPdfLibColor(COLORS.tableHeaderBackground),
           });
         }
         engine.page.drawRectangle({
@@ -76,7 +79,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
           y: topY - rowHeight,
           width: w,
           height: rowHeight,
-          borderColor: rgb(0.7, 0.7, 0.72),
+          borderColor: toPdfLibColor(COLORS.tableBorder),
           borderWidth: 0.5,
         });
       });
@@ -90,7 +93,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
               y,
               size,
               font,
-              color: rgb(0.15, 0.15, 0.15),
+              color: toPdfLibColor(COLORS.tableText),
             });
           });
         }

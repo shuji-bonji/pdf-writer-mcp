@@ -813,6 +813,27 @@ pdf-spec の正しさは reader ではなく **PDF の直接観測**（生ペー
       決める必要がある（本文側を H2 起点にする / タイトルを構造木に入れない / 現状維持で
       Skill 側が注意する、のいずれか）。**往復のたびに H1 が増えるかは未追試**
 
+- [ ] 🟡 **B-23. サブセット済み TrueType が `cmap` を積んでいる（R-9.9.1-21 違反）**
+      **2026-08-14 実測で発見**（normativepdf の `src/font/embedded-font.ts` を書いている最中に、
+      writer の実出力を材料にして測った）。`create_text_pdf` に `.ttf` を渡した出力の `FontFile2` を
+      取り出して sfnt のテーブル一覧を見ると:
+
+      `GDEF GPOS GSUB OS/2 cmap cvt fpgm gasp glyf head hhea hmtx loca maxp name post prep`
+
+      **R-9.9.1-21（shall not）**:「If used with a CIDFont dictionary, the "cmap" table is not needed
+      and **shall not be present**, since the mapping from character codes to glyph descriptions is
+      provided separately.」CIDFont（Identity-H + CIDToGIDMap）で使う以上、`cmap` は載せてはならない。
+
+      **W-2 と同じ盲点の中にある** — veraPDF はフォントプログラムの内部を見ないので、
+      この検体は `pdfa-3b` **146/146 COMPLIANT** のまま通る（`conformance-ttf-pdfa3b` で実測）。
+      壊れるわけではないが、条文は shall not であり、**測っていなければ永久に見えない**。
+
+      直す場所は埋め込み側ではなくサブセット側（`subset-font` / harfbuzz の drop-tables 指定）。
+      テーブルを 1 つ落とすと sfnt のディレクトリとオフセットを組み直すことになるので、
+      normativepdf 側では**報告に留めている**（`buildType0Font` の `notes` に `R-9.9.1-21` が乗る）。
+      優先度は低い（実害の報告なし・レンダリングは正常）が、**Phase 3 でフォント経路を建て直すときに
+      同時に解くのが安い**
+
 ## C. 既知の制約との対応
 
 | 制約                                         | 対応タスク                                                                                                                                                                |

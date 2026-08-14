@@ -25,9 +25,7 @@ import {
   type PDFPage,
   type PDFRef,
   PDFString,
-  type RGB,
   rectangle,
-  rgb,
   setFillingRgbColor,
   setGraphicsState,
   setLineWidth,
@@ -36,6 +34,7 @@ import {
 } from 'pdf-lib';
 import { outputDate } from '../config.js';
 import type { AddAnnotationArgs, AnnotationRect } from '../types/index.js';
+import { type Rgb, rgbFromHex } from './color.js';
 
 /**
  * 注釈のテキストの段落区切りを CR（0Dh）に正規化する。
@@ -55,20 +54,8 @@ export function normalizeAnnotationText(text: string): string {
   return text.replace(/\r\n|\n|\r/g, '\r');
 }
 
-/** #rrggbb / #rgb を pdf-lib の RGB へ */
-export function parseHexColor(hex: string): RGB {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) {
-    throw new Error(`color must be a hex string like "#ffcc00", got ${JSON.stringify(hex)}`);
-  }
-  let h = m[1];
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  const n = Number.parseInt(h, 16);
-  return rgb(((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255);
-}
-
-function colorArray(doc: PDFDocument, color: RGB): PDFArray {
-  return doc.context.obj([color.red, color.green, color.blue]) as PDFArray;
+function colorArray(doc: PDFDocument, color: Rgb): PDFArray {
+  return doc.context.obj([color.r, color.g, color.b]) as PDFArray;
 }
 
 export interface AddedAnnotation {
@@ -108,7 +95,7 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
   // /F: bit3 Print（印刷に含める）
   dict.set(PDFName.of('F'), PDFNumber.of(4));
 
-  const color = parseHexColor(args.color ?? defaultColor(args.type));
+  const color = rgbFromHex(args.color ?? defaultColor(args.type));
   dict.set(PDFName.of('C'), colorArray(doc, color));
 
   switch (args.type) {
@@ -129,7 +116,7 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
     case 'square':
       dict.set(PDFName.of('Subtype'), PDFName.of('Square'));
       if (args.interiorColor) {
-        dict.set(PDFName.of('IC'), colorArray(doc, parseHexColor(args.interiorColor)));
+        dict.set(PDFName.of('IC'), colorArray(doc, rgbFromHex(args.interiorColor)));
       }
       break;
   }
@@ -161,7 +148,7 @@ export function addAnnotation(doc: PDFDocument, args: AddAnnotationArgs): AddedA
 function buildAppearance(
   doc: PDFDocument,
   args: AddAnnotationArgs,
-  color: RGB,
+  color: Rgb,
   w: number,
   h: number,
 ): PDFRef {
@@ -177,7 +164,7 @@ function buildAppearance(
       });
       ops.push(
         setGraphicsState('GS0'),
-        setFillingRgbColor(color.red, color.green, color.blue),
+        setFillingRgbColor(color.r, color.g, color.b),
         rectangle(0, 0, w, h),
         fill(),
       );
@@ -186,11 +173,11 @@ function buildAppearance(
 
     case 'square': {
       const lw = 1.5;
-      ops.push(setLineWidth(lw), setStrokingRgbColor(color.red, color.green, color.blue));
+      ops.push(setLineWidth(lw), setStrokingRgbColor(color.r, color.g, color.b));
       if (args.interiorColor) {
-        const ic = parseHexColor(args.interiorColor);
+        const ic = rgbFromHex(args.interiorColor);
         ops.push(
-          setFillingRgbColor(ic.red, ic.green, ic.blue),
+          setFillingRgbColor(ic.r, ic.g, ic.b),
           rectangle(lw / 2, lw / 2, w - lw, h - lw),
           fillAndStroke(),
         );
@@ -203,7 +190,7 @@ function buildAppearance(
     default: {
       // text: 付箋アイコン（地色の紙面 + 枠 + 罫線 3 本の簡易ノート）
       ops.push(
-        setFillingRgbColor(color.red, color.green, color.blue),
+        setFillingRgbColor(color.r, color.g, color.b),
         rectangle(0, 0, w, h),
         fill(),
         setLineWidth(Math.max(0.75, h * 0.04)),

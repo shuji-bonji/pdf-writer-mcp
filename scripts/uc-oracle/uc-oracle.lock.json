@@ -1,13 +1,13 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-13",
+ "capturedAt": "2026-08-14T04:11:00.126Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
  },
  "verifyRan": true,
  "counts": {
-  "measured": 25,
+  "measured": 26,
   "unavailable": 0,
   "failed": 0,
   "structureUnreadable": 1
@@ -16,7 +16,7 @@
   "pdfVersion": {
    "shapes": {
     "1.7": 6,
-    "2.0": 6
+    "2.0": 7
    },
    "distinct": 2
   },
@@ -54,7 +54,7 @@
   },
   "op": {
    "shapes": {
-    "annotate": 2,
+    "annotate": 4,
     "doc-level": 1,
     "merge": 1,
     "page-number": 1,
@@ -78,27 +78,31 @@
   },
   "origin": {
    "shapes": {
+    "0": 4,
     ">0": 1
    },
-   "distinct": 1
+   "distinct": 2
   },
   "inputXref": {
    "shapes": {
     "chain": 1,
     "stream": 1,
-    "table": 1
+    "table": 3
    },
    "distinct": 3
+  },
+  "revisions": {
+   "shapes": {
+    "1": 2,
+    "2": 1,
+    "4": 1,
+    "8": 1
+   },
+   "distinct": 4
   },
   "signed": {
    "shapes": {
     "true": 2
-   },
-   "distinct": 1
-  },
-  "revisions": {
-   "shapes": {
-    "8": 1
    },
    "distinct": 1
   }
@@ -1031,12 +1035,44 @@
     "objectCount": 56
    }
   },
+  "input-origin-zero": {
+   "uc": "UC-2",
+   "axes": {
+    "origin": "0",
+    "inputXref": "table",
+    "pdfVersion": "2.0",
+    "revisions": 1,
+    "op": "annotate"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "06b8c2ba81ad8c0a2e3ecaa655b0c474dbc35d2b6292c2b1217ba6d667dd4914",
+   "meta": {
+    "producer": null,
+    "creator": null,
+    "objectCount": 14
+   }
+  },
   "input-origin-nonzero": {
    "uc": "UC-2",
    "axes": {
     "origin": ">0",
     "inputXref": "table",
-    "pdfVersion": "2.0"
+    "pdfVersion": "2.0",
+    "revisions": 1,
+    "op": "annotate"
    },
    "status": "measured",
    "responses": [
@@ -1063,7 +1099,9 @@
    "uc": "UC-2",
    "axes": {
     "inputXref": "chain",
-    "pdfVersion": "2.0"
+    "pdfVersion": "2.0",
+    "origin": "0",
+    "revisions": 2
    },
    "status": "measured",
    "responses": [
@@ -1094,7 +1132,9 @@
    "axes": {
     "signed": true,
     "inputXref": "stream",
-    "op": "annotate"
+    "op": "annotate",
+    "origin": "0",
+    "revisions": 4
    },
    "status": "measured",
    "responses": [
@@ -1133,7 +1173,9 @@
    "axes": {
     "signed": true,
     "revisions": 8,
-    "op": "annotate"
+    "op": "annotate",
+    "origin": "0",
+    "inputXref": "table"
    },
    "status": "measured",
    "responses": [

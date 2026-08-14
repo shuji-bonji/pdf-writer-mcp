@@ -5,8 +5,8 @@
  */
 
 import { marked } from 'marked';
-import { rgb } from 'pdf-lib';
 import { DEFAULTS } from '../../config.js';
+import { COLORS, toPdfLibColor } from '../color.js';
 import type { LoadedFont } from '../font-manager.js';
 import { type LayoutEngine, wrapText } from '../layout.js';
 import type { StructTag } from '../struct-tree.js';
@@ -140,7 +140,7 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
         y: engine.cursorTop - leading,
         width: engine.contentWidth,
         height: leading,
-        color: rgb(0.95, 0.95, 0.96),
+        color: toPdfLibColor(COLORS.codeBackground),
       });
     });
     if (line !== '') {
@@ -150,7 +150,7 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
           y: engine.cursorTop - size * 0.8,
           size,
           font,
-          color: rgb(0.15, 0.15, 0.2),
+          color: toPdfLibColor(COLORS.codeText),
         });
       });
     }
@@ -200,7 +200,7 @@ export function renderMarkdown(engine: LayoutEngine, markdown: string, loaded: L
         engine.struct?.begin(`H${level}` as StructTag);
         engine.drawParagraph(stripInline(t.text), {
           size,
-          color: rgb(0.05, 0.05, 0.05),
+          color: COLORS.heading,
           lineHeight: 1.25,
           spaceAfter: 4,
         });
@@ -239,7 +239,7 @@ export function renderMarkdown(engine: LayoutEngine, markdown: string, loaded: L
         engine.struct?.begin('BlockQuote');
         engine.drawParagraph(stripInline(String(t.text)), {
           leftIndent: 16,
-          color: rgb(0.4, 0.4, 0.4),
+          color: COLORS.mutedText,
           spaceAfter: BLOCK_GAP,
         });
         engine.struct?.end();

@@ -41,7 +41,20 @@ const opt = (name, fallback) => {
 };
 
 const UPDATE = flag('--update');
-const WITH_VERIFY = flag('--verify');
+/**
+ * 判定面を測るか。
+ *
+ * **ゴールデンが `--verify` 付きで採ってあるなら、既定で付ける。** 付けずに回すと
+ * 「測れていたものが測れない」が毎回 6〜7 件出続けることになり、**決して緑にならない検査は
+ * 読まれなくなる**（実測: ホストで `npm run oracle` を回すと差 7 件のうち 7 件が
+ * 環境由来で、実装の差 0 がその中に埋もれた）。verify サーバが見つからないときだけ、
+ * 従来どおり `undecided` として警告を出す。
+ */
+const WITH_VERIFY =
+  flag('--verify') ||
+  (existsSync(LOCK) &&
+    JSON.parse(readFileSync(LOCK, 'utf8')).verifyRan === true &&
+    findVerifyServer() !== null);
 const FILTER = opt('--filter', null);
 const KEEP = opt('--keep', null);
 const QPDF = opt('--qpdf', 'qpdf');

@@ -13,7 +13,7 @@
  */
 
 import { basename, extname, join } from 'node:path';
-import { degrees, PDFDocument } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { LIMITS } from '../constants.js';
 import { invalidArg } from '../errors.js';
 import type { CommonEditOptions, EditResult, SplitResult } from '../types/index.js';
@@ -29,6 +29,7 @@ import {
 } from './doc-level.js';
 import { loadForEdit } from './editor.js';
 import { saveEdited } from './output.js';
+import { normalizeRotation, toPdfLibRotation } from './rotation.js';
 
 /** 基本メタデータを src から dst へ引き継ぐ（copyPages は文書情報を運ばないため） */
 function copyDocumentInfo(src: PDFDocument, dst: PDFDocument): void {
@@ -189,7 +190,7 @@ export async function rotatePages(
   for (const n of targets) {
     const page = doc.getPage(n - 1);
     const current = page.getRotation().angle;
-    page.setRotation(degrees((((current + rotation) % 360) + 360) % 360));
+    page.setRotation(toPdfLibRotation(normalizeRotation(current + rotation)));
   }
   return saveEdited(doc, opts);
 }

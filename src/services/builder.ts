@@ -7,12 +7,13 @@
  * 埋め込みは入力テキストが確定した後（グリフ欠落ポリシー適用後）に行う。
  */
 
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import { DEFAULTS } from '../config.js';
 import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
 import { invalidArg, PdfWriterError } from '../errors.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { inferLang } from '../utils/lang.js';
+import { rgb01 } from './color.js';
 import {
   applyMissingGlyphPolicy,
   embedFontFor,
@@ -120,7 +121,7 @@ export async function buildPdf(
     struct?.begin('H1');
     engine.drawParagraph(title, {
       size: fontSize + 7,
-      color: rgb(0, 0, 0),
+      color: rgb01(0, 0, 0),
       lineHeight: 1.2,
       spaceAfter: 12,
     });

@@ -12,12 +12,15 @@
  *     文字の中心がページ中央に来るよう開始点を逆算する（centeredOrigin）。
  */
 
-import { degrees, PDFArray, type PDFFont, PDFName, type PDFPage, rgb } from 'pdf-lib';
+import { PDFArray, type PDFFont, PDFName, type PDFPage } from 'pdf-lib';
+import { type Rgb, toPdfLibColor } from './color.js';
+import type { TextMetrics } from './metrics.js';
+import { toPdfLibRotation } from './rotation.js';
 
 export interface WatermarkOptions {
   font: PDFFont;
   fontSize: number;
-  color: { red: number; green: number; blue: number };
+  color: Rgb;
   /** 0（透明）〜1（不透明） */
   opacity: number;
   /** 反時計回りの角度（度） */
@@ -73,7 +76,9 @@ export function moveLastToFront(page: PDFPage): boolean {
 export function watermarkPage(page: PDFPage, text: string, options: WatermarkOptions): void {
   const { font, fontSize, color, opacity, angle, behind } = options;
   const { width, height } = page.getSize();
-  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  // 測定は TextMetrics 経由（metrics.ts）。描画の font とは経路を分ける
+  const metrics: TextMetrics = font;
+  const textWidth = metrics.widthOfTextAtSize(text, fontSize);
   const { x, y } = centeredOrigin(width, height, textWidth, fontSize, angle);
 
   const draw = (): void => {
@@ -82,9 +87,9 @@ export function watermarkPage(page: PDFPage, text: string, options: WatermarkOpt
       y,
       size: fontSize,
       font,
-      color: rgb(color.red, color.green, color.blue),
+      color: toPdfLibColor(color),
       opacity,
-      rotate: degrees(angle),
+      rotate: toPdfLibRotation(angle),
     });
   };
 

@@ -17,7 +17,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import fontkit from '@pdf-lib/fontkit';
-import { type PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
+import type { PDFDocument, PDFFont } from 'pdf-lib';
 import subsetFont from 'subset-font';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
@@ -45,6 +45,16 @@ export interface LoadedFont {
   hasGlyph?: (codePoint: number) => boolean;
 }
 
+/**
+ * フォント指定が無いときに使う標準 14 書体の 1 つ（§9.6.2.2）。
+ *
+ * pdf-lib の `StandardFonts` 列挙をやめて素の名前にしたのは、値が
+ * **PostScript 名の文字列そのもの**だからである（列挙は型の飾りで、実体は "Helvetica"）。
+ * ⚠️ 標準 14 は**埋め込まれない**ので、この経路の出力は PDF/A では必ず落ちる。
+ * writer はそれを警告として返している（B-21）。
+ */
+const STANDARD_14_FALLBACK = 'Helvetica';
+
 const CTX = 'FontManager';
 
 /**
@@ -62,7 +72,7 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
   const resolvedPath = fontPath ?? process.env[ENV_KEYS.DEFAULT_FONT];
 
   if (!resolvedPath) {
-    logger.info(CTX, 'No fontPath given; using StandardFonts.Helvetica (ASCII only)');
+    logger.info(CTX, `No fontPath given; using ${STANDARD_14_FALLBACK} (ASCII only)`);
     return { name: 'Helvetica', isStandard: true };
   }
 
@@ -115,7 +125,7 @@ export async function embedFontFor(
   texts: string[],
 ): Promise<LoadedFont> {
   if (source.isStandard || !source.bytes) {
-    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const font = await doc.embedFont(STANDARD_14_FALLBACK);
     return { font, name: source.name, isStandard: true };
   }
 

@@ -15,7 +15,7 @@ import {
   type PDFNumber,
 } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { parseHexColor } from '../src/services/annotation.js';
+import { rgbFromHex } from '../src/services/color.js';
 import { handleAddAnnotation, handleAddBookmarks } from '../src/tools/handlers.js';
 import type { EditResult } from '../src/types/index.js';
 
@@ -261,12 +261,16 @@ describe('add_annotation', () => {
   });
 });
 
-describe('parseHexColor', () => {
+// Phase 3 L1: 色の表現をコードベースに 1 つにするため、`annotation.ts` の
+// `parseHexColor`（pdf-lib の RGB を返していた）を `color.ts` の `rgbFromHex` に吸収した。
+// **戻り値の形も変わっている**（`{type,red,green,blue}` → `{r,g,b}`）ので、
+// ここは名前の付け替えではなく期待値ごと書き換えてある。
+describe('rgbFromHex', () => {
   it('accepts #rgb and #rrggbb', () => {
-    expect(parseHexColor('#f00')).toEqual({ type: 'RGB', red: 1, green: 0, blue: 0 });
-    expect(parseHexColor('00ff00')).toEqual({ type: 'RGB', red: 0, green: 1, blue: 0 });
+    expect(rgbFromHex('#f00')).toEqual({ r: 1, g: 0, b: 0 });
+    expect(rgbFromHex('00ff00')).toEqual({ r: 0, g: 1, b: 0 });
   });
   it('rejects garbage', () => {
-    expect(() => parseHexColor('#ff')).toThrow(/hex string/);
+    expect(() => rgbFromHex('#ff')).toThrow(/hex string/);
   });
 });

@@ -3,9 +3,9 @@
  * プレーンテキスト → PDF。空行を段落区切りとして扱う。
  */
 
-import { rgb } from 'pdf-lib';
 import { DEFAULTS } from '../../config.js';
 import { NEXT_ACTIONS, PdfWriterError } from '../../errors.js';
+import { COLORS } from '../color.js';
 import type { FontSource, LoadedFont } from '../font-manager.js';
 import { hasNonLatin1, type LayoutEngine } from '../layout.js';
 
@@ -19,7 +19,7 @@ export function renderText(engine: LayoutEngine, text: string, loaded: LoadedFon
     // タグ付き時は各段落を <P> にする
     engine.struct?.begin('P');
     engine.drawParagraph(para, {
-      color: rgb(0.1, 0.1, 0.1),
+      color: COLORS.bodyText,
       spaceAfter: DEFAULTS.paragraphGap,
     });
     engine.struct?.end();

@@ -12,6 +12,7 @@
  *   tagged      false / true
  *   inputXref   なし / table / stream
  *   origin      0 / >0
+ *   revisions   1 / 2 / 4 / 8（増分更新が何回積まれた入力か）
  *   signed      false / true（増分更新の経路）
  *   attachment  false / true
  *   form        なし / fill / flatten / tag
@@ -368,10 +369,38 @@ export const SPECIMENS = [
 
   // ---- E 群: 入力ファイルの形（writer が作った形以外を食わせる）
   {
+    id: 'input-origin-zero',
+    uc: 'UC-2',
+    /**
+     * `input-origin-nonzero` の**対**（2026-08-14 追加）。
+     *
+     * origin 軸は `>0` の 1 形しか無く、オラクルが毎回「1 形しか無い軸」として
+     * 警告を出していた。片側しか無い軸は**差が出ても origin のせいだと言えない**。
+     * この 2 本は corpus の同じ文書で、違うのは先頭の詰め物だけである
+     * （5,211 bytes / origin=0 と 5,264 bytes / origin=656・どちらも
+     * 1 リビジョン・古典 xref テーブル・`%PDF-2.0`）。
+     * **同じ操作を両方に掛ければ、出た差は origin 起因に絞れる。**
+     */
+    axes: { origin: '0', inputXref: 'table', pdfVersion: '2.0', revisions: 1, op: 'annotate' },
+    inputFile: () => pdf20('Simple PDF 2.0 file.pdf'),
+    steps: [
+      {
+        tool: 'add_annotation',
+        args: {
+          inputPath: '{{input}}',
+          page: 1,
+          type: 'text',
+          rect: { x1: 72, y1: 700, x2: 300, y2: 720 },
+          contents: 'origin > 0',
+        },
+      },
+    ],
+  },
+  {
     id: 'input-origin-nonzero',
     uc: 'UC-2',
     // B-22 が生き延びた軸。origin > 0（%PDF- がファイル先頭に無い）
-    axes: { origin: '>0', inputXref: 'table', pdfVersion: '2.0' },
+    axes: { origin: '>0', inputXref: 'table', pdfVersion: '2.0', revisions: 1, op: 'annotate' },
     inputFile: () => pdf20('PDF 2.0 with offset start.pdf'),
     steps: [
       {
@@ -389,7 +418,9 @@ export const SPECIMENS = [
   {
     id: 'input-incremental-save',
     uc: 'UC-2',
-    axes: { inputXref: 'chain', pdfVersion: '2.0' },
+    // pdfVersion は**実効版**（ヘッダは %PDF-1.7 で、増分更新が catalog に
+    // /Version /2.0 を足している = §7.5.2 NOTE 3 / Table 29 の格上げ機構そのもの）
+    axes: { inputXref: 'chain', pdfVersion: '2.0', origin: '0', revisions: 2 },
     inputFile: () => pdf20('PDF 2.0 via incremental save.pdf'),
     steps: [{ tool: 'set_metadata', args: { inputPath: '{{input}}', title: 'Chained' } }],
   },
@@ -397,7 +428,7 @@ export const SPECIMENS = [
     id: 'input-signed-preserve',
     uc: 'UC-7',
     // 増分更新の経路。署名を壊さないことは verify 側で測る（下記 verifySignatures）
-    axes: { signed: true, inputXref: 'stream', op: 'annotate' },
+    axes: { signed: true, inputXref: 'stream', op: 'annotate', origin: '0', revisions: 4 },
     inputFile: () => specimen('selfmade-pades-lta.pdf'),
     steps: [
       {
@@ -417,7 +448,7 @@ export const SPECIMENS = [
   {
     id: 'input-signed-5sigs',
     uc: 'UC-7',
-    axes: { signed: true, revisions: 8, op: 'annotate' },
+    axes: { signed: true, revisions: 8, op: 'annotate', origin: '0', inputXref: 'table' },
     inputFile: () => specimen('dss-pades-5sigs-doctimestamp.pdf'),
     steps: [
       {

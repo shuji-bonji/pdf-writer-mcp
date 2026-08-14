@@ -13,8 +13,11 @@
  *     ページの回転角に応じて配置を補正する。
  */
 
-import { degrees, type PDFFont, type PDFPage, rgb } from 'pdf-lib';
+import type { PDFFont, PDFPage } from 'pdf-lib';
 import type { StampPosition } from '../types/index.js';
+import { type Rgb, toPdfLibColor } from './color.js';
+import type { TextMetrics } from './metrics.js';
+import { toPdfLibRotation } from './rotation.js';
 
 /** ページ番号テキストの書式を展開する */
 export function formatPageNumber(template: string, pageNumber: number, total: number): string {
@@ -72,8 +75,8 @@ export function computePosition(
 export interface StampOptions {
   font: PDFFont;
   fontSize: number;
-  /** #rrggbb を rgb() 済みで渡す */
-  color: { red: number; green: number; blue: number };
+  /** 描画色（`rgbFromHex` で解いたもの） */
+  color: Rgb;
   position: StampPosition;
   margin: number;
   /** タグ付き PDF なら Artifact で囲むためのコールバック */
@@ -83,7 +86,9 @@ export interface StampOptions {
 /** 1 ページにページ番号を描く */
 export function stampPage(page: PDFPage, text: string, options: StampOptions): void {
   const { font, fontSize, color, position, margin } = options;
-  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  // 測定は TextMetrics 経由（metrics.ts）。描画の font とは経路を分ける
+  const metrics: TextMetrics = font;
+  const textWidth = metrics.widthOfTextAtSize(text, fontSize);
   const { x, y } = computePosition(page, position, textWidth, fontSize, margin);
   const rotation = ((page.getRotation().angle % 360) + 360) % 360;
 
@@ -93,9 +98,9 @@ export function stampPage(page: PDFPage, text: string, options: StampOptions): v
       y,
       size: fontSize,
       font,
-      color: rgb(color.red, color.green, color.blue),
+      color: toPdfLibColor(color),
       // ページの回転に合わせて文字も回す（回転ページで横倒しにならないように）
-      rotate: degrees(rotation),
+      rotate: toPdfLibRotation(rotation),
     });
   };
 

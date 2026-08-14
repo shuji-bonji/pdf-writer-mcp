@@ -16,7 +16,7 @@ verify の `revision-diff.ts` 置換では、旧実装との A/B だけが差 13
 
 ```bash
 npm run oracle            # ゴールデンと突き合わせる（差があれば exit 1）
-npm run oracle:verify     # veraPDF / 署名検証も回す（ホスト専用）
+npm run oracle:verify     # 判定面を明示的に要求する（既定で付くので通常は不要）
 npm run oracle:update     # ゴールデンを採り直す（--verify 込み）
 
 node scripts/uc-oracle/run.mjs --filter input-signed --keep /tmp/x   # 1 件だけ・生成物を残す
@@ -64,6 +64,10 @@ node scripts/uc-oracle/run.mjs --filter input-signed --keep /tmp/x   # 1 件だ�
   （実例: `dss-pades-5sigs-doctimestamp.pdf` は入力の時点で page tree ノードに `/Type /Page` が無く、
   qpdf 10 は override して進み qpdf 12 は拒む）
 - **読み手（qpdf）の版が違えば警告が出る**。差が実装のものか読み手のものか切り分けられないため
+- **ゴールデンが `--verify` 付きなら、判定面は既定で測る**（verify サーバが見つかるときだけ）。
+  🔴 実測でこれを踏んだ: 素の `npm run oracle` を回すと**毎回 7 件差が出る**状態になっており、
+  そのうち 7 件とも環境由来で、**実装の差 0 がその中に埋もれた**。
+  決して緑にならない検査は読まれなくなるので、既定を揃えた
 - **1 形しか無い軸は毎回警告が出る**。フォント種別の軸は 2026-08-14 に埋めた
   （`fonts/LiberationSans-Regular.ttf` = SIL OFL 1.1・同梱の `.LICENSE.txt` に出所と全文。
   公開パッケージには入らない）。`.otf` は `CIDFontType0 + FontFile3`、`.ttf` は

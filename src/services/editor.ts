@@ -47,8 +47,9 @@ import type {
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
-import { addAnnotation as addAnnotationDict, parseHexColor } from './annotation.js';
+import { addAnnotation as addAnnotationDict } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
+import { rgbFromHex } from './color.js';
 import { ensureTaggedStructure } from './ensure-tagged.js';
 import { findNonEmbeddedFonts } from './font-conformance.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
@@ -454,7 +455,7 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
   const margin = args.margin ?? STAMP_DEFAULTS.margin;
   const fontSize = args.fontSize ?? STAMP_DEFAULTS.fontSize;
   const startAt = args.startAt ?? STAMP_DEFAULTS.startAt;
-  const color = parseHexColor(args.color ?? STAMP_DEFAULTS.color);
+  const color = rgbFromHex(args.color ?? STAMP_DEFAULTS.color);
 
   const targets = args.pages
     ? parsePageSpec(args.pages, total)
@@ -524,7 +525,7 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
   const opacity = args.opacity ?? WATERMARK_DEFAULTS.opacity;
   const angle = args.angle ?? WATERMARK_DEFAULTS.angle;
   const behind = args.behind ?? WATERMARK_DEFAULTS.behind;
-  const color = parseHexColor(args.color ?? WATERMARK_DEFAULTS.color);
+  const color = rgbFromHex(args.color ?? WATERMARK_DEFAULTS.color);
 
   const targets = args.pages
     ? parsePageSpec(args.pages, total)

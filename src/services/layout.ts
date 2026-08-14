@@ -4,7 +4,9 @@
  * 座標は「上端(top)基準」で管理し、見出し・本文・表でサイズが変わっても一貫して積み上げる。
  */
 
-import { type PDFDocument, type PDFFont, type PDFPage, type RGB, rgb } from 'pdf-lib';
+import type { PDFDocument, PDFFont, PDFPage } from 'pdf-lib';
+import { COLORS, type Rgb, toPdfLibColor } from './color.js';
+import type { TextMetrics } from './metrics.js';
 import type { StructTreeBuilder } from './struct-tree.js';
 
 /** ベースライン近似係数（グリフ上端からベースラインまで ≒ size * この値） */
@@ -27,7 +29,7 @@ export interface LayoutOptions {
 export interface DrawTextOptions {
   font?: PDFFont;
   size?: number;
-  color?: RGB;
+  color?: Rgb;
   lineHeight?: number;
   /** 左インデント（pt） */
   leftIndent?: number;
@@ -80,12 +82,17 @@ function splitTokens(line: string): string[] {
 }
 
 /** 1 トークンが maxWidth を超える場合に文字単位で強制分割 */
-function breakLongToken(token: string, font: PDFFont, size: number, maxWidth: number): string[] {
+function breakLongToken(
+  token: string,
+  metrics: TextMetrics,
+  size: number,
+  maxWidth: number,
+): string[] {
   const parts: string[] = [];
   let cur = '';
   for (const ch of token) {
     const trial = cur + ch;
-    if (cur && font.widthOfTextAtSize(trial, size) > maxWidth) {
+    if (cur && metrics.widthOfTextAtSize(trial, size) > maxWidth) {
       parts.push(cur);
       cur = ch;
     } else {
@@ -99,8 +106,16 @@ function breakLongToken(token: string, font: PDFFont, size: number, maxWidth: nu
 /**
  * テキストを maxWidth に収まる行配列に折り返す。
  * 明示的な \n は改行として尊重し、空行も保持する。
+ *
+ * 幅は `TextMetrics`（`metrics.ts`）に訊く。`PDFFont` はこの型を構造的に満たすので
+ * 呼び出し側は今までどおりフォントを渡せるが、**この関数が pdf-lib を知ることはもう無い**。
  */
-export function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+export function wrapText(
+  text: string,
+  metrics: TextMetrics,
+  size: number,
+  maxWidth: number,
+): string[] {
   const out: string[] = [];
   for (const rawLine of text.split('\n')) {
     if (rawLine.trim() === '') {
@@ -112,15 +127,15 @@ export function wrapText(text: string, font: PDFFont, size: number, maxWidth: nu
     for (const tk of tokens) {
       if (tk === ' ' && line === '') continue; // 行頭空白は捨てる
       const candidate = line + tk;
-      if (line !== '' && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      if (line !== '' && metrics.widthOfTextAtSize(candidate, size) > maxWidth) {
         out.push(line.replace(/\s+$/, ''));
         line = tk === ' ' ? '' : tk;
       } else {
         line = candidate;
       }
       // 単一トークンだけで既に幅超過 → 強制分割
-      if (line !== '' && font.widthOfTextAtSize(line, size) > maxWidth) {
-        const parts = breakLongToken(line, font, size, maxWidth);
+      if (line !== '' && metrics.widthOfTextAtSize(line, size) > maxWidth) {
+        const parts = breakLongToken(line, metrics, size, maxWidth);
         for (let i = 0; i < parts.length - 1; i++) out.push(parts[i]);
         line = parts[parts.length - 1] ?? '';
       }
@@ -155,7 +170,16 @@ export class LayoutEngine {
   get contentWidth(): number {
     return this.opts.pageWidth - this.opts.margin * 2;
   }
+  /** 描画に渡すフォント。**まだ pdf-lib の型である**（drawText の引数だから・L4 で外れる） */
   get defaultFont(): PDFFont {
+    return this.opts.font;
+  }
+  /**
+   * 幅を訊く先。`defaultFont` と同じ値だが、**用途が違うので型を分けてある** ——
+   * 測定は L1.5 で writer の関心として切り出し済み、描画は L4 まで pdf-lib に残る。
+   * 分けておかないと、描画が外れるまで測定も動かせない形になる。
+   */
+  get defaultMetrics(): TextMetrics {
     return this.opts.font;
   }
   get defaultSize(): number {
@@ -215,7 +239,7 @@ export class LayoutEngine {
     const font = options.font ?? this.opts.font;
     const size = options.size ?? this.opts.fontSize;
     const lineHeight = options.lineHeight ?? this.opts.lineHeight;
-    const color = options.color ?? rgb(0.1, 0.1, 0.1);
+    const color = options.color ?? COLORS.bodyText;
     const leftIndent = options.leftIndent ?? 0;
     const leading = size * lineHeight;
     const maxWidth = this.contentWidth - leftIndent;
@@ -231,7 +255,7 @@ export class LayoutEngine {
             y,
             size,
             font,
-            color,
+            color: toPdfLibColor(color),
           });
         });
       }
@@ -242,10 +266,10 @@ export class LayoutEngine {
 
   /** 水平線 */
   drawRule(
-    options: { color?: RGB; thickness?: number; spaceBefore?: number; spaceAfter?: number } = {},
+    options: { color?: Rgb; thickness?: number; spaceBefore?: number; spaceAfter?: number } = {},
   ): void {
     const thickness = options.thickness ?? 0.75;
-    const color = options.color ?? rgb(0.75, 0.75, 0.75);
+    const color = options.color ?? COLORS.rule;
     const spaceBefore = options.spaceBefore ?? 4;
     const spaceAfter = options.spaceAfter ?? 8;
     this.moveDown(spaceBefore);
@@ -256,7 +280,7 @@ export class LayoutEngine {
         start: { x: this.leftX, y: this._top },
         end: { x: this.leftX + this.contentWidth, y: this._top },
         thickness,
-        color,
+        color: toPdfLibColor(color),
       });
     });
     this.moveDown(spaceAfter);
