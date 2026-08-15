@@ -1,35 +1,34 @@
 /**
- * Structure tree (tagged PDF)
- * pdf-lib は論理構造の API を持たないため、StructTreeRoot / StructElem / ParentTree を
- * 低レベルに構築する。
+ * 構造木（タグ付き PDF）— Phase 3（pdf-lib 撤去）の L3' で normativepdf の上に載せ替えた。
  *
- * 仕組み（ISO 32000-1 §14.7 / §14.8）:
- *   1. ページのコンテンツストリームを BDC ... EMC で囲み、MCID を振る
- *      → `/P <</MCID 0>> BDC ... EMC`
- *   2. 各 StructElem が /K で MCID を参照し、/Pg で対象ページを指す
- *   3. ParentTree（番号ツリー）が「ページ → MCID 順の StructElem 参照配列」を持つ
- *      → ビューア/AT が MCID から構造要素を逆引きできる
- *   4. 各ページに /StructParents（ParentTree のキー）を持たせる
+ * **何が移り、何が残ったか。**
+ * MCID・`/K`・ParentTree の添字という「1 つの数字が 3 か所に出る」問題は
+ * normativepdf の `TaggedStream.contentItem()` が引き受けた（発行・`BDC` の書き込み・
+ * `/K` への追加・親配列への記録が 1 呼び出し）。**呼び出し側は MCID を見ないので
+ * 食い違えない。** ここに残るのは writer の関心だけ ——
+ * PDF/UA-1 が要求するタグの選び方（`StructTag`）と `/Scope`。
  *
- * PDF/UA-1 7.1-3「コンテンツは Artifact か実コンテンツとしてタグ付けする」を満たすため、
- * 描画は必ずこの層を通す（罫線・背景など意味を持たない描画は Artifact にする）。
+ * **旧実装から消えたもの:**
+ * - `page.pushOperators` による `BDC` / `EMC` の手書き。pdf-lib の `beginMarkedContent` は
+ *   プロパティリストを取れず、`<</MCID n>>` を**文字列として**渡す回避が要った。
+ *   `ContentStreamBuilder` は辞書を被演算子に取れるので、その回避ごと不要になった
+ * - `PDFPage` を鍵にする 3 つの `Map`（MCID カウンタ・親配列・`/StructParents`）。
+ *   数え方は core が 1 か所で持つ。ここに残るのは「ページ → そのストリーム」1 本だけ
+ * - MCR 辞書の組み立て。ページをまたぐ要素は normativepdf 0.4.0 の Table 357 が書く
+ * - `addAnnotation`。注釈を木に結ぶのは**編集パス**の関心で
+ *   （`ensure-tagged.ts` / `struct-append.ts`）、生成パスからは呼ばれていなかった（実測）
+ *
+ * ⚠️ **`markArtifact` は `BMC` を書く**（Table 352）。空のプロパティリストを持つ `BDC` は
+ * 「何も持たないリスト」を宣言することになる。旧実装も `BMC` だった。
  */
 
 import {
-  beginMarkedContent,
-  endMarkedContent,
-  PDFArray,
-  type PDFDict,
-  type PDFDocument,
-  PDFHexString,
-  PDFName,
-  PDFNumber,
-  PDFOperator,
-  PDFOperatorNames,
-  type PDFPage,
-  type PDFRef,
-  PDFString,
-} from 'pdf-lib';
+  StructTreeBuilder as CoreStructTree,
+  type StructElement,
+  type TaggedStream,
+} from 'normativepdf';
+import { dict, name } from './cos.js';
+import type { WriterDocument, WriterPage } from './writer-doc.js';
 
 /** 構造要素のタグ（PDF/UA で使う標準構造型の部分集合） */
 export type StructTag =
@@ -65,245 +64,141 @@ export interface StructElemOptions {
   lang?: string;
   /**
    * TH の見出し適用範囲（PDF/UA 7.5-1）。
-   * Headers/IDs で構造を示さない表では TH に /Scope が必須。
+   * Headers/IDs で構造を示さない表では TH に `/Scope` が必須。
    */
   scope?: 'Row' | 'Column' | 'Both';
 }
 
-interface ElemNode {
-  ref: PDFRef;
-  dict: PDFDict;
-  tag: StructTag;
-  /** /K の中身: MCID(number) / 子要素(ref) / OBJR(ref) */
-  kids: Array<{ kind: 'mcid'; mcid: number; page: PDFPage } | { kind: 'elem'; ref: PDFRef }>;
-  parent: ElemNode | null;
+/** 開いている要素 1 つ。`end()` が戻る先を持つ */
+interface OpenElement {
+  readonly element: StructElement;
+  readonly tag: StructTag;
 }
 
 /**
  * 構造木の構築器。
- * 使い方: begin(tag) → 描画 → end() を入れ子に呼び、最後に finalize()。
+ * 使い方: begin(tag) → 描画 → end() を入れ子に呼び、最後に await finalize()。
  */
 export class StructTreeBuilder {
-  private readonly doc: PDFDocument;
-  private readonly rootRef: PDFRef;
-  private readonly documentNode: ElemNode;
-  private current: ElemNode;
-  /** ページごとの MCID カウンタ */
-  private mcidCounters = new Map<PDFPage, number>();
-  /** ページごとの「MCID 順に並んだ StructElem 参照」 */
-  private pageParents = new Map<PDFPage, PDFRef[]>();
-  /** ページごとの /StructParents 番号 */
-  private structParents = new Map<PDFPage, number>();
-  private nextStructParent = 0;
-  /** ParentTree に積む OBJR（注釈）用のエントリ */
-  private objrEntries: Array<{ key: number; elemRef: PDFRef }> = [];
+  readonly #doc: WriterDocument;
+  readonly #core = new CoreStructTree();
+  /** ページごとのタグ付きストリーム。**ページの同一性で引く**（`ref` の一致ではない） */
+  readonly #streams = new Map<WriterPage, TaggedStream>();
+  /**
+   * 開いている要素、外側から順に。先頭は PDF/UA 7.1 の Document 要素で、
+   * これは常に開いたまま（`end()` で外れない = 対応の取れない `end()` を検出できる）。
+   */
+  readonly #open: OpenElement[];
 
-  constructor(doc: PDFDocument) {
-    this.doc = doc;
-    this.rootRef = doc.context.nextRef();
-
-    const docRef = doc.context.nextRef();
-    const docDict = doc.context.obj({}) as PDFDict;
-    docDict.set(PDFName.of('Type'), PDFName.of('StructElem'));
-    docDict.set(PDFName.of('S'), PDFName.of('Document'));
-    docDict.set(PDFName.of('P'), this.rootRef);
-    this.documentNode = { ref: docRef, dict: docDict, tag: 'Document', kids: [], parent: null };
-    this.current = this.documentNode;
+  constructor(doc: WriterDocument) {
+    this.#doc = doc;
+    this.#open = [{ element: this.#core.element('Document'), tag: 'Document' }];
   }
 
   /** 構造要素を開始する */
   begin(tag: StructTag, options: StructElemOptions = {}): void {
-    const ref = this.doc.context.nextRef();
-    const dict = this.doc.context.obj({}) as PDFDict;
-    dict.set(PDFName.of('Type'), PDFName.of('StructElem'));
-    dict.set(PDFName.of('S'), PDFName.of(tag));
-    dict.set(PDFName.of('P'), this.current.ref);
-    if (options.alt) dict.set(PDFName.of('Alt'), PDFHexString.fromText(options.alt));
-    if (options.actualText) {
-      dict.set(PDFName.of('ActualText'), PDFHexString.fromText(options.actualText));
-    }
-    if (options.lang) dict.set(PDFName.of('Lang'), PDFString.of(options.lang));
-    if (options.scope) {
-      // /A << /O /Table /Scope /Column >>（属性辞書は /O で所属を示す）
-      dict.set(
-        PDFName.of('A'),
-        this.doc.context.obj({ O: PDFName.of('Table'), Scope: PDFName.of(options.scope) }),
-      );
-    }
-
-    const node: ElemNode = { ref, dict, tag, kids: [], parent: this.current };
-    this.current.kids.push({ kind: 'elem', ref });
-    this.current = node;
-    this.nodes.push(node);
+    const parent = this.#innermost.element;
+    const extra = new Map(
+      options.scope === undefined
+        ? []
+        : // /A << /O /Table /Scope /Column >>（属性辞書は /O で所属を示す）
+          [
+            [
+              'A',
+              dict([
+                ['O', name('Table')],
+                ['Scope', name(options.scope)],
+              ]),
+            ] as const,
+          ],
+    );
+    const element = this.#core.element(tag, {
+      parent,
+      ...(options.alt !== undefined ? { alt: options.alt } : {}),
+      ...(options.actualText !== undefined ? { actualText: options.actualText } : {}),
+      ...(options.lang !== undefined ? { lang: options.lang } : {}),
+      ...(extra.size > 0 ? { extra } : {}),
+    });
+    this.#open.push({ element, tag });
   }
 
   /** 構造要素を閉じる */
   end(): void {
-    if (this.current.parent === null) {
+    if (this.#open.length <= 1) {
       throw new Error('struct tree: end() called without a matching begin()');
     }
-    this.current = this.current.parent;
+    this.#open.pop();
   }
-
-  private nodes: ElemNode[] = [];
 
   /** 現在の要素のタグ（診断用） */
   get currentTag(): StructTag {
-    return this.current.tag;
+    return this.#innermost.tag;
   }
 
   /**
-   * 実コンテンツの描画を BDC/EMC で囲む。
-   * draw() の中で page への描画を行うこと。
+   * 実コンテンツの描画を `BDC` / `EMC` で囲む。
+   * draw() の中でページへの描画を行うこと。
    */
-  markContent(page: PDFPage, draw: () => void): void {
-    if (this.current === this.documentNode) {
+  markContent(page: WriterPage, draw: () => void): void {
+    const current = this.#innermost;
+    if (this.#open.length === 1) {
       throw new Error(
         'struct tree: content must be inside a structure element (call begin() first)',
       );
     }
-    const mcid = this.nextMcid(page);
-    // `/Tag <</MCID n>> BDC` — pdf-lib の beginMarkedContent は BMC（プロパティ無し）しか
-    // 出せず、PDFOperatorArg は辞書を受け付けないため、インライン辞書を文字列で渡す。
-    // MCID は自前採番の非負整数なので、文字列化しても安全。
-    page.pushOperators(
-      PDFOperator.of(PDFOperatorNames.BeginMarkedContentSequence, [
-        PDFName.of(this.current.tag),
-        `<</MCID ${mcid}>>`,
-      ]),
-    );
-    draw();
-    page.pushOperators(endMarkedContent());
-    this.current.kids.push({ kind: 'mcid', mcid, page });
+    // MCID の発行・BDC の書き込み・/K への追加・親配列への記録は 1 呼び出しで起きる。
+    // draw() が書く演算子はその BDC…EMC の中に入る（page.content が同じビルダを指すため）
+    this.#streamFor(page).contentItem(current.element, () => draw());
   }
 
   /**
    * 意味を持たない描画（罫線・背景など）を Artifact として囲む。
    * PDF/UA 7.1-3 はすべてのコンテンツが Artifact か実コンテンツであることを要求する。
    */
-  markArtifact(page: PDFPage, draw: () => void): void {
-    page.pushOperators(beginMarkedContent(PDFName.of('Artifact')));
-    draw();
-    page.pushOperators(endMarkedContent());
-  }
-
-  /** 注釈を構造木に結び付ける（PDF/UA 7.18.1-1: Annot タグで包む） */
-  addAnnotation(page: PDFPage, annotRef: PDFRef, alt?: string): void {
-    this.begin('Annot', alt ? { alt } : {});
-    const objr = this.doc.context.obj({}) as PDFDict;
-    objr.set(PDFName.of('Type'), PDFName.of('OBJR'));
-    objr.set(PDFName.of('Obj'), annotRef);
-    objr.set(PDFName.of('Pg'), page.ref);
-    const objrRef = this.doc.context.register(objr);
-    this.current.kids.push({ kind: 'elem', ref: objrRef });
-
-    // 注釈は /StructParent（単数）で ParentTree のキーを持つ
-    const key = this.nextStructParent++;
-    const annot = this.doc.context.lookup(annotRef);
-    if (annot && 'set' in annot) {
-      (annot as PDFDict).set(PDFName.of('StructParent'), PDFNumber.of(key));
-    }
-    this.objrEntries.push({ key, elemRef: this.current.ref });
-    this.end();
-  }
-
-  private nextMcid(page: PDFPage): number {
-    const n = this.mcidCounters.get(page) ?? 0;
-    this.mcidCounters.set(page, n + 1);
-    if (!this.pageParents.has(page)) {
-      this.pageParents.set(page, []);
-      this.structParents.set(page, this.nextStructParent++);
-    }
-    // MCID 順に現在の要素を記録する（ParentTree 用）
-    (this.pageParents.get(page) as PDFRef[])[n] = this.current.ref;
-    return n;
+  markArtifact(page: WriterPage, draw: () => void): void {
+    this.#streamFor(page).artifact(() => draw());
   }
 
   /**
    * StructTreeRoot・ParentTree を組み立てて catalog に設定する。
-   * begin/end の対応が取れていなければエラー。
+   *
+   * catalog を読むのに文書を辿るので非同期である（ADR-0007 §4: 非同期を隠さない）。
    */
-  finalize(): void {
-    if (this.current !== this.documentNode) {
-      throw new Error(`struct tree: unclosed structure element <${this.current.tag}>`);
+  async finalize(): Promise<void> {
+    if (this.#open.length !== 1) {
+      throw new Error(`struct tree: unclosed structure element <${this.#innermost.tag}>`);
     }
-    const { context, catalog } = this.doc;
+    const built = this.#core.finish({
+      reserve: () => this.#doc.reserve(),
+      write: (target, object) => this.#doc.write(target, object),
+    });
 
-    // 各要素の /K と /Pg を確定する
-    for (const node of [this.documentNode, ...this.nodes]) {
-      this.writeKids(node);
+    // /StructParents はページ辞書に載る（R-14.7.5.4-12）。ページ辞書を組むのは
+    // WriterDocument.save() なので、鍵だけ預ける
+    for (const [page, stream] of this.#streams) {
+      const key = built.structParents.get(stream);
+      if (key !== undefined) this.#doc.setStructParents(page, key);
     }
 
-    // ページに /StructParents を振る
-    for (const [page, key] of this.structParents) {
-      page.node.set(PDFName.of('StructParents'), PDFNumber.of(key));
-    }
-
-    // ParentTree（番号ツリー）
-    const nums = context.obj([]) as PDFArray;
-    const entries: Array<{ key: number; value: PDFArray | PDFRef }> = [];
-    for (const [page, refs] of this.pageParents) {
-      const key = this.structParents.get(page) as number;
-      const arr = context.obj([]) as PDFArray;
-      for (const ref of refs) arr.push(ref);
-      entries.push({ key, value: arr });
-    }
-    for (const { key, elemRef } of this.objrEntries) {
-      entries.push({ key, value: elemRef });
-    }
-    // 番号ツリーはキー昇順であること（§7.9.7）
-    entries.sort((a, b) => a.key - b.key);
-    for (const { key, value } of entries) {
-      nums.push(PDFNumber.of(key));
-      nums.push(value instanceof PDFArray ? context.register(value) : value);
-    }
-    const parentTree = context.obj({}) as PDFDict;
-    parentTree.set(PDFName.of('Nums'), nums);
-    const parentTreeRef = context.register(parentTree);
-
-    const rootDict = context.obj({}) as PDFDict;
-    rootDict.set(PDFName.of('Type'), PDFName.of('StructTreeRoot'));
-    rootDict.set(PDFName.of('K'), this.documentNode.ref);
-    rootDict.set(PDFName.of('ParentTree'), parentTreeRef);
-    rootDict.set(PDFName.of('ParentTreeNextKey'), PDFNumber.of(this.nextStructParent));
-    context.assign(this.rootRef, rootDict);
-
-    context.assign(this.documentNode.ref, this.documentNode.dict);
-    for (const node of this.nodes) context.assign(node.ref, node.dict);
-
-    catalog.set(PDFName.of('StructTreeRoot'), this.rootRef);
-    catalog.set(PDFName.of('MarkInfo'), context.obj({ Marked: true }));
+    await this.#doc.updateCatalog([
+      ['StructTreeRoot', built.structTreeRoot],
+      ['MarkInfo', built.markInfo],
+    ]);
   }
 
-  /** ノードの /K と /Pg を書き込む */
-  private writeKids(node: ElemNode): void {
-    const { context } = this.doc;
-    if (node.kids.length === 0) return;
+  get #innermost(): OpenElement {
+    return this.#open[this.#open.length - 1] as OpenElement;
+  }
 
-    // すべての MCID が同一ページなら /Pg をまとめて指定できる
-    const pages = new Set(
-      node.kids.filter((k) => k.kind === 'mcid').map((k) => (k as { page: PDFPage }).page),
-    );
-    if (pages.size === 1) {
-      const [page] = pages;
-      node.dict.set(PDFName.of('Pg'), page.ref);
-    }
-
-    const kids = context.obj([]) as PDFArray;
-    for (const kid of node.kids) {
-      if (kid.kind === 'elem') {
-        kids.push(kid.ref);
-      } else if (pages.size === 1) {
-        kids.push(PDFNumber.of(kid.mcid));
-      } else {
-        // ページをまたぐ場合は MCR 辞書で明示する
-        const mcr = context.obj({}) as PDFDict;
-        mcr.set(PDFName.of('Type'), PDFName.of('MCR'));
-        mcr.set(PDFName.of('Pg'), kid.page.ref);
-        mcr.set(PDFName.of('MCID'), PDFNumber.of(kid.mcid));
-        kids.push(context.register(mcr));
-      }
-    }
-    node.dict.set(PDFName.of('K'), kids.size() === 1 ? kids.get(0) : kids);
+  /** ページのタグ付きストリーム。無ければ**ページ自身のビルダの上に**作って結び付ける */
+  #streamFor(page: WriterPage): TaggedStream {
+    const known = this.#streams.get(page);
+    if (known !== undefined) return known;
+    // page.content はまだ素のビルダを返す。同じ実体の上に TaggedStream を作るので、
+    // 構造木が書く BDC と描画が書く演算子が 1 本のストリームに並ぶ
+    const stream = this.#core.stream(page.ref, page.content);
+    page.attachTaggedStream(stream);
+    this.#streams.set(page, stream);
+    return stream;
   }
 }

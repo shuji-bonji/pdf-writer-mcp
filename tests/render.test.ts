@@ -17,6 +17,15 @@ import type { CreateResult } from '../src/types/index.js';
 
 const fontPath = process.env.TEST_FONT_PATH;
 
+/** ストリームの中身の候補。Flate なら解いたもの、そうでなければ生バイト */
+function decoded(raw: Buffer): Buffer[] {
+  try {
+    return [inflateSync(raw)];
+  } catch {
+    return [raw];
+  }
+}
+
 /** PDF バイト列から埋め込みフォントプログラム（FontFile/FontFile2/FontFile3）を取り出す */
 function extractEmbeddedFont(pdf: Buffer): Buffer | undefined {
   // 各 stream を総当たりで inflate し、sfnt/CFF のシグネチャを持つものを拾う
@@ -34,19 +43,21 @@ function extractEmbeddedFont(pdf: Buffer): Buffer | undefined {
     const end = pdf.indexOf(Buffer.from('endstream'), start);
     if (end === -1) break;
     const raw = pdf.subarray(start, end);
-    try {
-      const data = inflateSync(raw);
+    // 🔴 **圧縮されているとは限らない。** 生成パスを normativepdf に載せ替えてから
+    // 出力は非圧縮になった（ADR-0003: `CompressionStream` は採らず、書き側 deflate は未実装）。
+    // 以前はここで inflate に失敗したものを黙って捨てていたので、**フォントが実在するのに
+    // 「見つからない」になり、このテストが測っている「グリフの外形が残っているか」が
+    // 丸ごと空振りしていた**。解けたら解いた側を、解けなければ生バイトを見る。
+    for (const data of decoded(raw)) {
       const magic = data.subarray(0, 4).toString('latin1');
       // OpenType(CFF)='OTTO', TrueType=0x00010000, 生CFF は先頭が 0x01 0x00
       if (
         magic === 'OTTO' ||
-        data.readUInt32BE(0) === 0x00010000 ||
+        (data.length >= 4 && data.readUInt32BE(0) === 0x00010000) ||
         (data[0] === 0x01 && data[1] === 0x00)
       ) {
         return data;
       }
-    } catch {
-      // 非圧縮 or 画像等 — 無視
     }
     idx = pdf.indexOf(marker, end);
   }

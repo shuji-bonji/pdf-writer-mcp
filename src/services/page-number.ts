@@ -15,7 +15,8 @@
 
 import type { PDFFont, PDFPage } from 'pdf-lib';
 import type { StampPosition } from '../types/index.js';
-import { type Rgb, toPdfLibColor } from './color.js';
+import type { Rgb } from './color.js';
+import { toPdfLibColor } from './color-pdflib.js';
 import type { TextMetrics } from './metrics.js';
 import { toPdfLibRotation } from './rotation.js';
 

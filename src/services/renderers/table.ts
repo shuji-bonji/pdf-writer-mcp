@@ -4,7 +4,7 @@
  * 列幅は内容から自動算出し、セル内は折り返す。改ページ時はヘッダを再描画する。
  */
 
-import { COLORS, toPdfLibColor } from '../color.js';
+import { COLORS } from '../color.js';
 import { type LayoutEngine, wrapText } from '../layout.js';
 import type { TextMetrics } from '../metrics.js';
 
@@ -71,7 +71,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
             y: topY - rowHeight,
             width: w,
             height: rowHeight,
-            color: toPdfLibColor(COLORS.tableHeaderBackground),
+            color: COLORS.tableHeaderBackground,
           });
         }
         engine.page.drawRectangle({
@@ -79,7 +79,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
           y: topY - rowHeight,
           width: w,
           height: rowHeight,
-          borderColor: toPdfLibColor(COLORS.tableBorder),
+          borderColor: COLORS.tableBorder,
           borderWidth: 0.5,
         });
       });
@@ -93,7 +93,7 @@ export function renderTable(engine: LayoutEngine, headers: string[], rows: strin
               y,
               size,
               font,
-              color: toPdfLibColor(COLORS.tableText),
+              color: COLORS.tableText,
             });
           });
         }

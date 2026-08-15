@@ -22,7 +22,9 @@ import fontkit from '@pdf-lib/fontkit';
 import { Font as AfmFont, type FontNames } from '@pdf-lib/standard-fonts';
 import { buildType0Font, type CosObject, type CosRef, sniffFontProgram } from 'normativepdf';
 import { PdfWriterError } from '../errors.js';
-import { arr, dict, hex, int, name, stream } from './cos.js';
+import { logger } from '../utils/logger.js';
+import { arr, dict, hex, int, name, num, stream } from './cos.js';
+import { makeSubsetCharsetIdentity } from './font-conformance.js';
 import type { TextMetrics } from './metrics.js';
 import type { WriterDocument } from './writer-doc.js';
 
@@ -82,8 +84,22 @@ export function embedStandardFont(doc: WriterDocument, postScriptName: string): 
 
 // ---------------------------------------------------------------- 埋め込みフォント
 
-/** 1000 単位のグリフ空間（§9.2.4）へ揃える。TrueType は unitsPerEm が 2048 のことが多い */
-const scaled = (value: number, unitsPerEm: number): number =>
+/**
+ * 1000 単位のグリフ空間（§9.2.4）へ揃える。TrueType は unitsPerEm が 2048 のことが多い。
+ *
+ * ⚠️ **丸めない。** Table 122 の記述子の値は number であって整数ではなく、
+ * unitsPerEm が 1000 でないフォント（Liberation Sans = 2048）では
+ * `1854 × 1000 / 2048 = 905.2734375` のように端数が出る。旧実装はこの値を
+ * そのまま書いていた。丸める理由が無いのに丸めると、**差分オラクルに
+ * 「意図した差」でない差が出る**（実測: Ascent / Descent / CapHeight / FontBBox の 6 行）。
+ */
+const scaled = (value: number, unitsPerEm: number): number => (value * 1000) / unitsPerEm;
+
+/**
+ * `/W` に書くグリフ幅（R-9.7.4.3-3）。**こちらは整数に丸める。**
+ * 旧実装の出力が整数で、そちらに合わせる（幅は 1/1000 em 単位の慣行値）。
+ */
+const scaledWidth = (value: number, unitsPerEm: number): number =>
   Math.round((value * 1000) / unitsPerEm);
 
 /**
@@ -99,6 +115,21 @@ export function embedFontProgram(
   programBytes: Uint8Array,
   displayName: string,
 ): { font: WriterFont; notes: readonly string[] } {
+  // 🔴 CID-keyed CFF を harfbuzz でサブセットすると、charset は「新 GID → **元の CID**」の
+  // ままになる。CIDFontType0 のグリフ選択は CID → charset → GID（R-9.7.4.2-4）なので、
+  // Identity-H で CID = GID を書くこちらとは噛み合わず、条文どおりに解決する処理系が
+  // 別のグリフを描く。バイト列を触る仕事なので `buildType0Font`（辞書をバイト列から
+  // 導く）では代われない —— 旧実装が `normalizeEmbeddedFonts` の中でやっていた是正の
+  // うち、**この 1 つだけは生成パスにも要る**。
+  //
+  // ⚠️ 寛容なビューアでは気づけない（poppler は正しく描画した）。W-2 と同じ死角。
+  if (makeSubsetCharsetIdentity(programBytes)) {
+    logger.info(
+      'FontManager',
+      `Rewrote the CFF charset of ${displayName} to identity (R-9.7.4.2-4)`,
+    );
+  }
+
   let fk: ReturnType<typeof fontkit.create>;
   try {
     fk = fontkit.create(Buffer.from(programBytes));
@@ -111,7 +142,7 @@ export function embedFontProgram(
   const numGlyphs = fk.numGlyphs;
   const advance = (gid: number): number => {
     try {
-      return scaled(fk.getGlyph(gid).advanceWidth, unitsPerEm);
+      return scaledWidth(fk.getGlyph(gid).advanceWidth, unitsPerEm);
     } catch {
       // グリフが読めないことは「幅が 0」ではない。/DW の既定（1000・§9.7.4.3）へ倒す
       return 1000;
@@ -131,23 +162,23 @@ export function embedFontProgram(
     [
       'FontBBox',
       arr([
-        int(scaled(fk.bbox.minX, unitsPerEm)),
-        int(scaled(fk.bbox.minY, unitsPerEm)),
-        int(scaled(fk.bbox.maxX, unitsPerEm)),
-        int(scaled(fk.bbox.maxY, unitsPerEm)),
+        num(scaled(fk.bbox.minX, unitsPerEm)),
+        num(scaled(fk.bbox.minY, unitsPerEm)),
+        num(scaled(fk.bbox.maxX, unitsPerEm)),
+        num(scaled(fk.bbox.maxY, unitsPerEm)),
       ]),
     ],
     ['ItalicAngle', int(Math.round(fk.italicAngle ?? 0))],
-    ['Ascent', int(scaled(fk.ascent, unitsPerEm))],
-    ['Descent', int(scaled(fk.descent, unitsPerEm))],
-    ['CapHeight', int(scaled(fk.capHeight ?? fk.ascent, unitsPerEm))],
+    ['Ascent', num(scaled(fk.ascent, unitsPerEm))],
+    ['Descent', num(scaled(fk.descent, unitsPerEm))],
+    ['CapHeight', num(scaled(fk.capHeight ?? fk.ascent, unitsPerEm))],
     // Table 122 は StemV を Required にしているが、値は測れない（グリフの
     // 主要縦ステムの太さで、フォントプログラムに宣言が無い）。0 を書くのは
     // 「測っていない」を意味する慣行で、旧実装も同じだった。
     ['StemV', int(0)],
   ]);
   const xHeight = fk.xHeight;
-  if (xHeight) descriptor.set('XHeight', int(scaled(xHeight, unitsPerEm)));
+  if (xHeight) descriptor.set('XHeight', num(scaled(xHeight, unitsPerEm)));
 
   const built = buildType0Font(
     { allocate: (object: CosObject): CosRef => doc.allocate(object) },
@@ -176,7 +207,7 @@ export function embedFontProgram(
     widthOfTextAtSize(text: string, size: number): number {
       let total = 0;
       for (const glyph of fk.layout(text).glyphs) {
-        total += scaled(glyph.advanceWidth, unitsPerEm);
+        total += scaledWidth(glyph.advanceWidth, unitsPerEm);
       }
       return (total * size) / 1000;
     },

@@ -7,13 +7,13 @@
  * 埋め込みは入力テキストが確定した後（グリフ欠落ポリシー適用後）に行う。
  */
 
-import { PDFDocument } from 'pdf-lib';
 import { DEFAULTS } from '../config.js';
 import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
 import { invalidArg, PdfWriterError } from '../errors.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { inferLang } from '../utils/lang.js';
 import { rgb01 } from './color.js';
+import { bool, dict, textString } from './cos.js';
 import {
   applyMissingGlyphPolicy,
   embedFontFor,
@@ -21,10 +21,11 @@ import {
   openFont,
 } from './font-manager.js';
 import { LayoutEngine } from './layout.js';
-import { finalizePdf } from './output.js';
+import { finalizeCreated } from './output-created.js';
+import { DEFAULT_PDF_VERSION } from './pdf-version.js';
 import { assertRenderable } from './renderers/text.js';
 import { StructTreeBuilder } from './struct-tree.js';
-import { applyPdfuaCatalog } from './xmp.js';
+import { WriterDocument } from './writer-doc.js';
 
 /**
  * render コールバック。texts には onMissingGlyph ポリシー適用済みの
@@ -52,7 +53,7 @@ export async function buildPdf(
     );
   }
 
-  const doc = await PDFDocument.create();
+  const doc = WriterDocument.create(opts.pdfVersion ?? DEFAULT_PDF_VERSION);
   const source = await openFont(opts.fontPath);
 
   // 標準フォント × 非 Latin-1 は、この時点で分かりやすく弾く
@@ -131,11 +132,21 @@ export async function buildPdf(
   render(engine, loaded, texts);
 
   if (struct) {
-    struct.finalize();
-    applyPdfuaCatalog(doc, { title: title as string, author: opts.author, lang: lang as string });
+    await struct.finalize();
+    // PDF/UA-1 が catalog に要求するもの（MarkInfo と StructTreeRoot は finalize が置く）:
+    //   /Lang                                 7.2 (1)
+    //   /ViewerPreferences /DisplayDocTitle   7.1 (8)
+    // XMP（pdfuaid:part / dc:title）は出口が uaLang を受けて書く
+    await doc.updateCatalog([
+      ['Lang', textString(lang as string)],
+      ['ViewerPreferences', dict([['DisplayDocTitle', bool(true)]])],
+    ]);
   }
 
-  const result = await finalizePdf(doc, opts, loaded.name);
+  const result = await finalizeCreated(doc, opts, {
+    fontName: loaded.name,
+    ...(struct ? { uaLang: lang as string } : {}),
+  });
   if (warnings.length > 0) result.warnings = warnings;
   return result;
 }

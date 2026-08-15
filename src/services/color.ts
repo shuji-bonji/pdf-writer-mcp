@@ -1,5 +1,5 @@
 /**
- * 描画色 — Phase 3（pdf-lib 撤去）の L1。
+ * 描画色 — Phase 3（pdf-lib 撤去）の L1 で切り出し、L3' で変換関数が消えた。
  *
  * **なぜ独自の型を置くのか。**
  * 色は PDF の意味を持たない値である（DeviceRGB の 3 成分・ISO 32000-2 §8.6.4.3）。
@@ -17,8 +17,6 @@
  * ⚠️ これは pdf-lib → COS の変換層ではない（handoff §6 で作らないと決めたもの）。
  * 変換しているのは**数値 3 つ**であって、オブジェクトモデルではない。
  */
-
-import { rgb } from 'pdf-lib';
 
 /** DeviceRGB の 3 成分。各 0.0〜1.0（§8.6.4.3）。 */
 export interface Rgb {
@@ -82,11 +80,3 @@ export const COLORS = {
   tableText: rgb01(0.15, 0.15, 0.15),
   rule: rgb01(0.75, 0.75, 0.75),
 } as const satisfies Record<string, Rgb>;
-
-/**
- * pdf-lib の色オブジェクトへ。**このファイルだけが pdf-lib の色の形を知っている。**
- * 撤去が進めば、この関数は `ContentStreamBuilder` に `rg` を書く実装に置き換わる。
- */
-export function toPdfLibColor(color: Rgb) {
-  return rgb(color.r, color.g, color.b);
-}

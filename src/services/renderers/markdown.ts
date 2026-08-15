@@ -6,7 +6,7 @@
 
 import { marked } from 'marked';
 import { DEFAULTS } from '../../config.js';
-import { COLORS, toPdfLibColor } from '../color.js';
+import { COLORS } from '../color.js';
 import type { LoadedFont } from '../font-manager.js';
 import { type LayoutEngine, wrapText } from '../layout.js';
 import type { StructTag } from '../struct-tree.js';
@@ -140,7 +140,7 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
         y: engine.cursorTop - leading,
         width: engine.contentWidth,
         height: leading,
-        color: toPdfLibColor(COLORS.codeBackground),
+        color: COLORS.codeBackground,
       });
     });
     if (line !== '') {
@@ -150,7 +150,7 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
           y: engine.cursorTop - size * 0.8,
           size,
           font,
-          color: toPdfLibColor(COLORS.codeText),
+          color: COLORS.codeText,
         });
       });
     }

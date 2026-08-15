@@ -4,10 +4,11 @@
  * 座標は「上端(top)基準」で管理し、見出し・本文・表でサイズが変わっても一貫して積み上げる。
  */
 
-import type { PDFDocument, PDFFont, PDFPage } from 'pdf-lib';
-import { COLORS, type Rgb, toPdfLibColor } from './color.js';
+import { COLORS, type Rgb } from './color.js';
+import type { WriterFont } from './font-embed.js';
 import type { TextMetrics } from './metrics.js';
 import type { StructTreeBuilder } from './struct-tree.js';
+import type { WriterDocument, WriterPage } from './writer-doc.js';
 
 /** ベースライン近似係数（グリフ上端からベースラインまで ≒ size * この値） */
 const ASCENT_RATIO = 0.8;
@@ -16,7 +17,7 @@ export interface LayoutOptions {
   pageWidth: number;
   pageHeight: number;
   margin: number;
-  font: PDFFont;
+  font: WriterFont;
   fontSize: number;
   lineHeight: number;
   /**
@@ -27,7 +28,7 @@ export interface LayoutOptions {
 }
 
 export interface DrawTextOptions {
-  font?: PDFFont;
+  font?: WriterFont;
   size?: number;
   color?: Rgb;
   lineHeight?: number;
@@ -146,19 +147,19 @@ export function wrapText(
 }
 
 export class LayoutEngine {
-  readonly doc: PDFDocument;
+  readonly doc: WriterDocument;
   private opts: LayoutOptions;
-  private _page: PDFPage;
+  private _page: WriterPage;
   private _top: number;
 
-  constructor(doc: PDFDocument, opts: LayoutOptions) {
+  constructor(doc: WriterDocument, opts: LayoutOptions) {
     this.doc = doc;
     this.opts = opts;
-    this._page = doc.addPage([opts.pageWidth, opts.pageHeight]);
+    this._page = doc.addPage(opts.pageWidth, opts.pageHeight);
     this._top = opts.pageHeight - opts.margin;
   }
 
-  get page(): PDFPage {
+  get page(): WriterPage {
     return this._page;
   }
   get leftX(): number {
@@ -170,8 +171,14 @@ export class LayoutEngine {
   get contentWidth(): number {
     return this.opts.pageWidth - this.opts.margin * 2;
   }
-  /** 描画に渡すフォント。**まだ pdf-lib の型である**（drawText の引数だから・L4 で外れる） */
-  get defaultFont(): PDFFont {
+  /**
+   * 描画に渡すフォント。**L3' で自前の型になった。**
+   * L1.5 で `defaultFont`（描画）と `defaultMetrics`（測定）を用途で分けたのは、
+   * 描画が pdf-lib に残っている間の措置だった。両方こちらへ来たので同じ値を返すが、
+   * **呼び出し側が用途で呼び分けている形はそのまま残す** —— 測定だけを別の実装に
+   * 差し替える余地（L5' の標準 14 の幅表）が消えないように。
+   */
+  get defaultFont(): WriterFont {
     return this.opts.font;
   }
   /**
@@ -219,7 +226,7 @@ export class LayoutEngine {
   }
 
   newPage(): void {
-    this._page = this.doc.addPage([this.opts.pageWidth, this.opts.pageHeight]);
+    this._page = this.doc.addPage(this.opts.pageWidth, this.opts.pageHeight);
     this._top = this.opts.pageHeight - this.opts.margin;
   }
 
@@ -255,7 +262,7 @@ export class LayoutEngine {
             y,
             size,
             font,
-            color: toPdfLibColor(color),
+            color,
           });
         });
       }
@@ -280,7 +287,7 @@ export class LayoutEngine {
         start: { x: this.leftX, y: this._top },
         end: { x: this.leftX + this.contentWidth, y: this._top },
         thickness,
-        color: toPdfLibColor(color),
+        color,
       });
     });
     this.moveDown(spaceAfter);

@@ -17,13 +17,14 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import fontkit from '@pdf-lib/fontkit';
-import type { PDFDocument, PDFFont } from 'pdf-lib';
 import subsetFont from 'subset-font';
 import { ENV_KEYS } from '../config.js';
 import { FONT_MAGIC } from '../constants.js';
 import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { embedFontProgram, embedStandardFont, type WriterFont } from './font-embed.js';
+import type { WriterDocument } from './writer-doc.js';
 
 /** 埋め込み前のフォント情報（グリフ照会に使う） */
 export interface FontSource {
@@ -36,7 +37,7 @@ export interface FontSource {
 }
 
 export interface LoadedFont {
-  font: PDFFont;
+  font: WriterFont;
   /** 表示用フォント名 */
   name: string;
   /** 標準フォント（英数字のみ）か否か。true の場合、日本語描画は不可 */
@@ -120,25 +121,25 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
  * @param texts 描画予定の全テキスト（グリフ欠落ポリシー適用後のもの）
  */
 export async function embedFontFor(
-  doc: PDFDocument,
+  doc: WriterDocument,
   source: FontSource,
   texts: string[],
 ): Promise<LoadedFont> {
   if (source.isStandard || !source.bytes) {
-    const font = await doc.embedFont(STANDARD_14_FALLBACK);
-    return { font, name: source.name, isStandard: true };
+    return {
+      font: embedStandardFont(doc, STANDARD_14_FALLBACK),
+      name: source.name,
+      isStandard: true,
+    };
   }
-
-  doc.registerFontkit(fontkit);
 
   // harfbuzz で使用グリフのみに絞る。失敗時は元フォントをそのまま埋め込む（正しさ優先・肥大は許容）
   let toEmbed: Uint8Array = source.bytes;
   const used = texts.join('') || ' ';
   try {
     // noLayoutClosure: GSUB による字形置換の連鎖を取り込まない。
-    //   pdf-lib(subset:false) は「layout() が返した置換後グリフ」を CID として書く一方、
-    //   ToUnicode は「cmap 由来のベースグリフ」からしか作らないため、置換が起きると
-    //   CID と ToUnicode がずれてテキスト抽出が壊れる（数字が化ける等）。
+    //   描画に使う GID は `layout()` が返すもの、`/ToUnicode` は cmap 由来のものなので、
+    //   置換が起きると CID と ToUnicode がずれてテキスト抽出が壊れる（数字が化ける等）。
     //   置換候補をサブセットに含めなければ置換自体が発生せず、両者が一致する。
     //   副次効果としてサブセットはさらに小さくなる（実測 9.1KB -> 4.5KB）。
     toEmbed = await subsetFont(Buffer.from(source.bytes), used, {
@@ -154,15 +155,10 @@ export async function embedFontFor(
     logger.warn(CTX, `harfbuzz subsetting failed (${msg}); embedding the full font instead`);
   }
 
-  let font: PDFFont;
-  try {
-    // subset:false — サブセットは済んでいる。pdf-lib(fontkit) の再サブセットは
-    // グリフ破損を招くため使わない（上部コメント参照）
-    font = await doc.embedFont(toEmbed, { subset: false });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    throw new PdfWriterError(`Failed to embed font ${source.name}: ${msg}`, 'INTERNAL_ERROR');
-  }
+  // 辞書の型はここでは選べない。`buildType0Font` が `sniffFontProgram` の結果から決める
+  // （W-2 = CFF を CIDFontType2 + FontFile2 で埋めた欠陥を、表現不能にした形）
+  const { font, notes } = embedFontProgram(doc, toEmbed, source.name);
+  for (const note of notes) logger.warn(CTX, note);
 
   logger.info(CTX, `Embedded custom font: ${source.name}`);
   return { font, name: source.name, isStandard: false, hasGlyph: source.hasGlyph };

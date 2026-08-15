@@ -273,7 +273,20 @@ export class WriterDocument {
    * 1 本しかないストリームを 1 要素の配列で包む理由が無い（Table 31 は
    * ストリームそのものも許す）。
    */
-  async save(options: WriteFileOptions = {}): Promise<Uint8Array> {
+  async save(
+    options: WriteFileOptions & {
+      /**
+       * トレーラに載せるエントリ（§7.5.5 Table 15）。`/Info` と `/ID` はここに来る ——
+       * 何も無いところから作る文書は両方を自分で書くしかなく、`/ID` は PDF 2.0 で
+       * Required である（normativepdf 0.5.0 の `setTrailerEntry`）。
+       */
+      readonly trailer?: Iterable<readonly [string, CosObject]>;
+    } = {},
+  ): Promise<Uint8Array> {
+    const { trailer, ...writeOptions } = options;
+    for (const [key, value] of trailer ?? []) {
+      this.editor.setTrailerEntry(key, value);
+    }
     const kids: CosObject[] = [];
     for (const page of this.#pages) {
       const contents = this.allocate(stream([], page.content.finish()));
@@ -305,6 +318,6 @@ export class WriterDocument {
       ]),
     });
 
-    return this.editor.save(options);
+    return this.editor.save(writeOptions);
   }
 }

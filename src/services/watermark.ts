@@ -13,7 +13,8 @@
  */
 
 import { PDFArray, type PDFFont, PDFName, type PDFPage } from 'pdf-lib';
-import { type Rgb, toPdfLibColor } from './color.js';
+import type { Rgb } from './color.js';
+import { toPdfLibColor } from './color-pdflib.js';
 import type { TextMetrics } from './metrics.js';
 import { toPdfLibRotation } from './rotation.js';
 

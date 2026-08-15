@@ -52,7 +52,8 @@ import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { rgbFromHex } from './color.js';
 import { ensureTaggedStructure } from './ensure-tagged.js';
 import { findNonEmbeddedFonts } from './font-conformance.js';
-import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
+import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
+import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import {
   applyFieldValue,
   cleanUpAfterFlatten,
@@ -472,7 +473,7 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
   const texts = stamps.map((s) => s.text);
   for (const t of texts) assertRenderable(t, source);
   const applied = applyMissingGlyphPolicy(texts, source, 'error');
-  const loaded = await embedFontFor(doc, source, applied.texts);
+  const loaded = await embedFontIntoPdfLib(doc, source, applied.texts);
 
   const tagged = isTagged(doc);
   for (const [i, stamp] of stamps.entries()) {
@@ -535,7 +536,7 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
   const source = await openFont(args.fontPath);
   assertRenderable(args.text, source);
   const applied = applyMissingGlyphPolicy([args.text], source, 'error');
-  const loaded = await embedFontFor(doc, source, applied.texts);
+  const loaded = await embedFontIntoPdfLib(doc, source, applied.texts);
 
   const tagged = isTagged(doc);
   for (const pageNo of targets) {
@@ -590,7 +591,7 @@ async function prepareFormAppearances(
   const source = await openFont(fontPath);
   for (const t of texts) assertRenderable(t, source);
   const applied = applyMissingGlyphPolicy(texts, source, 'error');
-  const loaded = await embedFontFor(doc, source, applied.texts);
+  const loaded = await embedFontIntoPdfLib(doc, source, applied.texts);
   const { unresolvedDaFonts } = refreshAppearances(form, loaded.font);
 
   const warnings = [...applied.warnings];

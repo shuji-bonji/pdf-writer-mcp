@@ -235,6 +235,31 @@ const CFF_STANDARD_STRINGS = 391;
  * バイト長は変えない。書き換えたら true、書き換え不要／不可なら false。
  * `font` は破壊的に更新する。
  */
+/**
+ * サブセット済み CFF プログラムの charset を identity へ書き換える（バイト列だけを触る）。
+ *
+ * **生成パス（L3'）から呼ぶための入口。** 編集パスは `normalizeEmbeddedFonts` が
+ * 「pdf-lib が書いた辞書を後から是正する」流れの中でこれを行うが、生成パスは
+ * `buildType0Font` が辞書をバイト列から導くので是正そのものが要らない。
+ * **要らないのは辞書の話で、charset の書き換えは別の仕事である** ——
+ * それを一緒に捨てると、CID → charset → GID（R-9.7.4.2-4）で解決する処理系が
+ * 別のグリフを描く。W-2 と同じ死角で、寛容なビューアでは気づけない。
+ *
+ * @returns 書き換えたら true（CID-keyed でない・Identity ROS などでは false）
+ */
+export function makeSubsetCharsetIdentity(program: Uint8Array): boolean {
+  const cff = sfntTables(program).get('CFF ');
+  if (cff === undefined) return false;
+  const patched = makeCffCharsetIdentity(program, cff);
+  // 🔴 **書き換えたらチェックサムを取り直す。** sfnt はテーブルごとの checkSum と
+  // head の checkSumAdjustment を持っており、中身を変えたまま放置すると
+  // 「自分の宣言と合わないフォントプログラム」になる。`normalizeEmbeddedFonts` は
+  // この 2 つを 1 組で行っており、片方だけ移すと差が静かに残る（実測: 長さは同じで
+  // sha256 だけ変わる = チェックサム欄しか違わない、という形で oracle に出た）。
+  if (patched) refreshSfntChecksums(program);
+  return patched;
+}
+
 function makeCffCharsetIdentity(font: Uint8Array, cff: SfntTable): boolean {
   const table = font.subarray(cff.offset, cff.offset + cff.length);
   if (table.length < 4) return false;

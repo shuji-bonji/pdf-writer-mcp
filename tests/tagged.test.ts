@@ -53,12 +53,17 @@ function pageContent(pdf: Buffer): string {
     if (pdf[start] === 0x0a) start++;
     const end = pdf.indexOf('endstream', start, 'latin1');
     if (end === -1) break;
+    // 🔴 圧縮されているとは限らない（生成パスの出力は非圧縮 = ADR-0003）。
+    // 以前は inflate 失敗を黙って捨てていたため、**BDC / Artifact の marking を
+    // 何も測らずに空文字で比較していた**。
+    const raw = pdf.subarray(start, end);
+    let data: string;
     try {
-      const data = inflateSync(pdf.subarray(start, end)).toString('latin1');
-      if (data.includes('BDC') || data.includes('Tj')) out.push(data);
+      data = inflateSync(raw).toString('latin1');
     } catch {
-      // 非圧縮 or フォント等
+      data = raw.toString('latin1');
     }
+    if (data.includes('BDC') || data.includes('Tj')) out.push(data);
     idx = pdf.indexOf('stream', end, 'latin1');
   }
   return out.join('\n');
