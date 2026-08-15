@@ -384,7 +384,13 @@ function findVerifyServer() {
 // ---------------------------------------------------------------- 突き合わせ
 
 /** ツリーの差を「どこが」まで出す。数字だけでは原因が切り分けられない */
-function diffTrees(a, b, path = '', out = [], limit = 40) {
+/**
+ * ⚠️ **上限は「読みやすさ」ではなく「見えなくなる」を作る。**
+ * 40 で打ち切っていたため、`edit-page-numbers` は 40 件で切れており、
+ * その先に何件あるかも分からなかった。端末には 12 行しか出さないので、
+ * 収集のほうを絞る理由が無い。全件集めてファイルに落とし、端末には要約を出す。
+ */
+function diffTrees(a, b, path = '', out = [], limit = Number.POSITIVE_INFINITY) {
   if (out.length >= limit) return out;
   if (JSON.stringify(a) === JSON.stringify(b)) return out;
   const isObj = (v) => v !== null && typeof v === 'object';
@@ -579,7 +585,14 @@ try {
     console.log('\n差なし。');
     process.exit(counts.failed > 0 ? 1 : 0);
   }
-  console.log(`\n差 ${problems.length} 件:`);
+  const totalDiffs = problems.reduce((n, p) => n + (p.diffs ?? []).length, 0);
+  // 🔴 全件をファイルに落とす。端末は 12 行しか出さないので、
+  // **出力を読んだだけでは帰属を終えられない**。パスを必ず出す。
+  const diffPath = join(tmpdir(), `uc-oracle-diff-${Date.now()}.json`);
+  writeFileSync(diffPath, JSON.stringify(problems, null, 2));
+  console.log(`\n差 ${problems.length} 検体 / ${totalDiffs} 行`);
+  console.log(`全件: ${diffPath}`);
+  console.log('');
   for (const p of problems) {
     console.log(`  [${p.kind}] ${p.id}${p.detail ? ` — ${p.detail}` : ''}`);
     // 🔴 **省略したことを申告する。** 以前はここで黙って 12 行に切っており、
@@ -594,9 +607,7 @@ try {
     if (hidden > 0) {
       console.log(`      … 他 ${hidden} 件（表示は 12 行まで）`);
     }
-    if ((p.diffs ?? []).length >= 40) {
-      console.log('      ⚠️ 収集上限 40 件に達している — さらに差がある可能性');
-    }
+
   }
   process.exit(1);
 } catch (error) {
