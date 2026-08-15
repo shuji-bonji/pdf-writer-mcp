@@ -96,11 +96,18 @@ export function embedStandardFont(doc: WriterDocument, postScriptName: string): 
 const scaled = (value: number, unitsPerEm: number): number => (value * 1000) / unitsPerEm;
 
 /**
- * `/W` に書くグリフ幅（R-9.7.4.3-3）。**こちらは整数に丸める。**
- * 旧実装の出力が整数で、そちらに合わせる（幅は 1/1000 em 単位の慣行値）。
+ * ⚠️ **幅も丸めない。**
+ *
+ * 一度 `Math.round` を入れて「旧実装の出力が整数だから」と書いたが、それは
+ * unitsPerEm が 1000 のフォント（Noto Sans JP）しか見ていなかった。2048 の
+ * Liberation Sans では旧実装は `365.2344` のような値をそのまま書いており、
+ * `/W`（R-9.7.4.3-3）も Table 115 も number であって整数ではない。
+ *
+ * 🔴 **この差は最初から出ていた。** 差分オラクルの表示が 1 検体あたり打ち切られるため、
+ * 記述子の丸めを直して 6 行が消えるまで `/W` の行が見えなかった。
+ * **「差 6 行」を「差 6 個」と読まないこと。**
  */
-const scaledWidth = (value: number, unitsPerEm: number): number =>
-  Math.round((value * 1000) / unitsPerEm);
+const scaledWidth = scaled;
 
 /**
  * サブセット済みのフォントプログラムを埋め込む。
@@ -153,7 +160,7 @@ export function embedFontProgram(
   // 使ったグリフだけに絞らないのは、サブセット済みのプログラムに入っているグリフは
   // 全部「このファイルが使うもの」だからで、絞ると 2 つの真実（プログラムと /W）ができる。
   const widths: CosObject[] = [];
-  for (let gid = 0; gid < numGlyphs; gid += 1) widths.push(int(advance(gid)));
+  for (let gid = 0; gid < numGlyphs; gid += 1) widths.push(num(advance(gid)));
 
   const descriptor = new Map<string, CosObject>([
     // Table 121 bit 3 = Symbolic。Identity-H は標準的な文字集合に載らないので

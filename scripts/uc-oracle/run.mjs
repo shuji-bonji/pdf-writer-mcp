@@ -582,8 +582,20 @@ try {
   console.log(`\n差 ${problems.length} 件:`);
   for (const p of problems) {
     console.log(`  [${p.kind}] ${p.id}${p.detail ? ` — ${p.detail}` : ''}`);
-    for (const d of (p.diffs ?? []).slice(0, 12)) {
+    // 🔴 **省略したことを申告する。** 以前はここで黙って 12 行に切っており、
+    // 見えている行を直すたびに「その下に隠れていた行」が現れた（実測: 記述子の丸めを
+    // 直したら /W の差が出てきた）。**行数を差の個数と読み違える**形だったので、
+    // 何件抑えたかを必ず出す。40 は diffTrees の収集上限で、そこも申告する。
+    const shown = (p.diffs ?? []).slice(0, 12);
+    for (const d of shown) {
       console.log(`      ${d.path}: ${d.golden} → ${d.current}`);
+    }
+    const hidden = (p.diffs ?? []).length - shown.length;
+    if (hidden > 0) {
+      console.log(`      … 他 ${hidden} 件（表示は 12 行まで）`);
+    }
+    if ((p.diffs ?? []).length >= 40) {
+      console.log('      ⚠️ 収集上限 40 件に達している — さらに差がある可能性');
     }
   }
   process.exit(1);

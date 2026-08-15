@@ -101,11 +101,17 @@ export async function finalizeCreated(
   // タグ付き（PDF/UA-1）の宣言は uaLang があるときだけ載せる
   const needsXmp = version === '2.0' || extra.uaLang !== undefined;
   if (needsXmp) {
+    // ⚠️ **producer は 2.0 のときだけ XMP に載せる。**
+    // 旧実装は 2 つの経路を持っており、渡すものが違った:
+    //   applyPdfuaCatalog（タグ付き 1.7）→ title / author / pdfuaPart / lang（producer 無し）
+    //   finalizePdf の 2.0 分岐         → title / author / producer / lang
+    // 1.7 では Producer は Info に載るので、XMP にも入れると置き場所が 2 つになる。
+    // 版に関係なく渡していたら、差分オラクルが XMP の要素の並び（shape）で捕まえた。
     const packet = buildXmpPacket({
       now,
       ...(opts.title !== undefined ? { title: opts.title } : {}),
       ...(opts.author !== undefined ? { author: opts.author } : {}),
-      producer,
+      ...(version === '2.0' ? { producer } : {}),
       ...(extra.uaLang !== undefined ? { pdfuaPart: 1, lang: extra.uaLang } : {}),
     });
     const bytes = new TextEncoder().encode(packet);
