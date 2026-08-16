@@ -111,7 +111,13 @@ export async function saveOpened(
   try {
     await touchModDate(editor, documentDate(editor));
     await extras.beforeSave?.(editor);
-    bytes = await editor.save(extras.write);
+    // 既定は**入力が使っていた形**。全書き直しは中身を変えない操作なので、
+    // 相互参照の形も変えない（`edit-open.ts` の `SourceForm`）
+    bytes = await editor.save({
+      xref: opened.form.xref,
+      objectStreams: opened.form.objectStreams,
+      ...extras.write,
+    });
   } catch (e) {
     if (e instanceof PdfWriterError) throw e;
     const cause = e instanceof Error ? e.message : String(e);

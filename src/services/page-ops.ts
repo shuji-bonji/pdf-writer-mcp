@@ -29,7 +29,6 @@ import {
 } from './doc-level.js';
 import { loadForEdit } from './editor.js';
 import { saveEdited } from './output.js';
-import { normalizeRotation, toPdfLibRotation } from './rotation.js';
 
 /** 基本メタデータを src から dst へ引き継ぐ（copyPages は文書情報を運ばないため） */
 function copyDocumentInfo(src: PDFDocument, dst: PDFDocument): void {
@@ -175,24 +174,6 @@ export async function reorderPages(
   const before = surveyDocLevel(src);
   const { dst, warnings } = await copyIntoNewDoc(src, order);
   return saveWithDocLevelWarnings(dst, opts, 'reorder_pages', before, warnings);
-}
-
-export async function rotatePages(
-  inputPath: string,
-  rotation: number,
-  pages: string | undefined,
-  opts: CommonEditOptions,
-): Promise<EditResult> {
-  const { doc } = await loadForEdit(inputPath, opts);
-  const targets = pages
-    ? parsePageSpec(pages, doc.getPageCount())
-    : Array.from({ length: doc.getPageCount() }, (_, i) => i + 1);
-  for (const n of targets) {
-    const page = doc.getPage(n - 1);
-    const current = page.getRotation().angle;
-    page.setRotation(toPdfLibRotation(normalizeRotation(current + rotation)));
-  }
-  return saveEdited(doc, opts);
 }
 
 export async function splitPdf(

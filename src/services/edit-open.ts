@@ -84,11 +84,46 @@ export type XrefSource =
       readonly entriesAfter: number;
     };
 
+/**
+ * 入力が使っていた相互参照の形。**書き戻すときはこれに合わせる。**
+ *
+ * 全書き直しは中身を変えない操作なので、**構造の形も変えない**のが既定であるべきである。
+ * 相互参照ストリーム（§7.5.8）の文書を古典テーブル（§7.5.4）で書き戻すのは条文には
+ * 反しないが、`/Type /XRef` を期待する読み手と、圧縮オブジェクトを使えるという
+ * 性質を黙って落とす。実測でも、旧実装（pdf-lib）との差はここだけで
+ * **オブジェクト数が 2 減る**（ObjStm 1 + XRef 1）形で出た。
+ */
+export interface SourceForm {
+  /** 最新の節が `/Type /XRef` を持っていたか（§7.5.8.1） */
+  readonly xref: 'table' | 'stream';
+  /** 圧縮オブジェクト（§7.5.7）が 1 つでもあったか */
+  readonly objectStreams: boolean;
+}
+
 export interface OpenedForEdit {
   readonly editor: PdfDocumentEditor;
   readonly absPath: string;
   readonly bytes: Uint8Array;
   readonly xref: XrefSource;
+  /** 入力が使っていた形。`saveOpened` の既定になる */
+  readonly form: SourceForm;
+}
+
+/** 入力が使っていた相互参照の形を読み取る */
+function readSourceForm(base: PdfDocument): SourceForm {
+  // 相互参照ストリームの文書では、`base.trailer` はそのストリームの辞書そのもの
+  const type = dictGet(base.trailer, 'Type');
+  let objectStreams = false;
+  for (const entry of base.xref.values()) {
+    if (entry.type === 'compressed') {
+      objectStreams = true;
+      break;
+    }
+  }
+  return {
+    xref: type?.kind === 'name' && type.value === 'XRef' ? 'stream' : 'table',
+    objectStreams,
+  };
 }
 
 /** `startxref` が指している位置を、ファイル全体から拾う（重複は畳む） */
@@ -203,9 +238,10 @@ export async function openForEdit(
     );
   }
 
+  const form = readSourceForm(editor.base);
   const stop = editor.base.chainStop;
   if (stop.kind === 'complete') {
-    return { editor, absPath, bytes, xref: { kind: 'chain' } };
+    return { editor, absPath, bytes, xref: { kind: 'chain' }, form };
   }
 
   // --- 回復読み ---
@@ -245,6 +281,7 @@ export async function openForEdit(
     editor: recovered,
     absPath,
     bytes,
+    form,
     xref: {
       kind: 'recovered',
       stop: stop.kind,

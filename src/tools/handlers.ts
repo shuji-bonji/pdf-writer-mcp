@@ -26,12 +26,12 @@ import {
   tagFormFields,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
+import { rotatePages } from '../services/page-rotate.js';
 import {
   deletePages,
   extractPages,
   mergePdfs,
   reorderPages,
-  rotatePages,
   splitPdf,
 } from '../services/page-ops.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
