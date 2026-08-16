@@ -34,9 +34,12 @@ import {
   extractPages,
   mergePdfs,
   reorderPages,
-  rotatePages,
   splitPdf,
 } from '../src/services/page-ops.js';
+// rotate_pages は L4′.2 で新しい経路（normativepdf）へ移した。
+// **再輸出はしない** —— 所属そのものが変わったので、page-ops に残っているように
+// 見せると嘘が残る（`containsSignature` は置き場所だけ変えたので再輸出した）
+import { rotatePages } from '../src/services/page-rotate.js';
 
 const execFileAsync = promisify(execFile);
 

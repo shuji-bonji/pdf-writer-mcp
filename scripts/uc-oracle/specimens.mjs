@@ -367,6 +367,28 @@ export const SPECIMENS = [
     ],
   },
 
+  {
+    id: 'edit-rotate-20',
+    uc: 'UC-2',
+    /**
+     * `rotate_pages` を**単独で**測る（2026-08-15 追加）。
+     *
+     * 🔴 **`edit-page-ops` はこれを測っていなかった。** あの検体は
+     * rotate → reorder → extract の 3 段で、**最後の 2 段が新しい文書へ複写する**ので、
+     * rotate が書いたファイルの形（相互参照の種類・ヘッダの版・オブジェクト数）は
+     * 最終成果物に 1 つも残らない。実測でそれを踏んだ ——
+     * rotate_pages を normativepdf の経路に載せ替えても `edit-page-ops` は「差なし」だった。
+     * **鎖の途中を測りたいなら、その段だけの検体が要る。**
+     *
+     * 入力は `input-origin-zero` と同じ `%PDF-2.0`（catalog `/Version` 無し）。
+     * 旧実装はこれを `%PDF-1.7` で書いていたので、`meta.headerVersion` が
+     * 移行の前後で 1.7 → 2.0 に変わる面をここで押さえる。
+     */
+    axes: { op: 'rotate', origin: '0', inputXref: 'table', pdfVersion: '2.0', revisions: 1 },
+    inputFile: () => pdf20('Simple PDF 2.0 file.pdf'),
+    steps: [{ tool: 'rotate_pages', args: { inputPath: '{{input}}', rotation: 90 } }],
+  },
+
   // ---- E 群: 入力ファイルの形（writer が作った形以外を食わせる）
   {
     id: 'input-origin-zero',
