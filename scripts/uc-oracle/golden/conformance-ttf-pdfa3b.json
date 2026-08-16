@@ -90,16 +90,13 @@
  },
  "pages": [
   {
-   "/Annots": [],
-   "/Contents": [
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#1 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:54> Tj T* ET Q EMC"
-     }
+   "/Contents": {
+    "@stream": {
+     "basis": "filtered",
+     "kind": "content",
+     "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:54> Tj T* ET Q EMC"
     }
-   ],
+   },
    "/MediaBox": [
     0,
     0,
@@ -107,13 +104,12 @@
     841.89
    ],
    "/Resources": {
-    "/ExtGState": {},
     "/Font": {
      "/Font#0": {
-      "/BaseFont": "/QZXVZW+LiberationSans",
+      "/BaseFont": "/IJEHPJ+LiberationSans",
       "/DescendantFonts": [
        {
-        "/BaseFont": "/QZXVZW+LiberationSans",
+        "/BaseFont": "/IJEHPJ+LiberationSans",
         "/CIDSystemInfo": {
          "/Ordering": "Identity",
          "/Registry": "Adobe",
@@ -140,7 +136,7 @@
            "sha256": "67c0af418462c271"
           }
          },
-         "/FontName": "/QZXVZW+LiberationSans",
+         "/FontName": "/IJEHPJ+LiberationSans",
          "/ItalicAngle": 0,
          "/StemV": 0,
          "/Type": "/FontDescriptor",
@@ -185,103 +181,19 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 665,
-        "sha256": "462e6e1fe3ffd054"
-       }
-      },
-      "/Type": "/Font"
-     },
-     "/Font#1": {
-      "/BaseFont": "/QZXVZW+LiberationSans",
-      "/DescendantFonts": [
-       {
-        "/BaseFont": "/QZXVZW+LiberationSans",
-        "/CIDSystemInfo": {
-         "/Ordering": "Identity",
-         "/Registry": "Adobe",
-         "/Supplement": 0
-        },
-        "/CIDToGIDMap": "/Identity",
-        "/FontDescriptor": {
-         "/Ascent": 905.2734,
-         "/CapHeight": 687.9883,
-         "/Descent": -211.9141,
-         "/Flags": 4,
-         "/FontBBox": [
-          -203.125,
-          -303.2227,
-          1050.293,
-          910.1563
-         ],
-         "/FontFile2": {
-          "/Length1": 10764,
-          "@stream": {
-           "basis": "filtered",
-           "kind": "binary",
-           "bytes": 10764,
-           "sha256": "67c0af418462c271"
-          }
-         },
-         "/FontName": "/QZXVZW+LiberationSans",
-         "/ItalicAngle": 0,
-         "/StemV": 0,
-         "/Type": "/FontDescriptor",
-         "/XHeight": 528.3203
-        },
-        "/Subtype": "/CIDFontType2",
-        "/Type": "/Font",
-        "/W": [
-         0,
-         [
-          365.2344,
-          277.832,
-          277.832,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          610.8398,
-          610.8398,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          556.1523,
-          333.0078,
-          556.1523,
-          500,
-          350.0977
-         ]
-        ]
-       }
-      ],
-      "/Encoding": "/Identity-H",
-      "/Subtype": "/Type0",
-      "/ToUnicode": {
-       "@stream": {
-        "basis": "filtered",
-        "kind": "binary",
-        "bytes": 665,
-        "sha256": "462e6e1fe3ffd054"
+        "bytes": 647,
+        "sha256": "92defb010fff5d5b"
        }
       },
       "/Type": "/Font"
      }
-    },
-    "/XObject": {}
+    }
    },
    "/StructParents": 0,
    "/Type": "/Page"
   }
  ],
  "info": {
-  "/Creator": "<opaque>",
   "/Producer": "<opaque>",
   "/Title": "TTF"
  },

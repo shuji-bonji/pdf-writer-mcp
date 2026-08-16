@@ -24,6 +24,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 /** 圧縮のためだけのフィルタ。意味を持たない = 正規化して落とす */
 const COMPRESSION_FILTERS = new Set([
@@ -352,6 +353,17 @@ function makeCanonicalizer(ctx) {
 }
 
 /**
+ * ヘッダの版（§7.5.2 `%PDF-n.m`）を生バイトから読む。
+ * 先頭にゴミがあるファイル（origin > 0）でも、最初の `%PDF-` を探す。
+ * @returns {string|null}
+ */
+function readHeaderVersion(path) {
+  const head = readFileSync(path).subarray(0, 1024).toString('latin1');
+  const m = /%PDF-(\d\.\d)/.exec(head);
+  return m ? m[1] : null;
+}
+
+/**
  * PDF 1 本のダイジェストを作る。
  * @returns {{tree: object, sha256: string, meta: object}}
  */
@@ -385,6 +397,13 @@ export function digestPdf(path, { qpdf = 'qpdf' } = {}) {
       producer: objects[infoRef]?.['/Producer'] ?? null,
       creator: objects[infoRef]?.['/Creator'] ?? null,
       objectCount: Object.keys(objects).length - 1,
+      // 🔴 ヘッダの版（§7.5.2）。catalog の `/Version`（Table 29）は `tree.root` に
+      // 入っているが、**ヘッダは今までどこにも入っていなかった**。
+      // 実測（2026-08-15）: 旧 `rotate_pages` は入力が `%PDF-2.0` でも
+      // `%PDF-1.7` を書き、catalog `/Version` も足さないので**実効版が 2.0 → 1.7 に下がる**。
+      // オラクルはこれを 1 度も見ていなかった（[[saturated-faces-cannot-carry-a-difference]]）。
+      // qpdf を通さず生バイトから読むのは、版が qpdf の実装や版に依らない事実だから
+      headerVersion: readHeaderVersion(path),
     },
   };
 }
