@@ -80,22 +80,14 @@ import {
   stripInfoForPdfa4,
 } from './pdfa-conformance.js';
 import { assertRenderable } from './renderers/text.js';
+import { containsSignature } from './signature-scan.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
 import { declarePdfa, syncXmpWithInfo } from './xmp.js';
 
-/** 入力バイト列に電子署名（/ByteRange）が含まれるかの軽量検査 */
-export function containsSignature(bytes: Uint8Array): boolean {
-  // "/ByteRange" の ASCII 検索（署名辞書は非圧縮で現れるのが通例）
-  const needle = [0x2f, 0x42, 0x79, 0x74, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65]; // "/ByteRange"
-  outer: for (let i = 0; i <= bytes.length - needle.length; i++) {
-    for (let j = 0; j < needle.length; j++) {
-      if (bytes[i + j] !== needle[j]) continue outer;
-    }
-    return true;
-  }
-  return false;
-}
+// 署名検知は `signature-scan.ts` へ移した（L4′.1 = 新しい入口と共有するため）。
+// ここから再輸出しているのは `tests/editor.test.ts` が この経路で import しているから。
+export { containsSignature } from './signature-scan.js';
 
 /** PDF を読み込み、署名ガード・サイズ上限を通す（page-ops.ts と共用） */
 export async function loadForEdit(

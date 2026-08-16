@@ -23,21 +23,10 @@ import { documentDate, PACKAGE_INFO } from '../config.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { arr, dict, hex, name, stream, textString } from './cos.js';
+import { pdfDate } from './pdf-date.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
 import type { WriterDocument } from './writer-doc.js';
 import { buildXmpPacket } from './xmp.js';
-
-/**
- * §7.9.4 の日付文字列 `D:YYYYMMDDHHmmSSOHH'mm'`。
- * UTC で書く（`Z` ではなく `+00'00'` = Table 4 の形）。
- */
-function pdfDate(when: Date): string {
-  const p = (n: number, w = 2): string => String(n).padStart(w, '0');
-  return (
-    `D:${when.getUTCFullYear()}${p(when.getUTCMonth() + 1)}${p(when.getUTCDate())}` +
-    `${p(when.getUTCHours())}${p(when.getUTCMinutes())}${p(when.getUTCSeconds())}+00'00'`
-  );
-}
 
 /**
  * `/ID`（§14.4 Table 15）。
