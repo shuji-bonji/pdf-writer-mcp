@@ -1,6 +1,6 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-17T16:33:52.763Z",
+ "capturedAt": "2026-08-17T17:24:53.822Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
@@ -280,7 +280,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "b3df68514b7b5c61364be3a614143e179a502ef8eb21de6ac2c389d6a1e0b207",
+   "sha256": "eea4cac82f46edec530d9c5d0a6d80c66d71f18d8dc9c892bebfb6ce1331fd5f",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
     "creator": null
@@ -601,7 +601,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "80e01d3ef0ed5d30eca0f8fd56982959b7eab75c072d1e9080acba4d7c03c9b3",
+   "sha256": "71b59308448195644f87bcfcca51a9097d122b4bcda41f14deb29abfb1554b1b",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
     "creator": null
@@ -668,7 +668,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "5838c3ed28e159eefdd341b8cbac32f512c1899a4986703dd34cc42bf279ee2c",
+   "sha256": "5cb4e7745c1427d8812c9a2b49bc0799e3239751a40e26adedbd37464742763e",
    "meta": {
     "producer": null,
     "creator": null
@@ -735,7 +735,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "b04fde565b4d919b8293cd39ef493af7ce8c000ee7c30b80fc8df04a337fad96",
+   "sha256": "5d4290a77b76f73978dca3045c9d4f38ef038381ecb6f7e76c7e8ce8abd0ba99",
    "meta": {
     "producer": null,
     "creator": null
