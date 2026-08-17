@@ -18,12 +18,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { PDFDocument, PDFName, PDFRef } from 'pdf-lib';
+import { PDFDocument, PDFRef } from 'pdf-lib';
 import { documentDate } from '../config.js';
 import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
-  AddAnnotationArgs,
   AddWatermarkArgs,
   AttachFileArgs,
   AttachResult,
@@ -40,7 +39,6 @@ import type {
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
-import { addAnnotation as addAnnotationDict } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { rgbFromHex } from './color.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
@@ -65,7 +63,7 @@ import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
 import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
-import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
+import { isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
 
 // 署名検知は `signature-scan.ts` へ移した（L4′.1 = 新しい入口と共有するため）。
@@ -217,70 +215,6 @@ async function saveWithPreservedSignatures(
 // ---------------------------------------------------------------------------
 // Tier A ツール本体（ページ操作は page-ops.ts へ）
 // ---------------------------------------------------------------------------
-
-export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-
-  // --- 署名保持モード（Tier C・ADR-11）: 元バイト列に触れず増分更新で追記する ---
-  if (args.preserveSignatures) {
-    // 注釈の追加が許されるのは DocMDP P=3 のみ（承認署名なら制約なし）
-    assertDocMdpAllows(doc, 'annotation');
-
-    // 容器ストリーム等の「登録されない番号」との衝突を防いでから採番を始める
-    await reserveExistingObjectNumbers(doc, bytes);
-    const since = doc.context.largestObjectNumber;
-    const added = addAnnotationDict(doc, args);
-
-    // 再定義が必要な既存オブジェクトを特定する:
-    //   /Annots が間接配列 → その配列オブジェクトだけを再定義（ページ辞書は元のまま）
-    //   /Annots が直接配列 or 新設 → ページオブジェクトを再定義
-    const annotsRaw = added.page.node.get(PDFName.of('Annots'));
-    const dirtyRefs: PDFRef[] = [annotsRaw instanceof PDFRef ? annotsRaw : added.page.ref];
-
-    // タグ付き文書なら構造木へも結び付け、変更された既存オブジェクトを dirty に合成する
-    // （B-7b': StructTreeRoot / 親要素 / ParentTree / page(/Tabs) を struct-append が報告する）
-    const warnings: string[] = [];
-    const linked = appendAnnotationToStructTree(doc, added.page, added.ref, args.alt);
-    if (linked.tagged) {
-      dirtyRefs.push(...linked.dirtiedRefs);
-      if (!args.alt) {
-        warnings.push(
-          'The document is tagged and the annotation was nested in an Annot structure element. ' +
-            'Pass "alt" to give assistive technology a description of it.',
-        );
-      }
-    }
-    touchModificationDate(doc, since, dirtyRefs);
-
-    const result = await saveWithPreservedSignatures(
-      doc,
-      bytes,
-      args,
-      dirtyRefs,
-      since,
-      'Added annotation',
-    );
-    if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
-    return result;
-  }
-
-  const added = addAnnotationDict(doc, args);
-
-  // タグ付き PDF なら構造木にも結び付ける（PDF/UA 7.18.1-1 / 7.18.3-1）。
-  // タグ無し文書では何もしない — 注釈のためだけに構造木を作り始めない。
-  const warnings: string[] = [];
-  const linked = appendAnnotationToStructTree(doc, added.page, added.ref, args.alt);
-  if (linked.tagged && !args.alt) {
-    warnings.push(
-      'The document is tagged and the annotation was nested in an Annot structure element. ' +
-        'Pass "alt" to give assistive technology a description of it.',
-    );
-  }
-
-  const result = await saveEdited(doc, args);
-  if (warnings.length > 0) result.warnings = warnings;
-  return result;
-}
 
 export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResult> {
   const { doc, bytes } = await loadForEdit(args.inputPath, args);

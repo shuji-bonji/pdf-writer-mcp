@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
-import { addAnnotation } from '../src/services/editor.js';
+import { addAnnotation } from '../src/services/edit-annotation.js';
 import { readPreviousSection } from '../src/services/incremental.js';
 import { handleAddAnnotation, handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { AddAnnotationArgs, EditResult } from '../src/types/index.js';

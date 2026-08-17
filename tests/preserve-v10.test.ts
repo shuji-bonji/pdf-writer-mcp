@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
 import { addBookmarks } from '../src/services/edit-bookmarks.js';
 import { setMetadata } from '../src/services/edit-metadata.js';
-import { addAnnotation } from '../src/services/editor.js';
+import { addAnnotation } from '../src/services/edit-annotation.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { EditResult } from '../src/types/index.js';
 
