@@ -249,14 +249,6 @@
            228,
            20
           ],
-          "/Matrix": [
-           1,
-           0,
-           0,
-           1,
-           0,
-           0
-          ],
           "/Subtype": "/Form",
           "/Type": "/XObject",
           "@stream": {
@@ -387,14 +379,6 @@
         0,
         228,
         20
-       ],
-       "/Matrix": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
        ],
        "/Subtype": "/Form",
        "/Type": "/XObject",

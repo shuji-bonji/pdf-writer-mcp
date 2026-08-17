@@ -42,14 +42,6 @@
         228,
         20
        ],
-       "/Matrix": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-       ],
        "/Subtype": "/Form",
        "/Type": "/XObject",
        "@stream": {
@@ -232,6 +224,6 @@
  "info": {},
  "pageCount": 1,
  "encrypted": false,
- "headerVersion": "1.7",
- "objectCount": 14
+ "headerVersion": "2.0",
+ "objectCount": 12
 }
