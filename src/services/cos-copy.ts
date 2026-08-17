@@ -164,17 +164,22 @@ async function appendKids(to: PdfDocumentEditor, pages: readonly CosRef[]): Prom
 }
 
 
-/** catalog の 1 項目を複写する（ストリームを直接オブジェクトに落とさない）。 */
-export async function copyCatalogValue(
-  ctx: CopyContext,
-  raw: CosObject,
-): Promise<CosObject> {
+/**
+ * catalog の 1 項目を複写する。**結果は必ず間接参照**になる。
+ *
+ * 🔴 ストリームは間接でなければならない（R-7.3.8.1-5・Table 29 の `Metadata` は
+ * R-7.7.2-22）。直接のまま catalog に埋めると、catalog がオブジェクトストリームに
+ * 入る構成で生バイトが埋まり、**出力 PDF が壊れる**（実測: `qpdf: unable to find
+ * /Root dictionary`・v0.13.0 のリグレッション。W-1）。
+ *
+ * ストリーム以外も格上げするのは、旧実装（`copyForCatalog`）が選んだ形に合わせるためである
+ * —— 一貫させておけば「解決してから渡す」誤りが再発しても壊れない。Table 29 は
+ * ここで運ぶ鍵（`Names` / `AF` / `Lang` / `ViewerPreferences` / `OutputIntents`）に
+ * 間接を禁じていない。`tests/doc-level.test.ts` の W-1 回帰がこの形を固定している。
+ */
+export async function copyCatalogValue(ctx: CopyContext, raw: CosObject): Promise<CosRef> {
   if (raw.kind === 'ref') return copyIndirect(ctx, raw);
-  const copied = await copyValue(ctx, raw);
-  // R-7.3.8.1-5: ストリームは間接に格上げする。直接のままだと
-  // catalog がオブジェクトストリームに入る構成で生バイトが埋まって読めなくなる
-  if (copied.kind === 'stream') return ctx.to.allocate(copied);
-  return copied;
+  return ctx.to.allocate(await copyValue(ctx, raw));
 }
 
 /** 元の catalog（`/Root`）を辞書として読む。 */
