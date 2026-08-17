@@ -65,11 +65,7 @@ async function documentElement(
 }
 
 /** 要素の `/K` に子を追加した辞書を返す（単一値・配列・未設定のいずれにも対応）。 */
-async function withKid(
-  editor: PdfDocumentEditor,
-  parent: CosDict,
-  kid: CosRef,
-): Promise<CosDict> {
+async function withKid(editor: PdfDocumentEditor, parent: CosDict, kid: CosRef): Promise<CosDict> {
   const entries = new Map<string, CosObject>(parent.entries);
   const raw = dictGetRaw(parent, 'K');
 
@@ -227,7 +223,11 @@ export async function appendObjRefToStructTree(
   }
 
   rootEntries.set('ParentTreeNextKey', int(key + 1));
-  editor.set(structRootRaw.objectNumber, { kind: 'dict', entries: rootEntries }, structRootRaw.generationNumber);
+  editor.set(
+    structRootRaw.objectNumber,
+    { kind: 'dict', entries: rootEntries },
+    structRootRaw.generationNumber,
+  );
 
   // 注釈側に `/StructParent`（R-14.7.5.4-12）
   const target = await editor.resolve(targetRef);
@@ -243,7 +243,11 @@ export async function appendObjRefToStructTree(
     pageNow.kind === 'dict' ? pageNow.entries : page.dict.entries,
   );
   pageEntries.set('Tabs', name('S'));
-  editor.set(page.ref.objectNumber, { kind: 'dict', entries: pageEntries }, page.ref.generationNumber);
+  editor.set(
+    page.ref.objectNumber,
+    { kind: 'dict', entries: pageEntries },
+    page.ref.generationNumber,
+  );
 
   return { tagged: true, structParent: key };
 }

@@ -13,7 +13,14 @@
  * （既存のバイト列を包む `ensure_tagged` では合わなかった。§3.20.1）。
  */
 
-import { ContentStreamBuilder, type CosDict, type CosObject, type CosRef, dictGetRaw, type PdfDocumentEditor } from 'normativepdf';
+import {
+  ContentStreamBuilder,
+  type CosDict,
+  type CosObject,
+  type CosRef,
+  dictGetRaw,
+  type PdfDocumentEditor,
+} from 'normativepdf';
 import { outputDate } from '../config.js';
 import { invalidArg } from '../errors.js';
 import type { AddAnnotationArgs, AnnotationRect } from '../types/index.js';
@@ -208,7 +215,11 @@ export async function addAnnotationDict(
   } else {
     const pageEntries = new Map<string, CosObject>(page.dict.entries);
     pageEntries.set('Annots', arr(items));
-    editor.set(page.ref.objectNumber, { kind: 'dict', entries: pageEntries }, page.ref.generationNumber);
+    editor.set(
+      page.ref.objectNumber,
+      { kind: 'dict', entries: pageEntries },
+      page.ref.generationNumber,
+    );
   }
 
   return { count: items.length, ref: annotRef, pageRef: page.ref, pageDict: page.dict };
