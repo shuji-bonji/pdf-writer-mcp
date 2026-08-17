@@ -38,10 +38,11 @@ export interface CopyContext {
   readonly seen: Map<string, CosRef>;
 }
 
-export const newCopyContext = (
-  from: PdfDocumentEditor,
-  to: PdfDocumentEditor,
-): CopyContext => ({ from, to, seen: new Map() });
+export const newCopyContext = (from: PdfDocumentEditor, to: PdfDocumentEditor): CopyContext => ({
+  from,
+  to,
+  seen: new Map(),
+});
 
 const keyOf = (ref: CosRef): string => `${ref.objectNumber} ${ref.generationNumber}`;
 
@@ -162,7 +163,6 @@ async function appendKids(to: PdfDocumentEditor, pages: readonly CosRef[]): Prom
   entries.set('Type', name('Pages'));
   to.set(parent.objectNumber, { kind: 'dict', entries }, parent.generationNumber);
 }
-
 
 /**
  * catalog の 1 項目を複写する。**結果は必ず間接参照**になる。

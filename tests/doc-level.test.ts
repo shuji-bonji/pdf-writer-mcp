@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
+import { PdfDocumentEditor } from 'normativepdf';
 import {
   type PDFArray,
   type PDFDict,
@@ -26,7 +27,6 @@ import {
   PDFRef,
   PDFString,
 } from 'pdf-lib';
-import { PdfDocumentEditor } from 'normativepdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { catalogView, surveyDocLevel, usesOptionalContent } from '../src/services/doc-level.js';
 import { attachFileToPdf } from '../src/services/edit-attach.js';

@@ -8,21 +8,21 @@
  * **黙って落とさない**ことは守る —— 入力にあって出力に無いものを警告で報告する。
  *
  * 🔴 **出力の版は入力に合わせる（§7.5.2）。** 旧実装は pdf-lib の `create()` が書く
- * `%PDF-1.7` に固定されていた。PDF 2.0 の入力を抜き出すと実効版が下がる —— 
+ * `%PDF-1.7` に固定されていた。PDF 2.0 の入力を抜き出すと実効版が下がる ——
  * `rotate_pages`（§3.11.3）や `add_annotation`（§3.23.3）と同じ欠陥である。
  */
 
 import { basename, extname, join } from 'node:path';
 import { PdfDocumentEditor } from 'normativepdf';
+import { documentDate } from '../config.js';
 import { LIMITS } from '../constants.js';
 import { invalidArg } from '../errors.js';
 import type { CommonEditOptions, EditResult, SplitResult } from '../types/index.js';
-import { documentDate } from '../config.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
 import { textString } from './cos.js';
-import { textOf } from './cos-read.js';
 import { type CopyContext, copyPagesInto, newCopyContext } from './cos-copy.js';
+import { textOf } from './cos-read.js';
 import {
   type CatalogView,
   carryDocumentLevel,
@@ -34,10 +34,10 @@ import {
   surveyDocLevel,
   usesOptionalContent,
 } from './doc-level.js';
-import { openForEdit, type OpenedForEdit } from './edit-open.js';
+import { type OpenedForEdit, openForEdit } from './edit-open.js';
 import { setInfoEntries } from './info-dict.js';
-import { touchModDate } from './output-edited.js';
 import { saveRawBytes } from './output.js';
+import { touchModDate } from './output-edited.js';
 
 /** 基本メタデータを src から dst へ引き継ぐ（ページの複写は文書情報を運ばない） */
 async function copyDocumentInfo(from: PdfDocumentEditor, to: PdfDocumentEditor): Promise<void> {
