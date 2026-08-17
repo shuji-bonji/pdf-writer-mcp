@@ -17,6 +17,7 @@
  */
 
 import {
+  COS_NULL,
   type CosDict,
   type CosObject,
   type CosRef,
@@ -214,6 +215,61 @@ export async function syncXmpWithInfo(
   });
 
   const attached = await attachXmp(editor, packet);
+  return {
+    updated: true,
+    ...(attached.ref !== undefined && !attached.catalogTouched ? { ref: attached.ref } : {}),
+    catalogTouched: attached.catalogTouched,
+    warnings: [],
+  };
+}
+
+/**
+ * B-8: 文書に PDF/A 適合を**宣言**させる（veraPDF `6.6.4-1`）。
+ *
+ * 既存 XMP があれば `pdfaid` を**上書き**し、他の宣言（`pdfuaid:part` / `dc:language` /
+ * `xmp:CreateDate`）は `syncXmpWithInfo` が保持する。XMP が無ければ Info と `/Lang` から
+ * 最小の XMP を新規に作る —— `ensure_pdfa` は既存 PDF が対象なので、この枝は普通に起こる。
+ *
+ * **自称と実体は別物**（`specs/09 §4`）。ここが作るのは宣言だけで、適合の判定は veraPDF が下す。
+ */
+export async function declarePdfa(
+  editor: PdfDocumentEditor,
+  part: number,
+  conformance: string | undefined,
+  rev?: number,
+): Promise<XmpSyncResult> {
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  const catalog = rootRaw === undefined ? COS_NULL : await editor.resolve(rootRaw);
+  const hasMetadata = catalog.kind === 'dict' && dictGetRaw(catalog, 'Metadata') !== undefined;
+
+  if (hasMetadata) {
+    return syncXmpWithInfo(editor, {
+      pdfaPart: part,
+      ...(conformance !== undefined ? { pdfaConformance: conformance } : {}),
+      ...(rev !== undefined ? { pdfaRev: rev } : {}),
+    });
+  }
+
+  const lang = catalog.kind === 'dict' ? textOf(dictGet(catalog, 'Lang')) : undefined;
+  const infoRaw = dictGetRaw(editor.trailer(), 'Info');
+  const info = infoRaw === undefined ? COS_NULL : await editor.resolve(infoRaw);
+  const infoText = async (key: string): Promise<string | undefined> =>
+    info.kind === 'dict' ? textOf(await editor.resolve(dictGet(info, key) ?? COS_NULL)) : undefined;
+
+  const attached = await writeXmpMetadata(editor, {
+    ...((await infoText('Title')) !== undefined ? { title: await infoText('Title') } : {}),
+    ...((await infoText('Author')) !== undefined ? { author: await infoText('Author') } : {}),
+    ...((await infoText('Subject')) !== undefined ? { subject: await infoText('Subject') } : {}),
+    ...((await infoText('Keywords')) !== undefined ? { keywords: await infoText('Keywords') } : {}),
+    pdfaPart: part,
+    ...(conformance !== undefined ? { pdfaConformance: conformance } : {}),
+    ...(rev !== undefined ? { pdfaRev: rev } : {}),
+    ...(lang !== undefined ? { lang } : {}),
+    // W-6: 既存 PDF に XMP を新設する経路。作成日時は Info の /CreationDate から引き継ぐ
+    ...((await infoCreationDateIso(editor)) !== undefined
+      ? { createDate: await infoCreationDateIso(editor) }
+      : {}),
+  });
   return {
     updated: true,
     ...(attached.ref !== undefined && !attached.catalogTouched ? { ref: attached.ref } : {}),

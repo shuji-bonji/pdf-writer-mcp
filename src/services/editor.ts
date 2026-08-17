@@ -29,12 +29,9 @@ import type {
   AttachResult,
   CommonEditOptions,
   EditResult,
-  EnsurePdfaArgs,
-  EnsurePdfaResult,
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
-  PdfaDeclarationRisk,
   StampPageNumbersArgs,
   StampResult,
   TagFormFieldsArgs,
@@ -46,7 +43,6 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { rgbFromHex } from './color.js';
-import { findNonEmbeddedFonts } from './font-conformance.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
 import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import {
@@ -67,17 +63,10 @@ import {
 } from './incremental.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
-import {
-  hasPdfaDeclaration,
-  normalizePdfaConformance,
-  PDFA4_REV,
-  stripInfoForPdfa4,
-} from './pdfa-conformance.js';
 import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
-import { declarePdfa } from './xmp.js';
 
 // 署名検知は `signature-scan.ts` へ移した（L4′.1 = 新しい入口と共有するため）。
 // ここから再輸出しているのは `tests/editor.test.ts` が この経路で import しているから。
@@ -702,156 +691,6 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
  * ensure_tagged（Tier C・B-7c）: 既存 PDF を PDF/UA-1 の器に載せる。
  * 詳細と限界は services/ensure-tagged.ts の冒頭コメントを参照。
  */
-/**
- * B-8: 既存 PDF を PDF/A-3b の「器」に載せる。
- *
- * `ensure_tagged`（PDF/UA の器）と対になる操作。**構造木や本文には触らない**。
- *
- * ## なぜ create 系のオプションではなく後がけツールなのか
- *
- * UC-4（電帳法）の流れは「本文を作る → 機械可読データを添付する → PDF/A 化する」であり、
- * **PDF/A 化を最後に置けることが要る**。create 系のオプションにすると
- * `attach_file` が後に来て、添付が PDF/A 化の前提を崩しうる。
- *
- * ## 自称と実体は別物 — 本ツールが作るのは「宣言」だけ
- *
- * 本ツールは「PDF/A を名乗るための文書レベル要件」を補うだけで、**適合を保証しない**
- * （例: 埋め込まれていないフォント・暗号化・JavaScript・LZW は直さない）。
- * 適合したかは `pdf-verify-mcp` の `validate_conformance(flavour: "pdfa-3b")` で確かめる
- * — 判定は veraPDF が下し、ISO 19005 は family のコーパス外（T2）である。
- *
- * **XMP に `pdfaid` を書く = その文書は「PDF/A-3b です」と名乗る。**
- * 適合していない文書に付ければ**嘘を名乗る PDF を作ってしまう**ので、
- * **適用時は常に「検査していない」警告を返す**（下記 `warnings`）。
- * `specs/09 §4`「宣言 / 適合 / 検証は別物」の、**宣言側だけを作る道具**だと理解すること。
- */
-export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult> {
-  const flavour = args.flavour ?? 'pdfa-3b';
-  const isPdfa4 = flavour === 'pdfa-4' || flavour === 'pdfa-4f';
-  // -4 の variant。素の -4 では書かない（level ではないが XMP 上の置き場所は同じ）
-  const pdfa4Variant = flavour === 'pdfa-4f' ? 'F' : undefined;
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-
-  // PDF/A-4 は PDF 2.0 基盤で、ヘッダが `%PDF-2.n` であることを要求する
-  // （veraPDF `ISO 19005-4:2020 6.1.2-1`）。増分更新は**元ファイルの先頭を書き換えられない** —
-  // 書き換えれば署名の対象バイトが変わって署名が壊れる。だから黙って版を上げず、断る。
-  const alreadyPdf20 = String.fromCharCode(...bytes.subarray(0, 8)) === '%PDF-2.0';
-  if (isPdfa4 && preserve && !alreadyPdf20) {
-    throw new PdfWriterError(
-      'PDF/A-4 requires a PDF 2.0 header, but preserveSignatures appends an incremental update and cannot rewrite the header of a signed file without breaking the signature.',
-      'SIGNED_PDF',
-      {
-        hint: 'Start from a document that is already PDF 2.0, or drop preserveSignatures and re-sign afterwards.',
-        retryable: true,
-      },
-    );
-  }
-
-  if (preserve) {
-    // catalog（/OutputIntents）と trailer を触るので、構造変更と同じ扱いにする
-    assertDocMdpAllows(doc, 'structure');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-
-  const wasDeclared = hasPdfaDeclaration(doc);
-  const addedRequirements: string[] = [];
-  const warnings: string[] = [];
-
-  const normalized = await normalizePdfaConformance(doc);
-  addedRequirements.push(...normalized.added);
-  warnings.push(...normalized.notes);
-
-  // -4 は conformance level を持たない。level の代わりに rev（版の年）を名乗り、
-  // variant（-4f）だけが pdfaid:conformance を使う
-  const xmp = isPdfa4
-    ? declarePdfa(doc, 4, pdfa4Variant, PDFA4_REV)
-    : declarePdfa(doc, 3, 'B', undefined);
-  if (xmp.updated) {
-    addedRequirements.push(
-      isPdfa4
-        ? `XMP pdfaid (part 4${pdfa4Variant ? `, conformance ${pdfa4Variant}` : ''}, rev ${PDFA4_REV})`
-        : 'XMP pdfaid (part 3, conformance B)',
-    );
-  }
-  warnings.push(...xmp.warnings);
-
-  // **宣言を書いた以上、検査していない事実は必ず伝える。**
-  // ensure_tagged が「足場であってアクセシブルな文書ではない」と言うのと同じ位置づけだが、
-  // PDF/A の方が危険度が高い: PDF/UA は機械判定に届かない領域があるのに対し、
-  // **PDF/A はほぼ機械判定できる（veraPDF がある）のに、ここでは検査していない**。
-  // 「宣言 / 適合 / 検証は別物」（specs/09 §4）— 本ツールが作るのは**宣言**だけである。
-  const label = isPdfa4 ? (pdfa4Variant ? 'PDF/A-4f' : 'PDF/A-4') : 'PDF/A-3b';
-  const claim = isPdfa4
-    ? `pdfaid:part=4${pdfa4Variant ? `, conformance=${pdfa4Variant}` : ''}, rev=${PDFA4_REV}`
-    : 'pdfaid:part=3, conformance=B';
-  warnings.push(
-    `This file now CLAIMS ${label} (${claim}), but conformance was NOT ` +
-      'checked here. Only document-level requirements were supplied; unembedded fonts, ' +
-      'encryption, JavaScript, LZW compression and similar violations are left as they are. ' +
-      'If the document does not actually conform, that claim is now false. ' +
-      `Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: "${flavour}") — ` +
-      'and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text.',
-  );
-
-  // **B-21: 「測ると落ちる」と既に分かっている宣言は、そう名指しする。**
-  // 上の警告は「検査していない」としか言っておらず、散文なのでレポート側が分岐できない。
-  // 埋め込まれていないフォントは *この場で観測できる* 不適合であり、
-  // 黙って宣言だけ書くのは pdfnative 監査（F-1）で自分たちが問題にした形そのものである。
-  // ただし**宣言は書く**（破壊的変更を避ける）— 判定を下すのは veraPDF の役目。
-  const declarationRisks: PdfaDeclarationRisk[] = [];
-  const nonEmbedded = findNonEmbeddedFonts(doc);
-  if (nonEmbedded.length > 0) {
-    const affected = nonEmbedded.map((f) => `${f.baseFont} (${f.subtype})`);
-    declarationRisks.push({
-      code: 'FONT_NOT_EMBEDDED',
-      detail:
-        `${nonEmbedded.length} font(s) have no embedded font program, so this ${label} claim ` +
-        'will fail validation. PDF/A requires every font to be embedded, and ensure_pdfa does ' +
-        'not embed fonts — re-create the document with fontPath (or PDF_WRITER_FONT) set, ' +
-        'rather than relying on the standard 14 faces.',
-      affected,
-      measuredRuleId: isPdfa4 ? 'ISO 19005-4:2020 6.2.10.4.1-1' : undefined,
-    });
-    warnings.push(
-      `Known to fail: ${affected.join(', ')} — no embedded font program (see declarationRisks).`,
-    );
-  }
-
-  logger.info(
-    'Editor',
-    `Applied ${label} document requirements (${addedRequirements.length} item(s))`,
-  );
-
-  const saved = preserve
-    ? await (async () => {
-        const dirty = xmp.ref ? [xmp.ref] : [];
-        touchModificationDate(doc, since, dirty);
-        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, `Applied ${label}`);
-      })()
-    : await saveEdited(doc, args, undefined, {
-        // Info の始末は ModDate 更新の**後**でなければ意味が無い（saveEdited が作り直すため）
-        beforeSave: isPdfa4
-          ? (d) => {
-              const note = stripInfoForPdfa4(d);
-              if (note) addedRequirements.push(note);
-            }
-          : undefined,
-        targetVersion: isPdfa4 ? '2.0' : undefined,
-      });
-
-  const all = [...(saved.warnings ?? []), ...warnings];
-  return {
-    ...saved,
-    flavour: isPdfa4 ? (pdfa4Variant ? '4f' : '4') : '3b',
-    addedRequirements,
-    wasDeclared,
-    declarationRisks: declarationRisks.length > 0 ? declarationRisks : undefined,
-    warnings: all.length > 0 ? all : undefined,
-  };
-}
-
 export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {
   const { doc } = await loadForEdit(args.inputPath, args);
   const form = doc.getForm();
