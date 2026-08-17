@@ -113,7 +113,10 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
     );
   }
 
-  logger.info('Editor', `Applied ${label} document requirements (${addedRequirements.length} item(s))`);
+  logger.info(
+    'Editor',
+    `Applied ${label} document requirements (${addedRequirements.length} item(s))`,
+  );
 
   const saved: EditResult = preserve
     ? await appendOpened(opened, args)

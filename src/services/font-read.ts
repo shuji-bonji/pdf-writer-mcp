@@ -12,7 +12,7 @@
  * | §9.7.4 | Type0 の子（CIDFont）が FontDescriptor を持つ |
  */
 
-import { collectObjects, type CosDict, dictGet, type PdfDocumentEditor } from 'normativepdf';
+import { type CosDict, collectObjects, dictGet, type PdfDocumentEditor } from 'normativepdf';
 
 const nameOf = (dict: CosDict, key: string): string | undefined => {
   const value = dictGet(dict, key);
@@ -54,7 +54,9 @@ export async function findNonEmbeddedFonts(
 
     let holder: CosDict = object;
     if (subtype === 'Type0') {
-      const descendants = await editor.resolve(dictGet(object, 'DescendantFonts') ?? { kind: 'null' });
+      const descendants = await editor.resolve(
+        dictGet(object, 'DescendantFonts') ?? { kind: 'null' },
+      );
       if (descendants.kind !== 'array' || descendants.items.length === 0) continue;
       const cidFont = await editor.resolve(descendants.items[0] as never);
       if (cidFont.kind !== 'dict') continue;
