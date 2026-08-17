@@ -329,7 +329,9 @@ export async function ensureTaggedStructure(
 
   const catalog = await readCatalog(editor);
   const structRoot =
-    catalog === undefined ? COS_NULL : await editor.resolve(dictGet(catalog, 'StructTreeRoot') ?? COS_NULL);
+    catalog === undefined
+      ? COS_NULL
+      : await editor.resolve(dictGet(catalog, 'StructTreeRoot') ?? COS_NULL);
 
   if (structRoot.kind !== 'dict') {
     await createMinimalStructure(editor, outcome);
