@@ -386,6 +386,24 @@ export function digestPdf(path, { qpdf = 'qpdf' } = {}) {
     info: isRef(infoRef) ? canonObject(infoRef, [], new Map()) : null,
     pageCount: pageIndex.size,
     encrypted: trailer['/Encrypt'] !== undefined,
+    // 🔴 ヘッダの版（§7.5.2）。**`tree` に置く**のが要点である ——
+    // 2026-08-15 に一度 `meta` へ入れたが、`meta` は `run.mjs` の `compare()` が
+    // 見ていない（記録するだけ・digest.mjs の「伏せた値は脇に置く」がそれ）。
+    // つまり「計器に足したのに何も測っていなかった」。`tree` は sha256 の対象で、
+    // `pageCount` / `encrypted` という同じ形のスカラが既に入っている。
+    //
+    // 何を捕まえるか: 旧 `rotate_pages` は入力が `%PDF-2.0` でも `%PDF-1.7` を書き、
+    // catalog `/Version` も足さないので実効版が 2.0 → 1.7 に下がっていた。
+    // catalog の `/Version`（Table 29）は `root` に入るが、ヘッダはどこにも無かった。
+    // qpdf を通さず生バイトから読むのは、版が qpdf の実装や版に依らない事実だから
+    headerVersion: readHeaderVersion(path),
+    // 🔴 オブジェクトの数。これも 2026-08-15 まで `meta` にあり、比べられていなかった。
+    // 実測: `add_bookmarks` を COS へ移した出力は入力 30 → 32 なのに、
+    // ゴールデン（pdf-lib 経路）は 35 だった。差 −3 をオラクルは 1 度も報告していない。
+    // 到達しないオブジェクトは canonObject の walk に入らないので `root`/`pages`/`info`
+    // には現れず、数だけが違っていた。ここに置くと以後この差は sha256 に出る。
+    // 注意: qpdf の json から数えるので qpdf の版に依る（headerVersion と違い生バイトではない）
+    objectCount: Object.keys(objects).length - 1,
   };
 
   const canonicalJson = JSON.stringify(tree);
@@ -396,14 +414,6 @@ export function digestPdf(path, { qpdf = 'qpdf' } = {}) {
       // 伏せた値は消さずに脇に置く。人が「何が変わったか」を読めるように
       producer: objects[infoRef]?.['/Producer'] ?? null,
       creator: objects[infoRef]?.['/Creator'] ?? null,
-      objectCount: Object.keys(objects).length - 1,
-      // 🔴 ヘッダの版（§7.5.2）。catalog の `/Version`（Table 29）は `tree.root` に
-      // 入っているが、**ヘッダは今までどこにも入っていなかった**。
-      // 実測（2026-08-15）: 旧 `rotate_pages` は入力が `%PDF-2.0` でも
-      // `%PDF-1.7` を書き、catalog `/Version` も足さないので**実効版が 2.0 → 1.7 に下がる**。
-      // オラクルはこれを 1 度も見ていなかった（[[saturated-faces-cannot-carry-a-difference]]）。
-      // qpdf を通さず生バイトから読むのは、版が qpdf の実装や版に依らない事実だから
-      headerVersion: readHeaderVersion(path),
     },
   };
 }
