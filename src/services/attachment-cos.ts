@@ -31,9 +31,9 @@ import { ENV_KEYS, outputDate } from '../config.js';
 import { LIMITS } from '../constants.js';
 import { PdfWriterError } from '../errors.js';
 import type { AttachmentRelationship } from '../types/index.js';
+import { guessMimeType } from './attachment.js';
 import { arr, dict, int, name, stream, textString } from './cos.js';
 import { textOf } from './cos-read.js';
-import { guessMimeType } from './attachment.js';
 import { pdfDate } from './pdf-date.js';
 
 export interface EmbeddedFileInfo {
@@ -105,9 +105,7 @@ async function embeddedFileNames(editor: PdfDocumentEditor): Promise<readonly Co
 }
 
 /** 埋め込まれているファイルを列挙する（名前・説明・関係・MIME 型）。 */
-export async function listEmbeddedFiles(
-  editor: PdfDocumentEditor,
-): Promise<EmbeddedFileInfo[]> {
+export async function listEmbeddedFiles(editor: PdfDocumentEditor): Promise<EmbeddedFileInfo[]> {
   const items = await embeddedFileNames(editor);
   const out: EmbeddedFileInfo[] = [];
 
@@ -262,9 +260,7 @@ export async function attachFile(
     entries.set('EmbeddedFiles', updatedEf);
     editor.set(namesRaw.objectNumber, { kind: 'dict', entries }, namesRaw.generationNumber);
   } else {
-    const entries = new Map<string, CosObject>(
-      namesDict.kind === 'dict' ? namesDict.entries : [],
-    );
+    const entries = new Map<string, CosObject>(namesDict.kind === 'dict' ? namesDict.entries : []);
     entries.set('EmbeddedFiles', updatedEf);
     await updateCatalog(editor, (catalogEntries) => {
       catalogEntries.set('Names', { kind: 'dict', entries });

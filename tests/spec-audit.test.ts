@@ -21,8 +21,8 @@ import { PDFArray, PDFDict, PDFDocument, type PDFHexString, PDFName, PDFNumber }
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { normalizeAnnotationText } from '../src/services/annotation.js';
 import { addAnnotation } from '../src/services/edit-annotation.js';
-import { addBookmarks } from '../src/services/edit-bookmarks.js';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
+import { addBookmarks } from '../src/services/edit-bookmarks.js';
 import type { AddAnnotationArgs, EditResult } from '../src/types/index.js';
 
 let dir: string;

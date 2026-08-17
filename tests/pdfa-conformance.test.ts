@@ -31,8 +31,8 @@ import {
   PDFRawStream,
 } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ensurePdfa } from '../src/services/edit-ensure-pdfa.js';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
+import { ensurePdfa } from '../src/services/edit-ensure-pdfa.js';
 import {
   ensureFileIdentifier,
   ensureSrgbOutputIntent,

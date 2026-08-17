@@ -39,7 +39,10 @@ export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResul
     );
   }
 
-  logger.info('Editor', `Attached ${attached.name} (${attached.bytes} bytes, ${attached.mimeType})`);
+  logger.info(
+    'Editor',
+    `Attached ${attached.name} (${attached.bytes} bytes, ${attached.mimeType})`,
+  );
 
   // 保存の前に読む —— 出口は書くだけで、名前ツリーは既に editor の上にある
   const attachments = (await listEmbeddedFiles(opened.editor)).map((f) => f.name);
