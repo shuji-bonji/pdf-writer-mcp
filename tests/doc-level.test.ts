@@ -29,7 +29,8 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { surveyDocLevel, usesOptionalContent } from '../src/services/doc-level.js';
 import { addBookmarks } from '../src/services/edit-bookmarks.js';
-import { attachFileToPdf, ensureTagged } from '../src/services/editor.js';
+import { ensureTagged } from '../src/services/edit-ensure-tagged.js';
+import { attachFileToPdf } from '../src/services/editor.js';
 import {
   deletePages,
   extractPages,

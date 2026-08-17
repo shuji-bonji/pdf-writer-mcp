@@ -29,7 +29,7 @@ import {
 import { documentDate } from '../config.js';
 import { name, stream } from './cos.js';
 import { pdfDateToIso, textOf } from './cos-read.js';
-import { buildXmpPacket } from './xmp.js';
+import { buildXmpPacket, type XmpOptions } from './xmp.js';
 
 /** `/Info` を辞書として読む（無ければ `undefined`）。 */
 async function readInfo(editor: PdfDocumentEditor): Promise<CosDict | undefined> {
@@ -60,6 +60,64 @@ export async function infoCreationDateIso(editor: PdfDocumentEditor): Promise<st
   const raw = await infoText(editor, 'CreationDate');
   if (raw === undefined) return undefined;
   return pdfDateToIso(raw);
+}
+
+/**
+ * XMP パケットを `/Metadata` に置く（§14.3.2）。
+ *
+ * **既存の `/Metadata` が間接参照なら同じ番号を差し替える。** 旧実装
+ * （`xmp.ts` の `setXmpMetadata`）は毎回新しいオブジェクトを登録して catalog を
+ * 書き換えていたので、呼ぶたびにオブジェクトが 1 つ増え、古い方はどこからも
+ * 参照されないまま残っていた。同じ番号に書けば増分更新でも dirty が 1 つで済む。
+ */
+async function attachXmp(editor: PdfDocumentEditor, packet: string): Promise<AttachResult> {
+  const replacement = stream(
+    [
+      ['Type', name('Metadata')],
+      ['Subtype', name('XML')],
+    ],
+    new TextEncoder().encode(packet),
+  );
+
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  if (rootRaw === undefined) return { catalogTouched: false };
+  const catalog = await editor.resolve(rootRaw);
+  if (catalog.kind !== 'dict') return { catalogTouched: false };
+
+  const raw = dictGetRaw(catalog, 'Metadata');
+  if (raw !== undefined && raw.kind === 'ref') {
+    editor.set(raw.objectNumber, replacement, raw.generationNumber);
+    return { ref: raw, catalogTouched: false };
+  }
+
+  const ref = await editor.allocate(replacement);
+  const entries = new Map<string, CosObject>(catalog.entries);
+  entries.set('Metadata', ref);
+  if (rootRaw.kind === 'ref') {
+    editor.set(rootRaw.objectNumber, { kind: 'dict', entries }, rootRaw.generationNumber);
+  } else {
+    editor.setTrailerEntry('Root', { kind: 'dict', entries });
+  }
+  return { ref, catalogTouched: true };
+}
+
+interface AttachResult {
+  ref?: CosRef;
+  catalogTouched: boolean;
+}
+
+/**
+ * XMP を**新しく書く**（`xmp.ts` の `setXmpMetadata` の COS 版）。
+ *
+ * 既存 XMP からの引き継ぎはしない —— 引き継ぐのは `syncXmpWithInfo` の役目である。
+ * 呼び出し側が `createDate` を明示すること（W-6）: ここで補うと、生成経路が
+ * `SOURCE_DATE_EPOCH`（E-6）の決定論を失う。
+ */
+export async function writeXmpMetadata(
+  editor: PdfDocumentEditor,
+  opts: XmpOptions,
+): Promise<AttachResult> {
+  return attachXmp(editor, buildXmpPacket({ now: documentDate(editor), ...opts }));
 }
 
 export interface XmpSyncResult {
@@ -155,28 +213,11 @@ export async function syncXmpWithInfo(
     now: documentDate(editor),
   });
 
-  const replacement = stream(
-    [
-      ['Type', name('Metadata')],
-      ['Subtype', name('XML')],
-    ],
-    new TextEncoder().encode(packet),
-  );
-
-  if (raw.kind === 'ref') {
-    // 同一 ref を差し替え — catalog 不変・増分更新ではこの ref だけが dirty
-    editor.set(raw.objectNumber, replacement, raw.generationNumber);
-    return { updated: true, ref: raw, catalogTouched: false, warnings: [] };
-  }
-
-  // `/Metadata` が直接オブジェクト（稀）— catalog を書き換えるしかない
-  const ref = await editor.allocate(replacement);
-  const entries = new Map<string, CosObject>(catalog.entries);
-  entries.set('Metadata', ref);
-  if (rootRaw.kind === 'ref') {
-    editor.set(rootRaw.objectNumber, { kind: 'dict', entries }, rootRaw.generationNumber);
-  } else {
-    editor.setTrailerEntry('Root', { kind: 'dict', entries });
-  }
-  return { updated: true, catalogTouched: true, warnings: [] };
+  const attached = await attachXmp(editor, packet);
+  return {
+    updated: true,
+    ...(attached.ref !== undefined && !attached.catalogTouched ? { ref: attached.ref } : {}),
+    catalogTouched: attached.catalogTouched,
+    warnings: [],
+  };
 }

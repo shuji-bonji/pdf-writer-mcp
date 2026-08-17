@@ -13,13 +13,13 @@
 import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
 import { addBookmarks } from '../services/edit-bookmarks.js';
+import { ensureTagged } from '../services/edit-ensure-tagged.js';
 import { setMetadata } from '../services/edit-metadata.js';
 import {
   addAnnotation,
   addWatermark,
   attachFileToPdf,
   ensurePdfa,
-  ensureTagged,
   fillForm,
   flattenForm,
   stampPageNumbers,

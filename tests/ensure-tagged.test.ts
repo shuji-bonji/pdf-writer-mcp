@@ -13,12 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type PDFArray, type PDFDict, PDFDocument, PDFName, type PDFNumber } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  addWatermark,
-  attachFileToPdf,
-  ensureTagged,
-  stampPageNumbers,
-} from '../src/services/editor.js';
+import { ensureTagged } from '../src/services/edit-ensure-tagged.js';
+import { addWatermark, attachFileToPdf, stampPageNumbers } from '../src/services/editor.js';
 import { isTagged } from '../src/services/struct-append.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { EnsureTaggedResult } from '../src/types/index.js';

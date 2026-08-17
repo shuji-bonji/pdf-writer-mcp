@@ -31,8 +31,6 @@ import type {
   EditResult,
   EnsurePdfaArgs,
   EnsurePdfaResult,
-  EnsureTaggedArgs,
-  EnsureTaggedResult,
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
@@ -48,7 +46,6 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { addAnnotation as addAnnotationDict } from './annotation.js';
 import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { rgbFromHex } from './color.js';
-import { ensureTaggedStructure } from './ensure-tagged.js';
 import { findNonEmbeddedFonts } from './font-conformance.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
 import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
@@ -705,42 +702,6 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
  * ensure_tagged（Tier C・B-7c）: 既存 PDF を PDF/UA-1 の器に載せる。
  * 詳細と限界は services/ensure-tagged.ts の冒頭コメントを参照。
  */
-export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTaggedResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    assertDocMdpAllows(doc, 'structure');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-
-  const outcome = ensureTaggedStructure(doc, { title: args.title, lang: args.lang });
-  logger.info(
-    'Editor',
-    outcome.createdStructure
-      ? `Created a minimal structure tree (${outcome.wrappedPages} page(s) wrapped in P)`
-      : `Repaired document-level PDF/UA requirements (${outcome.addedRequirements.length} item(s))`,
-  );
-
-  const saved = preserve
-    ? await (async () => {
-        const dirty = [...outcome.dirtiedRefs];
-        touchModificationDate(doc, since, dirty);
-        return saveWithPreservedSignatures(doc, bytes, args, dirty, since, 'Ensured tagging');
-      })()
-    : await saveEdited(doc, args);
-
-  const warnings = [...(saved.warnings ?? []), ...outcome.warnings];
-  return {
-    ...saved,
-    wasTagged: outcome.wasTagged,
-    createdStructure: outcome.createdStructure,
-    wrappedPages: outcome.wrappedPages,
-    addedRequirements: outcome.addedRequirements,
-    warnings: warnings.length > 0 ? warnings : undefined,
-  };
-}
-
 /**
  * B-8: 既存 PDF を PDF/A-3b の「器」に載せる。
  *
