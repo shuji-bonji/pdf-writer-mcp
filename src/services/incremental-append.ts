@@ -37,10 +37,12 @@ import {
   type PdfDocumentEditor,
   writeIndirectObject,
 } from 'normativepdf';
+import { documentDate } from '../config.js';
 import { PdfWriterError } from '../errors.js';
 import type { CommonEditOptions, EditResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import type { OpenedForEdit } from './edit-open.js';
+import { touchModDate } from './output-edited.js';
 
 /**
  * `/ID` の第 2 要素を更新する（§14.4）。
@@ -93,6 +95,10 @@ export async function appendOpened(
     );
   }
 
+  // 出口 2 本で同じにする —— 旧経路も preserve 枝で `touchModificationDate` を呼んでいた。
+  // **`/ID` より先**に打つ: `/ID` のダイジェストは「この更新が書くオブジェクト」から取るので、
+  // `/Info` の変更が含まれていなければならない
+  await touchModDate(editor, documentDate(editor));
   updateFileId(editor, opened.bytes);
 
   let bytes: Uint8Array;

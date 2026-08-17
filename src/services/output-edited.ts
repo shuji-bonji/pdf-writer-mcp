@@ -54,7 +54,7 @@ export interface SaveOpenedExtras {
  * `/Info` がトレーラに無ければ作る。間接参照ならその番号を差し替え、
  * 直接オブジェクトならトレーラの項目ごと差し替える —— どちらの形も §7.5.5 は許している。
  */
-async function touchModDate(editor: PdfDocumentEditor, when: Date): Promise<void> {
+export async function touchModDate(editor: PdfDocumentEditor, when: Date): Promise<void> {
   const stamp = textString(pdfDate(when));
   const raw = dictGetRaw(editor.trailer(), 'Info');
 

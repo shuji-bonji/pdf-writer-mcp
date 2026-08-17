@@ -28,7 +28,8 @@ import {
 } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { surveyDocLevel, usesOptionalContent } from '../src/services/doc-level.js';
-import { addBookmarks, attachFileToPdf, ensureTagged } from '../src/services/editor.js';
+import { attachFileToPdf, ensureTagged } from '../src/services/editor.js';
+import { addBookmarks } from '../src/services/edit-bookmarks.js';
 import {
   deletePages,
   extractPages,

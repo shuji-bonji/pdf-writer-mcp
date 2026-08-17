@@ -14,7 +14,6 @@ import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
 import {
   addAnnotation,
-  addBookmarks,
   addWatermark,
   attachFileToPdf,
   ensurePdfa,
@@ -26,6 +25,7 @@ import {
   tagFormFields,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
+import { addBookmarks } from '../services/edit-bookmarks.js';
 import { rotatePages } from '../services/page-rotate.js';
 import {
   deletePages,

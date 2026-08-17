@@ -24,7 +24,6 @@ import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
   AddAnnotationArgs,
-  AddBookmarksArgs,
   AddWatermarkArgs,
   AttachFileArgs,
   AttachResult,
@@ -70,8 +69,6 @@ import {
   pageContentDirtyRefs,
   reserveExistingObjectNumbers,
 } from './incremental.js';
-import { countBookmarks } from './outline.js';
-import { setBookmarks } from './outline-pdflib.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
 import {
@@ -283,34 +280,6 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
   const result = await saveEdited(doc, args);
   if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
   return result;
-}
-
-export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> {
-  const total = countBookmarks(args.bookmarks);
-  if (total > LIMITS.BOOKMARK_MAX_TOTAL) {
-    throw invalidArg(`too many bookmarks (${total}, max ${LIMITS.BOOKMARK_MAX_TOTAL})`);
-  }
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    assertDocMdpAllows(doc, 'metadata-or-outline');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-
-  const added = setBookmarks(doc, args.bookmarks);
-  logger.info('Editor', `Set ${added} bookmark(s)`);
-
-  if (preserve) {
-    // setBookmarks は catalog /Outlines を書き換える（新規オブジェクト群は自動追従）
-    const dirty: PDFRef[] = [];
-    if (doc.context.trailerInfo.Root instanceof PDFRef) {
-      dirty.push(doc.context.trailerInfo.Root);
-    }
-    touchModificationDate(doc, since, dirty);
-    return saveWithPreservedSignatures(doc, bytes, args, dirty, since, `Set ${added} bookmark(s)`);
-  }
-  return saveEdited(doc, args);
 }
 
 export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
