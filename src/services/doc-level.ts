@@ -23,18 +23,40 @@
  */
 
 import {
-  PDFDict,
-  type PDFDocument,
-  PDFName,
-  type PDFObject,
-  PDFObjectCopier,
-  PDFRef,
-  PDFStream,
-} from 'pdf-lib';
+  COS_NULL,
+  type CosDict,
+  type CosObject,
+  dictGet,
+  dictGetRaw,
+  type PdfDocumentEditor,
+} from 'normativepdf';
+import { type CopyContext, copyCatalogValue } from './cos-copy.js';
 
-/** catalog にキーが（値の解決なしに）存在するか */
-function hasKey(doc: PDFDocument, key: string): boolean {
-  return doc.catalog.get(PDFName.of(key)) !== undefined;
+/**
+ * catalog を 1 回だけ読んで作る「見え方」。
+ *
+ * 採取は merge のループ内でも呼ばれるので、**毎回 catalog を解決し直さない**ために
+ * 一度だけ読んで渡す。`detect` が同期で書けるのもこの形のおかげである。
+ */
+export interface CatalogView {
+  /** catalog にキーが（値の解決なしに）存在するか */
+  has(key: string): boolean;
+  /** `/Names` の下に `/EmbeddedFiles` があるか */
+  embeddedFiles: boolean;
+}
+
+/** 文書の catalog を読んで `CatalogView` を作る。 */
+export async function catalogView(editor: PdfDocumentEditor): Promise<CatalogView> {
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  const catalog = rootRaw === undefined ? COS_NULL : await editor.resolve(rootRaw);
+  const entries = catalog.kind === 'dict' ? catalog.entries : new Map<string, CosObject>();
+
+  let embeddedFiles = false;
+  if (catalog.kind === 'dict') {
+    const names = await editor.resolve(dictGet(catalog, 'Names') ?? COS_NULL);
+    embeddedFiles = names.kind === 'dict' && dictGet(names, 'EmbeddedFiles') !== undefined;
+  }
+  return { has: (key) => entries.has(key), embeddedFiles };
 }
 
 interface FeatureSpec {
@@ -45,7 +67,7 @@ interface FeatureSpec {
   clause: string;
   /** 失われると何が起きるか */
   impact: string;
-  detect(doc: PDFDocument): boolean;
+  detect(view: CatalogView): boolean;
 }
 
 /**
@@ -60,7 +82,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'the output is untagged — PDF/UA-1 conformance, reading order, headings and alt text ' +
       'are gone. Assistive technology now sees an unstructured page.',
-    detect: (doc) => hasKey(doc, 'StructTreeRoot') || hasKey(doc, 'MarkInfo'),
+    detect: (view) => view.has('StructTreeRoot') || view.has('MarkInfo'),
   },
   {
     id: 'metadata',
@@ -69,7 +91,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'only the Info dictionary survives — the pdfuaid/pdfaid identification, dc:title and any ' +
       'PDF/A or PDF/UA claim no longer travel with the file.',
-    detect: (doc) => hasKey(doc, 'Metadata'),
+    detect: (view) => view.has('Metadata'),
   },
   {
     id: 'embeddedFiles',
@@ -79,10 +101,7 @@ const FEATURES: FeatureSpec[] = [
       'the attached files are gone. For PDF/A-3 (ISO 19005-3 §6.8) that includes the ' +
       'machine-readable payload of the document (e.g. the invoice XML/CSV kept for statutory ' +
       'e-bookkeeping) — the human-readable pages remain but the data does not.',
-    detect: (doc) => {
-      const names = doc.catalog.lookup(PDFName.of('Names'));
-      return names instanceof PDFDict && names.get(PDFName.of('EmbeddedFiles')) !== undefined;
-    },
+    detect: (view) => view.embeddedFiles,
   },
   {
     id: 'af',
@@ -91,7 +110,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'the /AFRelationship link between the document and its associated files is gone ' +
       '(PDF/A-3 requires it).',
-    detect: (doc) => hasKey(doc, 'AF'),
+    detect: (view) => view.has('AF'),
   },
   {
     id: 'acroForm',
@@ -100,7 +119,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'the form dictionary is gone. The widget annotations were copied with the pages but are no ' +
       'longer reachable as fields, so the form is not fillable and its values may not render.',
-    detect: (doc) => hasKey(doc, 'AcroForm'),
+    detect: (view) => view.has('AcroForm'),
   },
   {
     id: 'ocProperties',
@@ -111,7 +130,7 @@ const FEATURES: FeatureSpec[] = [
       '"shall be present if the PDF file contains any optional content"; without it a PDF ' +
       'processor ignores the optional content structures, so layers that should be hidden may ' +
       'show (or vice versa).',
-    detect: (doc) => hasKey(doc, 'OCProperties'),
+    detect: (view) => view.has('OCProperties'),
   },
   {
     id: 'outputIntents',
@@ -119,14 +138,14 @@ const FEATURES: FeatureSpec[] = [
     clause: 'ISO 32000-2 §14.11.5',
     impact:
       'the declared colour characteristics are gone; PDF/A and PDF/X require an output intent.',
-    detect: (doc) => hasKey(doc, 'OutputIntents'),
+    detect: (view) => view.has('OutputIntents'),
   },
   {
     id: 'outlines',
     label: 'bookmarks (/Outlines)',
     clause: 'ISO 32000-2 §12.3.3',
     impact: 'the document outline is gone. Re-create it with add_bookmarks on the output.',
-    detect: (doc) => hasKey(doc, 'Outlines'),
+    detect: (view) => view.has('Outlines'),
   },
   {
     id: 'lang',
@@ -135,7 +154,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'the natural language is now unknown, so screen readers fall back to their own default ' +
       'and may mispronounce the text (PDF/UA-1 7.2 requires /Lang).',
-    detect: (doc) => hasKey(doc, 'Lang'),
+    detect: (view) => view.has('Lang'),
   },
   {
     id: 'viewerPreferences',
@@ -144,7 +163,7 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'display settings are gone — including DisplayDocTitle, which PDF/UA-1 7.1 requires ' +
       'to be true.',
-    detect: (doc) => hasKey(doc, 'ViewerPreferences'),
+    detect: (view) => view.has('ViewerPreferences'),
   },
   {
     id: 'pageLabels',
@@ -153,21 +172,21 @@ const FEATURES: FeatureSpec[] = [
     impact:
       'pages are labelled 1..n again; roman-numeral front matter and other labelling ranges ' +
       'are gone.',
-    detect: (doc) => hasKey(doc, 'PageLabels'),
+    detect: (view) => view.has('PageLabels'),
   },
   {
     id: 'dests',
     label: 'named destinations (/Dests)',
     clause: 'ISO 32000-2 §12.3.2.4',
     impact: 'links that resolve through named destinations no longer find their target.',
-    detect: (doc) => hasKey(doc, 'Dests'),
+    detect: (view) => view.has('Dests'),
   },
   {
     id: 'openAction',
     label: 'open action (/OpenAction)',
     clause: 'ISO 32000-2 §12.6.2',
     impact: 'the document no longer opens at the destination the author chose.',
-    detect: (doc) => hasKey(doc, 'OpenAction'),
+    detect: (view) => view.has('OpenAction'),
   },
 ];
 
@@ -196,13 +215,13 @@ const MINOR_KEYS = [
 export type DocLevelSurvey = Set<string>;
 
 /** catalog の文書レベル要素を採取する（merge のループ内でも安く呼べるよう軽量に保つ） */
-export function surveyDocLevel(doc: PDFDocument): DocLevelSurvey {
+export function surveyDocLevel(view: CatalogView): DocLevelSurvey {
   const found: DocLevelSurvey = new Set();
   for (const f of FEATURES) {
-    if (f.detect(doc)) found.add(f.id);
+    if (f.detect(view)) found.add(f.id);
   }
   for (const key of MINOR_KEYS) {
-    if (hasKey(doc, key)) found.add(`minor:${key}`);
+    if (view.has(key)) found.add(`minor:${key}`);
   }
   return found;
 }
@@ -220,31 +239,32 @@ export function mergeSurveys(surveys: DocLevelSurvey[]): DocLevelSurvey {
  * 見るのは ①/Resources /Properties に OCG/OCMD がある ②XObject の辞書に /OC がある
  * ③注釈に /OC がある、の 3 経路。
  */
-export function usesOptionalContent(doc: PDFDocument): boolean {
-  const OC = PDFName.of('OC');
-  for (const page of doc.getPages()) {
-    const res = page.node.lookup(PDFName.of('Resources'));
-    if (res instanceof PDFDict) {
-      const props = res.lookup(PDFName.of('Properties'));
-      if (props instanceof PDFDict) {
-        for (const [name] of props.entries()) {
-          const entry = props.lookup(name);
-          const type = entry instanceof PDFDict ? entry.get(PDFName.of('Type')) : undefined;
-          const t = type?.toString();
-          if (t === '/OCG' || t === '/OCMD') return true;
+export async function usesOptionalContent(editor: PdfDocumentEditor): Promise<boolean> {
+  for (const page of await editor.pages()) {
+    const resources = await editor.resolve(dictGet(page.dict, 'Resources') ?? COS_NULL);
+    if (resources.kind === 'dict') {
+      const properties = await editor.resolve(dictGet(resources, 'Properties') ?? COS_NULL);
+      if (properties.kind === 'dict') {
+        for (const [, value] of properties.entries) {
+          const entry = await editor.resolve(value);
+          const type = entry.kind === 'dict' ? dictGet(entry, 'Type') : undefined;
+          if (type?.kind === 'name' && (type.value === 'OCG' || type.value === 'OCMD')) return true;
         }
       }
-      const xobjects = res.lookup(PDFName.of('XObject'));
-      if (xobjects instanceof PDFDict) {
-        for (const [name] of xobjects.entries()) {
-          const x = xobjects.lookup(name);
-          if (x instanceof PDFStream && x.dict.get(OC) !== undefined) return true;
+      const xobjects = await editor.resolve(dictGet(resources, 'XObject') ?? COS_NULL);
+      if (xobjects.kind === 'dict') {
+        for (const [, value] of xobjects.entries) {
+          const xobject = await editor.resolve(value);
+          if (xobject.kind === 'stream' && dictGet(xobject.dict, 'OC') !== undefined) return true;
         }
       }
     }
-    for (const annot of page.node.Annots()?.asArray() ?? []) {
-      const dict = page.node.context.lookup(annot);
-      if (dict instanceof PDFDict && dict.get(OC) !== undefined) return true;
+    const annots = await editor.resolve(dictGet(page.dict, 'Annots') ?? COS_NULL);
+    if (annots.kind === 'array') {
+      for (const item of annots.items) {
+        const annot = await editor.resolve(item);
+        if (annot.kind === 'dict' && dictGet(annot, 'OC') !== undefined) return true;
+      }
     }
   }
   return false;
@@ -294,91 +314,93 @@ export interface CarryResult {
 }
 
 /**
- * catalog に載せる値を dst へ複製する（W-1 の是正）。
- *
- * **`PDFObjectCopier.copy()` は「渡された型と同じ型」を返す**。つまり ref を
- * `lookup()` で解決してから渡すと、複製された**実体**が返り、それを `catalog.set()`
- * すると catalog の値が直接オブジェクトになる。ストリームでこれをやると
- * **R-7.3.8.1-5「All streams shall be indirect objects」**（および Table 29 の
- * `Metadata`: shall be an indirect reference = R-7.7.2-22）に違反するだけでなく、
- * catalog がオブジェクトストリーム内に置かれる構成ではストリームの生バイトが
- * オブジェクトストリームに埋まってパースが崩壊し、**出力 PDF が壊れる**
- * （実測: `qpdf: unable to find /Root dictionary`。v0.13.0 のリグレッション）。
- *
- * したがって **ref は ref のまま copy に渡す**（dst に登録済みの新しい ref が返る）。
- * 入力が直接オブジェクトだった場合も、ここで `register()` して間接に格上げする —
- * 直接オブジェクトのままでも Table 29 上は合法なキーが多いが、一貫させておけば
- * 「解決してから渡す」誤りが再発しても壊れない。
- */
-function copyForCatalog(value: PDFObject, copier: PDFObjectCopier, dst: PDFDocument): PDFRef {
-  if (value instanceof PDFRef) return copier.copy(value);
-  return dst.context.register(copier.copy(value));
-}
-
-/**
  * 文書レベルの catalog エントリを src から dst へ引き継ぐ（B-10b）。
  *
- * `copyPages()` はページツリー配下しか複製しないので、ここで catalog の中身を運ぶ。
- * オブジェクトの複製は pdf-lib の `PDFObjectCopier` に委譲する（参照グラフを辿って
- * 深くコピーしてくれる。添付ストリームのような間接参照の塊も 1 回で運べる）。
+ * ページの複写はページツリー配下しか運ばないので、ここで catalog の中身を運ぶ。
+ * オブジェクトの複製は `cos-copy.ts` に委ねる（参照グラフを辿って深く複写する）。
  *
  * **設計判断: 引き継げるものを全部引き継ぐのではなく、「引き継いで嘘にならないもの」だけ運ぶ。**
- * 監査の初版計画にあった `MarkInfo` は運ばない — `MarkInfo/Marked=true` は
- * 「この文書はタグ付き PDF である」という**宣言**であり、StructTreeRoot（B-10c 待ち）が
- * 無いまま運ぶと構造木の無いタグ付き文書という矛盾になる。
- * 同じ理由で XMP も、`pdfuaid`/`pdfaid` の準拠宣言を含む場合は運ばない —
+ * `MarkInfo` は運ばない —— `MarkInfo/Marked=true` は「この文書はタグ付き PDF である」という
+ * **宣言**であり、StructTreeRoot（B-10c 待ち）が無いまま運ぶと構造木の無いタグ付き文書という
+ * 矛盾になる。同じ理由で XMP も、`pdfuaid`/`pdfaid` の準拠宣言を含む場合は運ばない ——
  * 運ぶと veraPDF がその flavour で検証して**落ちるようになり、黙って落とす今より悪化する**
  * （偽の準拠主張は「準拠が消える」より有害）。理由は warnings で説明する。
  *
- * B-10c で構造木を運べるようになったら、MarkInfo と準拠宣言つき XMP もここへ移せる。
+ * 🔴 **ストリームは間接のまま運ぶ**（R-7.3.8.1-5・Table 29 の `Metadata` は
+ * shall be an indirect reference = R-7.7.2-22）。直接オブジェクトとして catalog に
+ * 埋めると、catalog がオブジェクトストリームに入る構成で生バイトが埋まり、
+ * **出力 PDF が壊れる**（実測: `qpdf: unable to find /Root dictionary`・v0.13.0 の
+ * リグレッション。W-1）。`copyCatalogValue` がその格上げを引き受ける。
  */
-export function carryDocumentLevel(src: PDFDocument, dst: PDFDocument): CarryResult {
-  const copier = PDFObjectCopier.for(src.context, dst.context);
+export async function carryDocumentLevel(ctx: CopyContext): Promise<CarryResult> {
   const carried: string[] = [];
   const skipped: string[] = [];
   const warnings: string[] = [];
 
+  const source = await catalogEntries(ctx.from);
+  const destination = await catalogEntries(ctx.to);
+
   for (const key of CARRIED_KEYS) {
-    const name = PDFName.of(key);
-    const value = src.catalog.get(name);
+    const value = source.get(key);
     if (value === undefined) continue;
-    if (dst.catalog.get(name) !== undefined) {
+    if (destination.has(key)) {
       // 先勝ち（merge の 2 件目以降）。**呼び出し側が報告しないと黙って消える**
       skipped.push(key);
       continue;
     }
-    dst.catalog.set(name, copyForCatalog(value, copier, dst));
+    destination.set(key, await copyCatalogValue(ctx, value));
     carried.push(key);
   }
 
-  const xmp = carryXmp(src, dst, copier);
+  const xmp = await carryXmp(ctx, source, destination);
   if (xmp.carried) carried.push('Metadata');
   if (xmp.skipped) skipped.push('Metadata');
   warnings.push(...xmp.warnings);
 
+  await writeCatalog(ctx.to, destination);
   return { carried, skipped, warnings };
+}
+
+/** catalog の項目表を読む（値は解決しない —— 参照は参照のまま運ぶため）。 */
+async function catalogEntries(editor: PdfDocumentEditor): Promise<Map<string, CosObject>> {
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  const catalog = rootRaw === undefined ? COS_NULL : await editor.resolve(rootRaw);
+  return new Map<string, CosObject>(catalog.kind === 'dict' ? catalog.entries : []);
+}
+
+/** catalog を書き戻す。 */
+async function writeCatalog(
+  editor: PdfDocumentEditor,
+  entries: Map<string, CosObject>,
+): Promise<void> {
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  const updated: CosDict = { kind: 'dict', entries };
+  if (rootRaw !== undefined && rootRaw.kind === 'ref') {
+    editor.set(rootRaw.objectNumber, updated, rootRaw.generationNumber);
+  } else {
+    editor.setTrailerEntry('Root', updated);
+  }
 }
 
 /**
  * XMP を引き継ぐ。ただし準拠宣言（pdfuaid / pdfaid）を含む場合は運ばず理由を説明する。
  * 構造木も PDF/A の要件も引き継げていない以上、その宣言は偽になるため。
  */
-function carryXmp(
-  src: PDFDocument,
-  dst: PDFDocument,
-  copier: PDFObjectCopier,
-): { carried: boolean; skipped: boolean; warnings: string[] } {
-  const raw = src.catalog.get(PDFName.of('Metadata'));
+async function carryXmp(
+  ctx: CopyContext,
+  source: Map<string, CosObject>,
+  destination: Map<string, CosObject>,
+): Promise<{ carried: boolean; skipped: boolean; warnings: string[] }> {
+  const raw = source.get('Metadata');
   if (raw === undefined) return { carried: false, skipped: false, warnings: [] };
-  if (dst.catalog.get(PDFName.of('Metadata')) !== undefined) {
-    return { carried: false, skipped: true, warnings: [] };
-  }
-  const stream = src.context.lookup(raw);
-  if (!(stream instanceof PDFStream)) return { carried: false, skipped: false, warnings: [] };
+  if (destination.has('Metadata')) return { carried: false, skipped: true, warnings: [] };
+
+  const stream = await ctx.from.resolve(raw);
+  if (stream.kind !== 'stream') return { carried: false, skipped: false, warnings: [] };
 
   let packet = '';
   try {
-    packet = Buffer.from(stream.getContents()).toString('utf8');
+    packet = new TextDecoder().decode(stream.raw);
   } catch {
     return { carried: false, skipped: false, warnings: [] };
   }
@@ -398,9 +420,8 @@ function carryXmp(
     };
   }
 
-  // 検査は解決した実体で行うが、**複製に渡すのは元の値（通常は ref）**。
-  // 解決後の stream を渡すと catalog に直接オブジェクトのストリームが埋まる（W-1）。
-  dst.catalog.set(PDFName.of('Metadata'), copyForCatalog(raw, copier, dst));
+  // 検査は解決した実体で行うが、**複製に渡すのは元の値（通常は ref）**（W-1）
+  destination.set('Metadata', await copyCatalogValue(ctx, raw));
   return { carried: true, skipped: false, warnings: [] };
 }
 
@@ -419,8 +440,15 @@ export interface DocLevelLossOptions {
   tool: string;
   /** 入力側の採取結果（merge は mergeSurveys で合流させたもの） */
   before: DocLevelSurvey;
-  /** 実際に組み上がった出力 */
-  after: PDFDocument;
+  /** 実際に組み上がった出力の catalog（`catalogView` で読む） */
+  after: CatalogView;
+  /**
+   * 出力のページが光学的内容を使っているか（`usesOptionalContent` の結果）。
+   *
+   * ここで受け取るのは、判定が**非同期**（ページを辿る）なのに対し、
+   * この関数は警告を組み立てるだけの同期処理だからである。
+   */
+  afterUsesOptionalContent: boolean;
 }
 
 /**
@@ -428,7 +456,7 @@ export interface DocLevelLossOptions {
  * 出力を実測するため、引き継ぎを実装した要素については自動的に黙る（B-10b への布石）。
  */
 export function docLevelLossWarnings(opts: DocLevelLossOptions): string[] {
-  const { tool, before, after } = opts;
+  const { tool, before, after, afterUsesOptionalContent } = opts;
   if (before.size === 0) return [];
 
   const kept = surveyDocLevel(after);
@@ -437,7 +465,7 @@ export function docLevelLossWarnings(opts: DocLevelLossOptions): string[] {
   for (const f of FEATURES) {
     if (!before.has(f.id) || kept.has(f.id)) continue;
     let impact = f.impact;
-    if (f.id === 'ocProperties' && usesOptionalContent(after)) {
+    if (f.id === 'ocProperties' && afterUsesOptionalContent) {
       impact =
         `${impact} The copied pages DO use optional content, so this output ` +
         'violates §8.11.4.2.';

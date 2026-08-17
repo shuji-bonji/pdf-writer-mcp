@@ -26,8 +26,9 @@ import {
   PDFRef,
   PDFString,
 } from 'pdf-lib';
+import { PdfDocumentEditor } from 'normativepdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { surveyDocLevel, usesOptionalContent } from '../src/services/doc-level.js';
+import { catalogView, surveyDocLevel, usesOptionalContent } from '../src/services/doc-level.js';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
 import { addBookmarks } from '../src/services/edit-bookmarks.js';
 import { ensureTagged } from '../src/services/edit-ensure-tagged.js';
@@ -37,7 +38,7 @@ import {
   mergePdfs,
   reorderPages,
   splitPdf,
-} from '../src/services/page-ops.js';
+} from '../src/services/page-ops-cos.js';
 // rotate_pages は L4′.2 で新しい経路（normativepdf）へ移した。
 // **再輸出はしない** —— 所属そのものが変わったので、page-ops に残っているように
 // 見せると嘘が残る（`containsSignature` は置き場所だけ変えたので再輸出した）
@@ -159,21 +160,35 @@ async function loadPdf(path: string): Promise<PDFDocument> {
   return PDFDocument.load(await readFile(path), { updateMetadata: false });
 }
 
+/**
+ * 文書レベルの採取は L4′.2 で COS の器へ移った（`doc-level.ts`）。判定は
+ * 「catalog にその鍵があるか」だけなので、pdf-lib で読んだ文書を書き戻して
+ * 読み直しても答えは変わらない。既存の判定文をそのまま活かすための橋である。
+ */
+async function surveyOf(doc: PDFDocument) {
+  return surveyDocLevel(await catalogView(await PdfDocumentEditor.open(await doc.save())));
+}
+
+/** 同上。光学的内容の判定はページを辿るので非同期になった */
+async function usesOcOf(doc: PDFDocument): Promise<boolean> {
+  return usesOptionalContent(await PdfDocumentEditor.open(await doc.save()));
+}
+
 describe('surveyDocLevel: 文書レベル要素の採取', () => {
   it('素の PDF は何も持たない', async () => {
     const doc = await loadPdf(await makePlainPdf(join(dir, 'bare.pdf')));
-    expect(surveyDocLevel(doc).size).toBe(0);
+    expect((await surveyOf(doc)).size).toBe(0);
   });
 
   it('タグ付き PDF は tagged / metadata / lang / viewerPreferences を持つ', async () => {
     const doc = await loadPdf(await makeTaggedPdf('survey-tagged'));
-    const survey = surveyDocLevel(doc);
+    const survey = await surveyOf(doc);
     expect([...survey].sort()).toEqual(['lang', 'metadata', 'tagged', 'viewerPreferences']);
   });
 
   it('添付付き PDF は embeddedFiles / af を持つ', async () => {
     const doc = await loadPdf(await makeAttachedPdf('survey-attach'));
-    const survey = surveyDocLevel(doc);
+    const survey = await surveyOf(doc);
     expect(survey.has('embeddedFiles')).toBe(true);
     expect(survey.has('af')).toBe(true);
   });
@@ -194,7 +209,7 @@ describe('B-10a: ページ複製で失われたものを warnings で報告す�
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    const survey = surveyDocLevel(out);
+    const survey = await surveyOf(out);
     expect(survey.has('tagged')).toBe(false);
     expect(survey.has('metadata')).toBe(false);
   });
@@ -221,7 +236,7 @@ describe('B-10a: ページ複製で失われたものを warnings で報告す�
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    expect(surveyDocLevel(out).has('embeddedFiles')).toBe(true);
+    expect((await surveyOf(out)).has('embeddedFiles')).toBe(true);
   });
 
   /**
@@ -298,7 +313,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    const survey = surveyDocLevel(out);
+    const survey = await surveyOf(out);
     expect(survey.has('embeddedFiles'), 'attachments must survive').toBe(true);
     expect(survey.has('af'), '/AF must survive').toBe(true);
 
@@ -331,7 +346,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    expect(surveyDocLevel(out).has('embeddedFiles')).toBe(true);
+    expect((await surveyOf(out)).has('embeddedFiles')).toBe(true);
     expect(out.getPageCount()).toBe(4);
   });
 
@@ -342,7 +357,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    const survey = surveyDocLevel(out);
+    const survey = await surveyOf(out);
     expect(survey.has('lang')).toBe(true);
     expect(survey.has('viewerPreferences')).toBe(true);
   });
@@ -355,7 +370,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
       updateMetadata: false,
     });
     // tagged = StructTreeRoot か MarkInfo のどちらかがあれば true。両方無いことを要求する
-    expect(surveyDocLevel(out).has('tagged'), 'must not claim to be tagged without a tree').toBe(
+    expect((await surveyOf(out)).has('tagged'), 'must not claim to be tagged without a tree').toBe(
       false,
     );
     expect(out.catalog.get(PDFName.of('MarkInfo'))).toBeUndefined();
@@ -371,7 +386,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     const out = await PDFDocument.load(Buffer.from(result.base64 as string, 'base64'), {
       updateMetadata: false,
     });
-    expect(surveyDocLevel(out).has('metadata'), 'XMP claiming PDF/UA must not be copied').toBe(
+    expect((await surveyOf(out)).has('metadata'), 'XMP claiming PDF/UA must not be copied').toBe(
       false,
     );
     const text = joined(result.warnings);
@@ -398,7 +413,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
     const result = await extractPages(path, '1', { returnBase64: true });
     const bytes = Buffer.from(result.base64 as string, 'base64');
     const out = await PDFDocument.load(bytes, { updateMetadata: false });
-    expect(surveyDocLevel(out).has('metadata')).toBe(true);
+    expect((await surveyOf(out)).has('metadata')).toBe(true);
     expect(joined(result.warnings)).not.toMatch(/XMP metadata/);
 
     // W-1 回帰: catalog の /Metadata は**間接参照**でなければならない
@@ -422,7 +437,7 @@ describe('B-10b: 嘘にならない文書レベル要素を引き継ぐ', () => 
       const result = await run();
       const bytes = Buffer.from(result.base64 as string, 'base64');
       const out = await PDFDocument.load(bytes, { updateMetadata: false });
-      const survey = surveyDocLevel(out);
+      const survey = await surveyOf(out);
       expect(survey.has('metadata'), `${label}: XMP carried`).toBe(true);
       expect(survey.has('embeddedFiles'), `${label}: attachment carried`).toBe(true);
       expect(
@@ -453,8 +468,8 @@ describe('B-10a: 黙らせるべきときは黙る', () => {
       updateMetadata: false,
     });
     // 実測: 回転しても構造木・XMP は残っている（SPEC-AUDIT Phase 1.5 の表と一致）
-    expect(surveyDocLevel(out).has('tagged')).toBe(true);
-    expect(surveyDocLevel(out).has('metadata')).toBe(true);
+    expect((await surveyOf(out)).has('tagged')).toBe(true);
+    expect((await surveyOf(out)).has('metadata')).toBe(true);
   });
 });
 
@@ -496,6 +511,6 @@ describe('§8.11.4.2: /OCProperties の消失は「損失」ではなく「違�
 
   it('usesOptionalContent: OC を使わない文書では false', async () => {
     const doc = await loadPdf(await makePlainPdf(join(dir, 'no-oc.pdf')));
-    expect(usesOptionalContent(doc)).toBe(false);
+    expect(await usesOcOf(doc)).toBe(false);
   });
 });

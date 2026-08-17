@@ -32,7 +32,7 @@ import {
   mergePdfs,
   reorderPages,
   splitPdf,
-} from '../services/page-ops.js';
+} from '../services/page-ops-cos.js';
 import { rotatePages } from '../services/page-rotate.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
 import { renderTable } from '../services/renderers/table.js';
