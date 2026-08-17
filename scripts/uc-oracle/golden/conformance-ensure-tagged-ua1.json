@@ -65,7 +65,6 @@
  },
  "pages": [
   {
-   "/Annots": [],
    "/Contents": [
     {
      "@stream": {
@@ -78,21 +77,7 @@
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
       "ops": "q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:58> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 721.54 Tm <str:42> Tj T* ET Q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "Q"
      }
     },
     {
@@ -110,7 +95,6 @@
     841.89
    ],
    "/Resources": {
-    "/ExtGState": {},
     "/Font": {
      "/Font#0": {
       "/BaseFont": "/IRSBKX+NotoSansJP-Regular",
@@ -192,8 +176,7 @@
       },
       "/Type": "/Font"
      }
-    },
-    "/XObject": {}
+    }
    },
    "/StructParents": 0,
    "/Type": "/Page"
@@ -206,5 +189,5 @@
  "pageCount": 1,
  "encrypted": false,
  "headerVersion": "1.7",
- "objectCount": 23
+ "objectCount": 18
 }
