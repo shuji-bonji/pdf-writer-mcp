@@ -70,7 +70,8 @@ import {
   pageContentDirtyRefs,
   reserveExistingObjectNumbers,
 } from './incremental.js';
-import { countBookmarks, setBookmarks } from './outline.js';
+import { countBookmarks } from './outline.js';
+import { setBookmarks } from './outline-pdflib.js';
 import { saveEdited, saveRawBytes } from './output.js';
 import { formatPageNumber, stampPage } from './page-number.js';
 import {
