@@ -44,5 +44,7 @@
   "/Title": "Invoice"
  },
  "pageCount": 1,
- "encrypted": false
+ "encrypted": false,
+ "headerVersion": "1.7",
+ "objectCount": 6
 }

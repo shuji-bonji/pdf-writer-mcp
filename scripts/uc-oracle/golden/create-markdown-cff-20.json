@@ -153,5 +153,7 @@
  ],
  "info": {},
  "pageCount": 1,
- "encrypted": false
+ "encrypted": false,
+ "headerVersion": "2.0",
+ "objectCount": 11
 }

@@ -1236,5 +1236,7 @@
   "/Title": "Known-good signature specimen"
  },
  "pageCount": 1,
- "encrypted": false
+ "encrypted": false,
+ "headerVersion": "1.7",
+ "objectCount": 42
 }

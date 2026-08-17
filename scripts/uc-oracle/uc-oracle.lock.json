@@ -1,6 +1,6 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-16T13:09:54.847Z",
+ "capturedAt": "2026-08-17T14:28:52.379Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
@@ -131,12 +131,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "2d42f04c6d8143f53e2ce4d98badf6b01689c01ff8b8cf18f71e670005d40bb1",
+   "sha256": "0ab63ab4efb1b217f7ad12ab3a6427425cd8e0c81077a01294b895873c40631a",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 6,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "create-text-cff-17": {
@@ -161,12 +159,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "e3b57f251e09a7412f0d3027251e067dd1e87e9ce801462ae4ad0549da03bb01",
+   "sha256": "40ef1662b46d8fded55e42ff5d7b6f2e2a613cffa83b801cf055426e35dc6f7e",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 10,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "create-text-cff-20": {
@@ -191,12 +187,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "1ff4ba2f0a543218c3400e87487ee79310ca1a4f068b690247e30beea33f102d",
+   "sha256": "a8031f08e9e2831a84b2c757bcfe4b435f78ab794f4d91bf5bb37c2c23b7995c",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 11,
-    "headerVersion": "2.0"
+    "creator": null
    }
   },
   "create-text-cff-17-tagged": {
@@ -221,12 +215,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "ce68ca667b35742ab11daf7f09c8790439b144954c509a4991f286f2d599e72f",
+   "sha256": "0aa07a4262635a7408635df690a7a8bea4a7d5a901caf9154e5bfcdbaac70e50",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 17,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "create-text-ttf-17-tagged": {
@@ -251,12 +243,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "d97e85c67c33b376e2b96e1ccdb0fbdbd290454f77470c390c75a582fd62ef6a",
+   "sha256": "f7b43ed2810ee03ad0f4f69d126b0a84154a15c3815bbb542ad2fa4c7fe75526",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 17,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "conformance-ttf-pdfa3b": {
@@ -290,12 +280,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "37d5693809883df633536cb0be9c601815808404c04999cf47172f7a82048ade",
+   "sha256": "b3df68514b7b5c61364be3a614143e179a502ef8eb21de6ac2c389d6a1e0b207",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 21,
-    "headerVersion": "1.7"
+    "creator": null
    },
    "verify": [
     {
@@ -332,12 +320,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "06fe7ec639f2b911a9a6dc73e31b0882441635fa27a43f3a6ad4432722c8abf9",
+   "sha256": "3cb3075cc8943cac1fdf3438b6b21c8b9eb541a646842501ac02b576600a694b",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 30,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "create-markdown-cff-20": {
@@ -363,12 +349,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "c0b25fdb89022d3e66740c2e0815d692661a57c3521b134f6dadec28419268eb",
+   "sha256": "c58f0ac2b560023e7f2909c61ab08f5f9ff6ef3c97e506f907a07fd9f4d7a4e0",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 11,
-    "headerVersion": "2.0"
+    "creator": null
    }
   },
   "create-table-cff-17-tagged": {
@@ -394,12 +378,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "0cb91d1a179749b2cf7ff71936f59f865b2d583077f2553ed5879f0d3edc0164",
+   "sha256": "98f5b6525d5eec8c48915b5b78edebe027b6c0f7a58d6584b6f5f5842fc77c17",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 29,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "edit-merge": {
@@ -428,12 +410,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "b9beaa7fc774ca406b705dadd62141bc4f185a37a159c2137e0c7a87029de4a0",
+   "sha256": "4091e489efa53277e2775d0a55daf626bb6eb7286e32fb202b02ff133cc35864",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
-    "objectCount": 23,
-    "headerVersion": "1.7"
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
    }
   },
   "edit-page-ops": {
@@ -469,12 +449,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "d958633c1676034b280586813fe58c69dc9b5dcb290d540eeefd702bd17caa58",
+   "sha256": "2aef9c94db00ab2aa9763f07ea7adde9f9a5113bb15905efa7edabeafd499147",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
-    "objectCount": 15,
-    "headerVersion": "1.7"
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
    }
   },
   "edit-watermark": {
@@ -499,12 +477,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "14550b1683aa3dd2c7a7df10ebfeea0f17453c1616f411622092c4b086327a49",
+   "sha256": "9c331a7bf631d036915582faecb3f54010c5192b9054eae01f55779368fb86b6",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 29,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "edit-page-numbers": {
@@ -529,12 +505,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "08b13f26084090cce990219e1f4c904f7029ae79e667d8cdd608923334bdaceb",
+   "sha256": "43734191788be1d3438f3446fcdd294ff16b0b52339c8b2c5c00e92ca4d03814",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
-    "objectCount": 35,
-    "headerVersion": "1.7"
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
    }
   },
   "edit-bookmarks-annotation-metadata": {
@@ -573,12 +547,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "1b21d141f2648d4f9d9f2420a847844c9293ff0084c2f779d45db11344ba041c",
+   "sha256": "7490158e0e99462901833f64c78e1c4390b6cf263c21f347e3896e4f3f4d658a",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 41,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "conformance-attach-pdfa3b": {
@@ -629,12 +601,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "11cc488ed56d2a2b4c8716f585fdf1a18f5ee9fa6e6359fe204ba5bb4aa5056f",
+   "sha256": "80e01d3ef0ed5d30eca0f8fd56982959b7eab75c072d1e9080acba4d7c03c9b3",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 38,
-    "headerVersion": "1.7"
+    "creator": null
    },
    "verify": [
     {
@@ -698,12 +668,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "9ec3f391d9353ba0c509888b39d48b13feba002c9a73f7cb097420a08f123838",
+   "sha256": "5838c3ed28e159eefdd341b8cbac32f512c1899a4986703dd34cc42bf279ee2c",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 19,
-    "headerVersion": "2.0"
+    "creator": null
    },
    "verify": [
     {
@@ -767,12 +735,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "47b0c8cfc0a5f2f8cff4f18a792bce368e43fef8a26cbf085677c95009d1b1c4",
+   "sha256": "b04fde565b4d919b8293cd39ef493af7ce8c000ee7c30b80fc8df04a337fad96",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 19,
-    "headerVersion": "2.0"
+    "creator": null
    },
    "verify": [
     {
@@ -822,12 +788,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "bf535fb11fb5fb2c41e3fb7015a95889c334121ed553c4c12db49322a13fff25",
+   "sha256": "b1d89db440f8dac676a9bd97fc332e7354e5801838328bb6d768f2299c9861db",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 23,
-    "headerVersion": "1.7"
+    "creator": null
    },
    "verify": [
     {
@@ -862,12 +826,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "10f071925c2535acb3c9d657a60c729a57163b5f2540058f14992570f8863d37",
+   "sha256": "19175651222192da822ba4576a5b4bb7655e2975455ebf29b89f7afd97b6ee00",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": null,
-    "objectCount": 35,
-    "headerVersion": "1.7"
+    "creator": null
    },
    "verify": [
     {
@@ -943,12 +905,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "2bad26654bc40481990aca762e54814b81a4f56a0d3ba5dba3486d63c4829a31",
+   "sha256": "77c573278b1402610c2051db694243f2f495598cfa2ad2ebc252b426ecae2f37",
    "meta": {
     "producer": "uc-oracle frozen input",
-    "creator": "uc-oracle frozen input",
-    "objectCount": 43,
-    "headerVersion": "1.7"
+    "creator": "uc-oracle frozen input"
    }
   },
   "form-tag-then-flatten": {
@@ -1049,12 +1009,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "bbf7992be3c2ce9eb434e437d26e3d5bdc31df3aeb38a71ca347571ab5a96d49",
+   "sha256": "0f129be0554daa27c9e7ace8c2e0ac90bcf7b44c5f85b0248ae944ef2eb476bc",
    "meta": {
     "producer": "uc-oracle frozen input",
-    "creator": "uc-oracle frozen input",
-    "objectCount": 56,
-    "headerVersion": "1.7"
+    "creator": "uc-oracle frozen input"
    }
   },
   "edit-rotate-20": {
@@ -1080,12 +1038,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "9887b10729b8199fd40006a46400afe64509560cfd971d3ee3a16ba95c57e2c1",
+   "sha256": "c1e933749fb38d29b8a03643f8129e3ff6c4d995871160bb4a786b2b23feafa1",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 10,
-    "headerVersion": "2.0"
+    "creator": null
    }
   },
   "input-origin-zero": {
@@ -1111,12 +1067,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "06b8c2ba81ad8c0a2e3ecaa655b0c474dbc35d2b6292c2b1217ba6d667dd4914",
+   "sha256": "067fccdc53109346125a2376bd6982b52d7edea285d900c3594cadfa9df77db5",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 14,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "input-origin-nonzero": {
@@ -1142,12 +1096,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "76abb4c5654991422545817d3b4930188f48bb6bbfadf095525c200c80a981e1",
+   "sha256": "a5cce179942caac383d4691f99fdd26e13616368788510eb134005794db1d787",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 13,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "input-incremental-save": {
@@ -1175,12 +1127,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "b5af796c28b8a4b387623a78cb3ed6d95d8ba7ecdbadff7520319f2391c1c432",
+   "sha256": "4f1771a8e18b209f6c9de737cb95fcdf4b6dc44107d416f4fd990aa2891c2e5b",
    "meta": {
     "producer": null,
-    "creator": null,
-    "objectCount": 11,
-    "headerVersion": "1.7"
+    "creator": null
    }
   },
   "input-signed-preserve": {
@@ -1210,12 +1160,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "3780d5d91183caf42ef90f12493d94004229ed6326b4c024152e3ad2ec0e682a",
+   "sha256": "3328c286178bf77a3ccd4cf8b0ad301cdbb6d96a4c055ad10c7ce4958984cf1d",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.18.0; pyHanko 0.36.2",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
-    "objectCount": 42,
-    "headerVersion": "1.7"
+    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
    },
    "signatures": {
     "status": "decided",
