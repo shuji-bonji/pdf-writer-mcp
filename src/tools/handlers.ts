@@ -20,12 +20,12 @@ import {
   ensureTagged,
   fillForm,
   flattenForm,
-  setMetadata,
   stampPageNumbers,
   tagFormFields,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
 import { addBookmarks } from '../services/edit-bookmarks.js';
+import { setMetadata } from '../services/edit-metadata.js';
 import { rotatePages } from '../services/page-rotate.js';
 import {
   deletePages,

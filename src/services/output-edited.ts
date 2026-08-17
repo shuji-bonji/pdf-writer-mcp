@@ -22,20 +22,14 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import {
-  type CosDict,
-  type CosObject,
-  dictGetRaw,
-  PageTreeError,
-  type PdfDocumentEditor,
-  type WriteFileOptions,
-} from 'normativepdf';
+import { PageTreeError, type PdfDocumentEditor, type WriteFileOptions } from 'normativepdf';
 import { documentDate } from '../config.js';
 import { PdfWriterError } from '../errors.js';
 import type { CommonEditOptions, EditResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
-import { dict, textString } from './cos.js';
+import { textString } from './cos.js';
 import type { OpenedForEdit } from './edit-open.js';
+import { setInfoEntries } from './info-dict.js';
 import { pdfDate } from './pdf-date.js';
 
 export interface SaveOpenedExtras {
@@ -55,27 +49,7 @@ export interface SaveOpenedExtras {
  * 直接オブジェクトならトレーラの項目ごと差し替える —— どちらの形も §7.5.5 は許している。
  */
 export async function touchModDate(editor: PdfDocumentEditor, when: Date): Promise<void> {
-  const stamp = textString(pdfDate(when));
-  const raw = dictGetRaw(editor.trailer(), 'Info');
-
-  if (raw === undefined || raw.kind === 'null') {
-    const ref = await editor.allocate(dict([['ModDate', stamp]]));
-    editor.setTrailerEntry('Info', ref);
-    return;
-  }
-
-  const resolved = await editor.resolve(raw);
-  const entries = new Map<string, CosObject>(
-    resolved.kind === 'dict' ? (resolved as CosDict).entries : [],
-  );
-  entries.set('ModDate', stamp);
-  const updated: CosDict = { kind: 'dict', entries };
-
-  if (raw.kind === 'ref') {
-    editor.set(raw.objectNumber, updated, raw.generationNumber);
-  } else {
-    editor.setTrailerEntry('Info', updated);
-  }
+  await setInfoEntries(editor, [['ModDate', textString(pdfDate(when))]]);
 }
 
 /**

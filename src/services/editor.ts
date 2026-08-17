@@ -37,7 +37,6 @@ import type {
   FlattenFormArgs,
   FormResult,
   PdfaDeclarationRisk,
-  SetMetadataArgs,
   StampPageNumbersArgs,
   StampResult,
   TagFormFieldsArgs,
@@ -81,7 +80,7 @@ import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
 import { appendAnnotationToStructTree, isTagged, markArtifactOnPage } from './struct-append.js';
 import { watermarkPage } from './watermark.js';
-import { declarePdfa, syncXmpWithInfo } from './xmp.js';
+import { declarePdfa } from './xmp.js';
 
 // 署名検知は `signature-scan.ts` へ移した（L4′.1 = 新しい入口と共有するため）。
 // ここから再輸出しているのは `tests/editor.test.ts` が この経路で import しているから。
@@ -232,55 +231,6 @@ async function saveWithPreservedSignatures(
 // ---------------------------------------------------------------------------
 // Tier A ツール本体（ページ操作は page-ops.ts へ）
 // ---------------------------------------------------------------------------
-
-export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    assertDocMdpAllows(doc, 'metadata-or-outline');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-  const dirty: PDFRef[] = [];
-
-  if (args.title !== undefined) doc.setTitle(args.title);
-  if (args.author !== undefined) doc.setAuthor(args.author);
-  if (args.subject !== undefined) doc.setSubject(args.subject);
-  if (args.keywords !== undefined) doc.setKeywords(args.keywords);
-  if (args.creator !== undefined) doc.setCreator(args.creator);
-
-  // B-9（SPEC-AUDIT）: XMP を持つ文書では Info と /Metadata を同期させる
-  const sync = syncXmpWithInfo(doc);
-  const warnings = [...sync.warnings];
-  if (sync.updated) {
-    warnings.push(
-      'The document carries XMP metadata (/Metadata); it was regenerated to stay ' +
-        'consistent with the updated Info dictionary (dc:title etc.).',
-    );
-    if (sync.ref && sync.ref.objectNumber <= since) dirty.push(sync.ref);
-    if (sync.catalogTouched && doc.context.trailerInfo.Root instanceof PDFRef) {
-      dirty.push(doc.context.trailerInfo.Root);
-    }
-  }
-
-  if (preserve) {
-    touchModificationDate(doc, since, dirty);
-    const result = await saveWithPreservedSignatures(
-      doc,
-      bytes,
-      args,
-      dirty,
-      since,
-      'Updated metadata',
-    );
-    if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
-    return result;
-  }
-
-  const result = await saveEdited(doc, args);
-  if (warnings.length > 0) result.warnings = [...(result.warnings ?? []), ...warnings];
-  return result;
-}
 
 export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
   const { doc, bytes } = await loadForEdit(args.inputPath, args);
