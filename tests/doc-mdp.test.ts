@@ -23,8 +23,7 @@ afterAll(async () => {
 
 const nm = (value: string) => ({ kind: 'name', value }) as const;
 const it2 = (value: number) => ({ kind: 'integer', value }) as const;
-const rf = (objectNumber: number) =>
-  ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
+const rf = (objectNumber: number) => ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
 const dc = (entries: Record<string, unknown>) =>
   ({ kind: 'dict', entries: new Map(Object.entries(entries)) }) as never;
 const ar = (items: unknown[]) => ({ kind: 'array', items }) as never;
@@ -36,7 +35,11 @@ type Shape = 'none' | 'approval' | 'p1' | 'p2' | 'p3' | 'no-p' | 'nested';
 /** 署名フィールドの形だけを変えた 1 ページの文書 */
 function build(shape: Shape): Uint8Array {
   const objects: unknown[] = [
-    { objectNumber: 2, generationNumber: 0, object: dc({ Type: nm('Pages'), Kids: ar([rf(3)]), Count: it2(1) }) },
+    {
+      objectNumber: 2,
+      generationNumber: 0,
+      object: dc({ Type: nm('Pages'), Kids: ar([rf(3)]), Count: it2(1) }),
+    },
     {
       objectNumber: 3,
       generationNumber: 0,
@@ -55,10 +58,17 @@ function build(shape: Shape): Uint8Array {
     const params =
       shape === 'no-p'
         ? dc({ Type: nm('TransformParams'), V: nm('1.2') })
-        : dc({ Type: nm('TransformParams'), P: it2(shape === 'nested' ? 1 : Number(shape.slice(1))), V: nm('1.2') });
+        : dc({
+            Type: nm('TransformParams'),
+            P: it2(shape === 'nested' ? 1 : Number(shape.slice(1))),
+            V: nm('1.2'),
+          });
     const sigRef =
       shape === 'approval'
-        ? dc({ TransformMethod: nm('FieldMDP'), TransformParams: dc({ Type: nm('TransformParams') }) })
+        ? dc({
+            TransformMethod: nm('FieldMDP'),
+            TransformParams: dc({ Type: nm('TransformParams') }),
+          })
         : dc({ TransformMethod: nm('DocMDP'), TransformParams: params });
     const value = dc({ Type: nm('Sig'), Filter: nm('Adobe.PPKLite'), Reference: ar([sigRef]) });
     const leaf = dc({ FT: nm('Sig'), T: lit('Signature1'), V: value });
@@ -124,6 +134,8 @@ describe('assertDocMdpAllows — 断る／通す', () => {
 
   it('P=1 は「最終版」なので何も通さない', async () => {
     const editor = await open('p1');
-    await expect(assertDocMdpAllows(editor, 'annotation')).rejects.toThrow(/declared the document final/);
+    await expect(assertDocMdpAllows(editor, 'annotation')).rejects.toThrow(
+      /declared the document final/,
+    );
   });
 });

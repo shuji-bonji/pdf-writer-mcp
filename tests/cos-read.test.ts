@@ -9,12 +9,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { decodeTextString, parsePdfDate, pdfDateToIso, textOf } from '../src/services/cos-read.js';
 import { hex, literal, textString } from '../src/services/cos.js';
+import { decodeTextString, parsePdfDate, pdfDateToIso, textOf } from '../src/services/cos-read.js';
 
 const bytes = (...values: number[]): Uint8Array => new Uint8Array(values);
 const points = (text: string): string[] =>
-  [...text].map((ch) => `U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')}`);
+  [...text].map(
+    (ch) => `U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')}`,
+  );
 
 describe('decodeTextString — §7.9.2.2.1', () => {
   it('BOM が無ければ PDFDocEncoding として読む', () => {
@@ -28,7 +30,11 @@ describe('decodeTextString — §7.9.2.2.1', () => {
   });
 
   it('Table D.2 に無く周囲が割り当て済みの符号は U+FFFD にする', () => {
-    expect(points(decodeTextString(bytes(0x7f, 0x9f, 0xad)))).toEqual(['U+FFFD', 'U+FFFD', 'U+FFFD']);
+    expect(points(decodeTextString(bytes(0x7f, 0x9f, 0xad)))).toEqual([
+      'U+FFFD',
+      'U+FFFD',
+      'U+FFFD',
+    ]);
   });
 
   it('0x16 はそのまま通す（旧実装は U+0017 に写していた）', () => {
@@ -44,7 +50,9 @@ describe('decodeTextString — §7.9.2.2.1', () => {
   });
 
   it('UTF-8 BOM を復号する（R-7.9.2.2.1-4・PDF 2.0）', () => {
-    expect(decodeTextString(bytes(0xef, 0xbb, 0xbf, 0xe3, 0x81, 0x93, 0xe3, 0x82, 0x93))).toBe('こん');
+    expect(decodeTextString(bytes(0xef, 0xbb, 0xbf, 0xe3, 0x81, 0x93, 0xe3, 0x82, 0x93))).toBe(
+      'こん',
+    );
   });
 
   it('書く向き（`textString`）と往復する', () => {

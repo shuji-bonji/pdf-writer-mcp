@@ -38,9 +38,7 @@ export type DocMdpChange = 'annotation' | 'metadata-or-outline' | 'structure' | 
  * `/Kids` が輪になっている文書で止まらなくなるのを防ぐためで、
  * 正しい文書では結果は変わらない。
  */
-export async function findDocMdpPermission(
-  editor: PdfDocumentEditor,
-): Promise<number | undefined> {
+export async function findDocMdpPermission(editor: PdfDocumentEditor): Promise<number | undefined> {
   const catalog = await editor.getCatalog();
   if (catalog.kind !== 'dict') return undefined;
   const acroForm = await editor.resolve(dictGet(catalog, 'AcroForm') ?? { kind: 'null' });
@@ -67,9 +65,13 @@ export async function findDocMdpPermission(
         for (const item of reference.items) {
           const sigRef = await editor.resolve(item);
           if (sigRef.kind !== 'dict') continue;
-          const method = await editor.resolve(dictGet(sigRef, 'TransformMethod') ?? { kind: 'null' });
+          const method = await editor.resolve(
+            dictGet(sigRef, 'TransformMethod') ?? { kind: 'null' },
+          );
           if (method.kind !== 'name' || method.value !== 'DocMDP') continue;
-          const params = await editor.resolve(dictGet(sigRef, 'TransformParams') ?? { kind: 'null' });
+          const params = await editor.resolve(
+            dictGet(sigRef, 'TransformParams') ?? { kind: 'null' },
+          );
           if (params.kind === 'dict') {
             const p = await editor.resolve(dictGet(params, 'P') ?? { kind: 'null' });
             if (p.kind === 'integer') return p.value;

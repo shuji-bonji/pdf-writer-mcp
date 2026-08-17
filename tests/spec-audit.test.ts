@@ -20,8 +20,8 @@ import { join } from 'node:path';
 import { PDFArray, PDFDict, PDFDocument, type PDFHexString, PDFName, PDFNumber } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { normalizeAnnotationText } from '../src/services/annotation.js';
-import { addAnnotation, attachFileToPdf } from '../src/services/editor.js';
 import { addBookmarks } from '../src/services/edit-bookmarks.js';
+import { addAnnotation, attachFileToPdf } from '../src/services/editor.js';
 import type { AddAnnotationArgs, EditResult } from '../src/types/index.js';
 
 let dir: string;

@@ -56,9 +56,7 @@ async function infoText(editor: PdfDocumentEditor, key: string): Promise<string 
  *
  * 読めない値・暦に無い日は `undefined`（壊れた値を XMP へ複製しない）。
  */
-export async function infoCreationDateIso(
-  editor: PdfDocumentEditor,
-): Promise<string | undefined> {
+export async function infoCreationDateIso(editor: PdfDocumentEditor): Promise<string | undefined> {
   const raw = await infoText(editor, 'CreationDate');
   if (raw === undefined) return undefined;
   return pdfDateToIso(raw);
@@ -143,7 +141,8 @@ export async function syncXmpWithInfo(
     subject: await infoText(editor, 'Subject'),
     keywords: await infoText(editor, 'Keywords'),
     pdfuaPart: kept.pdfuaPart !== undefined ? Number(kept.pdfuaPart) : undefined,
-    pdfaPart: overrides?.pdfaPart ?? (kept.pdfaPart !== undefined ? Number(kept.pdfaPart) : undefined),
+    pdfaPart:
+      overrides?.pdfaPart ?? (kept.pdfaPart !== undefined ? Number(kept.pdfaPart) : undefined),
     pdfaConformance: redeclaring ? overrides?.pdfaConformance : kept.pdfaConformance,
     pdfaRev: redeclaring
       ? overrides?.pdfaRev

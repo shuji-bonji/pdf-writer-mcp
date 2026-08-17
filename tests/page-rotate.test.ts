@@ -27,8 +27,7 @@ afterAll(async () => {
 
 const name = (value: string) => ({ kind: 'name', value }) as const;
 const int = (value: number) => ({ kind: 'integer', value }) as const;
-const ref = (objectNumber: number) =>
-  ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
+const ref = (objectNumber: number) => ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
 const dict = (entries: Record<string, unknown>) =>
   ({ kind: 'dict', entries: new Map(Object.entries(entries)) }) as never;
 const box = { kind: 'array', items: [int(0), int(0), int(612), int(792)] } as const;
@@ -60,7 +59,11 @@ function twoPagePdf(
 
   return writeCos(
     [
-      { objectNumber: 1, generationNumber: 0, object: dict({ Type: name('Catalog'), Pages: ref(2) }) },
+      {
+        objectNumber: 1,
+        generationNumber: 0,
+        object: dict({ Type: name('Catalog'), Pages: ref(2) }),
+      },
       { objectNumber: 2, generationNumber: 0, object: dict(pagesEntries) },
       { objectNumber: 3, generationNumber: 0, object: page(opts.pageRotate) },
       { objectNumber: 4, generationNumber: 0, object: page() },
@@ -132,7 +135,9 @@ describe('rotate_pages — 入力の形を保つ', () => {
     const input = await write('v20.pdf', twoPagePdf({ version: '2.0' }));
     const out = join(dir, 'v20-out.pdf');
     await rotatePages(input, 90, undefined, { outputPath: out });
-    const head = Buffer.from(await readFile(out)).subarray(0, 8).toString('latin1');
+    const head = Buffer.from(await readFile(out))
+      .subarray(0, 8)
+      .toString('latin1');
     expect(head).toBe('%PDF-2.0');
   });
 

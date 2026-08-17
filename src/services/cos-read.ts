@@ -27,54 +27,54 @@ import type { CosObject } from 'normativepdf';
  */
 const PDF_DOC_ENCODING_DIFFS: Readonly<Record<number, number>> = {
   // 0x18–0x1F: 発音区別符号（Latin-1 では制御文字）
-  0x18: 0x02d8, // breve
-  0x19: 0x02c7, // caron
-  0x1a: 0x02c6, // circumflex
-  0x1b: 0x02d9, // dotaccent
-  0x1c: 0x02dd, // hungarumlaut
-  0x1d: 0x02db, // ogonek
-  0x1e: 0x02da, // ring
-  0x1f: 0x02dc, // tilde
+  24: 0x02d8, // breve
+  25: 0x02c7, // caron
+  26: 0x02c6, // circumflex
+  27: 0x02d9, // dotaccent
+  28: 0x02dd, // hungarumlaut
+  29: 0x02db, // ogonek
+  30: 0x02da, // ring
+  31: 0x02dc, // tilde
   // 0x80–0x9E: 約物と合字（Latin-1 では C1 制御文字）
-  0x80: 0x2022, // bullet
-  0x81: 0x2020, // dagger
-  0x82: 0x2021, // daggerdbl
-  0x83: 0x2026, // ellipsis
-  0x84: 0x2014, // emdash
-  0x85: 0x2013, // endash
-  0x86: 0x0192, // florin
-  0x87: 0x2044, // fraction
-  0x88: 0x2039, // guilsinglleft
-  0x89: 0x203a, // guilsinglright
-  0x8a: 0x2212, // minus
-  0x8b: 0x2030, // perthousand
-  0x8c: 0x201e, // quotedblbase
-  0x8d: 0x201c, // quotedblleft
-  0x8e: 0x201d, // quotedblright
-  0x8f: 0x2018, // quoteleft
-  0x90: 0x2019, // quoteright
-  0x91: 0x201a, // quotesinglbase
-  0x92: 0x2122, // trademark
-  0x93: 0xfb01, // fi
-  0x94: 0xfb02, // fl
-  0x95: 0x0141, // Lslash
-  0x96: 0x0152, // OE
-  0x97: 0x0160, // Scaron
-  0x98: 0x0178, // Ydieresis
-  0x99: 0x017d, // Zcaron
-  0x9a: 0x0131, // dotlessi
-  0x9b: 0x0142, // lslash
-  0x9c: 0x0153, // oe
-  0x9d: 0x0161, // scaron
-  0x9e: 0x017e, // zcaron
+  128: 0x2022, // bullet
+  129: 0x2020, // dagger
+  130: 0x2021, // daggerdbl
+  131: 0x2026, // ellipsis
+  132: 0x2014, // emdash
+  133: 0x2013, // endash
+  134: 0x0192, // florin
+  135: 0x2044, // fraction
+  136: 0x2039, // guilsinglleft
+  137: 0x203a, // guilsinglright
+  138: 0x2212, // minus
+  139: 0x2030, // perthousand
+  140: 0x201e, // quotedblbase
+  141: 0x201c, // quotedblleft
+  142: 0x201d, // quotedblright
+  143: 0x2018, // quoteleft
+  144: 0x2019, // quoteright
+  145: 0x201a, // quotesinglbase
+  146: 0x2122, // trademark
+  147: 0xfb01, // fi
+  148: 0xfb02, // fl
+  149: 0x0141, // Lslash
+  150: 0x0152, // OE
+  151: 0x0160, // Scaron
+  152: 0x0178, // Ydieresis
+  153: 0x017d, // Zcaron
+  154: 0x0131, // dotlessi
+  155: 0x0142, // lslash
+  156: 0x0153, // oe
+  157: 0x0161, // scaron
+  158: 0x017e, // zcaron
   // Table D.2 の PDF 欄に無く、**周囲が割り当て済みの範囲にある**符号位置。
   // Latin-1 のまま通すと 0xAD が軟ハイフンという「PDFDocEncoding に無い文字」になるので、
   // 文字を当てずに U+FFFD を返す。0x00–0x17 の制御符号はそのまま通す（表の対象外）
-  0x7f: 0xfffd,
-  0x9f: 0xfffd,
-  0xad: 0xfffd,
+  127: 0xfffd,
+  159: 0xfffd,
+  173: 0xfffd,
   // 0xA0 は Latin-1 では NO-BREAK SPACE だが PDFDocEncoding では EURO SIGN
-  0xa0: 0x20ac,
+  160: 0x20ac,
 };
 
 /** PDFDocEncoding の 1 バイト列を復号する。 */
@@ -165,7 +165,11 @@ export function parsePdfDate(text: string): Date | undefined {
 
   // R-7.9.4-18: 日付の欄は現地時刻。R-7.9.4-17: UT の情報が無ければ GMT
   const offsetMinutes =
-    sign === '+' ? offsetHour * 60 + offsetMinute : sign === '-' ? -(offsetHour * 60 + offsetMinute) : 0;
+    sign === '+'
+      ? offsetHour * 60 + offsetMinute
+      : sign === '-'
+        ? -(offsetHour * 60 + offsetMinute)
+        : 0;
 
   // 2 月 31 日のような繰り上がりを拒む（暦に無い日を「読めた」ことにしない）。
   // 時差を足す前の暦の上で確かめる —— 足したあとだと日が動いて判定できない

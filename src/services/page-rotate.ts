@@ -65,7 +65,11 @@ export async function rotatePages(
 
     const updated = new Map(page.dict.entries);
     updated.set('Rotate', int(normalizeRotation(current + rotation)));
-    editor.set(page.ref.objectNumber, { kind: 'dict', entries: updated }, page.ref.generationNumber);
+    editor.set(
+      page.ref.objectNumber,
+      { kind: 'dict', entries: updated },
+      page.ref.generationNumber,
+    );
   }
 
   return saveOpened(opened, opts);

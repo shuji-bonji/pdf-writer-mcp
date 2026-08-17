@@ -110,10 +110,7 @@ export async function setBookmarks(
         );
         entries.set('First', (children[0] as BuiltNode).ref);
         entries.set('Last', (children[children.length - 1] as BuiltNode).ref);
-        entries.set(
-          'Count',
-          int(node.open ? node.visibleDescendants : -node.visibleDescendants),
-        );
+        entries.set('Count', int(node.open ? node.visibleDescendants : -node.visibleDescendants));
       }
 
       nodes.push(node);

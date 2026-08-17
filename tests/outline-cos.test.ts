@@ -25,8 +25,7 @@ afterAll(async () => {
 
 const nm = (value: string) => ({ kind: 'name', value }) as const;
 const iv = (value: number) => ({ kind: 'integer', value }) as const;
-const rf = (objectNumber: number) =>
-  ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
+const rf = (objectNumber: number) => ({ kind: 'ref', objectNumber, generationNumber: 0 }) as const;
 const dc = (entries: Record<string, unknown>) =>
   ({ kind: 'dict', entries: new Map(Object.entries(entries)) }) as never;
 const ar = (items: unknown[]) => ({ kind: 'array', items }) as never;
@@ -161,7 +160,14 @@ describe('countBookmarks', () => {
   it('入れ子を含めて数える（文書には触らない）', () => {
     expect(
       countBookmarks([
-        { title: 'a', page: 1, children: [{ title: 'b', page: 1 }, { title: 'c', page: 1 }] },
+        {
+          title: 'a',
+          page: 1,
+          children: [
+            { title: 'b', page: 1 },
+            { title: 'c', page: 1 },
+          ],
+        },
         { title: 'd', page: 1 },
       ]),
     ).toBe(4);

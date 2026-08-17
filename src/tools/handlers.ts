@@ -12,6 +12,8 @@
 
 import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
+import { addBookmarks } from '../services/edit-bookmarks.js';
+import { setMetadata } from '../services/edit-metadata.js';
 import {
   addAnnotation,
   addWatermark,
@@ -24,9 +26,6 @@ import {
   tagFormFields,
 } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
-import { addBookmarks } from '../services/edit-bookmarks.js';
-import { setMetadata } from '../services/edit-metadata.js';
-import { rotatePages } from '../services/page-rotate.js';
 import {
   deletePages,
   extractPages,
@@ -34,6 +33,7 @@ import {
   reorderPages,
   splitPdf,
 } from '../services/page-ops.js';
+import { rotatePages } from '../services/page-rotate.js';
 import { renderMarkdown } from '../services/renderers/markdown.js';
 import { renderTable } from '../services/renderers/table.js';
 import { renderText } from '../services/renderers/text.js';
