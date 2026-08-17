@@ -17,7 +17,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
 import { addAnnotation } from '../src/services/edit-annotation.js';
@@ -83,7 +83,9 @@ async function readAnnotContents(bytes: Uint8Array): Promise<string[]> {
     const a = annots.lookup(i);
     if (a instanceof PDFDict) {
       const c = a.lookup(PDFName.of('Contents'));
-      if (c instanceof PDFHexString) out.push(c.decodeText());
+      // 字句の形（リテラル `(…)` か 16 進 `<…>` か・§7.3.4）で数え落とさない。
+      // ASCII と空文字はリテラルで書かれる（§7.9.2.2 はどちらも許す）
+      if (c instanceof PDFHexString || c instanceof PDFString) out.push(c.decodeText());
     }
   }
   return out;

@@ -152,7 +152,9 @@ describe('setBookmarks — 意図して変えたところ', () => {
     const text = Buffer.from(await readFile(output)).toString('latin1');
     // §7.9.2.2 はどちらの形も許す。writer の中で文字列の書き方を 1 つにするための差
     expect(text).toContain('(Chapter 1)');
-    expect(text).toMatch(/\/Title\s*\(\\376\\377/); // BOM 付き UTF-16BE の八進エスケープ
+    // 非 ASCII は BOM 付き UTF-16BE を **16 進文字列**で書く（2026-08-15 に直した。
+    // それまではリテラルで書いており、同じ内容が八進エスケープの並びになっていた）
+    expect(text).toMatch(/\/Title\s*<feff/i);
   });
 });
 
