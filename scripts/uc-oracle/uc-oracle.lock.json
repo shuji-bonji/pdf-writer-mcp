@@ -1,6 +1,6 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-17T23:07:14.352Z",
+ "capturedAt": "2026-08-17T23:55:17.019Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
@@ -410,10 +410,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "4091e489efa53277e2775d0a55daf626bb6eb7286e32fb202b02ff133cc35864",
+   "sha256": "61f2913cf8d5e1d39bcd7c316ffabc29b6c343c7f051fba09b00e48402cbe814",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
+    "creator": null
    }
   },
   "edit-page-ops": {
@@ -449,10 +449,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "2aef9c94db00ab2aa9763f07ea7adde9f9a5113bb15905efa7edabeafd499147",
+   "sha256": "c0ffccdc95b8ba5b1a67b6ca06600f6e45cd8de863f2db9e3573bb95b991a81b",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
+    "creator": null
    }
   },
   "edit-watermark": {
@@ -505,10 +505,10 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "43734191788be1d3438f3446fcdd294ff16b0b52339c8b2c5c00e92ca4d03814",
+   "sha256": "c299430078e362d9ed62787fb0f6728642d205e4bc7d64aa910c5c845ef6ca03",
    "meta": {
     "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
-    "creator": "pdf-lib (https://github.com/Hopding/pdf-lib)"
+    "creator": null
    }
   },
   "edit-bookmarks-annotation-metadata": {
