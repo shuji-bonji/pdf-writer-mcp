@@ -91,7 +91,8 @@ describe.skipIf(!fontPath)('annotations in tagged PDFs', () => {
     expect(annots).toHaveLength(1);
 
     // /Alt が付いている
-    expect(annots[0].lookup(PDFName.of('Alt'))?.toString()).toContain('91CD'); // UTF-16BE の「重」
+    // 16 進の桁は大小どちらでもよい（§7.3.4.3）。normativepdf は小文字で書く
+    expect(annots[0].lookup(PDFName.of('Alt'))?.toString()).toMatch(/91CD/i); // UTF-16BE の「重」
     // /K に OBJR があり、注釈オブジェクトを指す
     const objr = annots[0].lookup(PDFName.of('K')) as PDFDict;
     expect((objr.lookup(PDFName.of('Type')) as PDFName).decodeText()).toBe('OBJR');

@@ -83,6 +83,14 @@ export const literal = (text: string): CosObject => {
  * テキスト文字列（§7.9.2.2）。ASCII だけならリテラル、そうでなければ
  * **UTF-16BE + BOM** にする。どちらになるかを呼び出し側が選べないのは意図的で、
  * 選ばせると「日本語を入れたときだけ化ける」経路が残るため。
+ *
+ * 🔴 **UTF-16BE は 16 進文字列（`<FEFF…>`）で書く。** 符号化（§7.9.2.2）と
+ * 字句の形（§7.3.4: リテラルか 16 進か）は別の決めごとで、どちらでも読める。
+ * それでも 16 進にするのは、UTF-16BE のバイト列にはリテラルで書くと
+ * `\376\377` のような 8 進エスケープが並ぶバイトが多く含まれ、
+ * **同じ内容が「読める形」と「エスケープだらけの形」の 2 通りになる**ためである。
+ * 2026-08-15 にリテラルのまま出していたのを直した（`tests/spec-audit.test.ts` の
+ * §12.5.6.2 が 16 進表記で CR を確かめており、そこで落ちた）。
  */
 export const textString = (text: string): CosObject => {
   if (/^[\x20-\x7e\n\r\t]*$/.test(text)) return literal(text);
@@ -98,7 +106,7 @@ export const textString = (text: string): CosObject => {
       units.push(cp >> 8, cp & 0xff);
     }
   }
-  return { kind: 'string', bytes: new Uint8Array(units), form: 'literal' };
+  return { kind: 'string', bytes: new Uint8Array(units), form: 'hex' };
 };
 
 /** 16 進文字列（§7.3.4.3）。グリフ番号の並びのように、バイトが文字でないものに使う。 */

@@ -68,11 +68,13 @@ function updateFileId(editor: PdfDocumentEditor, original: Uint8Array): void {
     writeIndirectObject(out, objectNumber, generationNumber, object);
     digest.update(out.toUint8Array());
   }
-  const hex = digest.digest('hex').toUpperCase();
+  // 🔴 ダイジェスト**そのもの**（16 バイト）を書く。16 進の文字列を
+  // バイト列として書くと 32 バイトになり、`<…>` の中身が 64 桁に膨らむ
+  // （2026-08-15 に `tests/incremental.test.ts` の §14.4 の判定が見つけた）
   const permanent = id.items[0] as CosObject;
   editor.setTrailerEntry('ID', {
     kind: 'array',
-    items: [permanent, { kind: 'string', bytes: new TextEncoder().encode(hex), form: 'hex' }],
+    items: [permanent, { kind: 'string', bytes: new Uint8Array(digest.digest()), form: 'hex' }],
   });
 }
 

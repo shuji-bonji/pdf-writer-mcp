@@ -97,7 +97,8 @@ export async function ensureFileIdentifier(editor: PdfDocumentEditor): Promise<b
       digest.update(bytesOf(value));
     }
   }
-  const changing = hex(new TextEncoder().encode(digest.digest('hex').toUpperCase()));
+  // ダイジェストそのもの（16 バイト）。16 進の文字列を書くと 2 倍に膨らむ
+  const changing = hex(new Uint8Array(digest.digest()));
 
   if (permanent === undefined) {
     // 初回書き込み: 両者を同値にする（R-14.4-11）
