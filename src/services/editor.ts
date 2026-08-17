@@ -24,8 +24,6 @@ import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
   AddWatermarkArgs,
-  AttachFileArgs,
-  AttachResult,
   CommonEditOptions,
   EditResult,
   FillFormArgs,
@@ -39,7 +37,6 @@ import type {
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
-import { attachFile, listEmbeddedFiles } from './attachment.js';
 import { rgbFromHex } from './color.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
 import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
@@ -54,7 +51,6 @@ import {
 } from './form.js';
 import {
   buildIncrementalUpdate,
-  catalogNamesDirtyRefs,
   findDocMdpPermission,
   pageContentDirtyRefs,
   reserveExistingObjectNumbers,
@@ -215,62 +211,6 @@ async function saveWithPreservedSignatures(
 // ---------------------------------------------------------------------------
 // Tier A ツール本体（ページ操作は page-ops.ts へ）
 // ---------------------------------------------------------------------------
-
-export async function attachFileToPdf(args: AttachFileArgs): Promise<AttachResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    // 添付は「文書への追加」であり DocMDP の許可種別に無い（認証文書は全レベル拒否）
-    assertDocMdpAllows(doc, 'metadata-or-outline');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-
-  const attached = await attachFile(doc, {
-    filePath: args.attachmentPath,
-    name: args.name,
-    description: args.description,
-    mimeType: args.mimeType,
-    relationship: args.relationship,
-  });
-
-  const warnings: string[] = [];
-  if (!args.relationship) {
-    warnings.push(
-      'No "relationship" given, so the attachment is marked Unspecified. ' +
-        'PDF/A-3 requires a meaningful AFRelationship — use "Data" for machine-readable ' +
-        'counterparts of the document (e.g. an invoice CSV/XML) or "Source" for the data it came from.',
-    );
-  }
-
-  logger.info(
-    'Editor',
-    `Attached ${attached.name} (${attached.bytes} bytes, ${attached.mimeType})`,
-  );
-
-  const saved = preserve
-    ? await (async () => {
-        const dirty = catalogNamesDirtyRefs(doc);
-        touchModificationDate(doc, since, dirty);
-        return saveWithPreservedSignatures(
-          doc,
-          bytes,
-          args,
-          dirty,
-          since,
-          `Attached ${attached.name}`,
-        );
-      })()
-    : await saveEdited(doc, args);
-
-  const allWarnings = [...(saved.warnings ?? []), ...warnings];
-  return {
-    ...saved,
-    warnings: allWarnings.length > 0 ? allWarnings : undefined,
-    attachment: attached,
-    attachments: listEmbeddedFiles(doc).map((f) => f.name),
-  };
-}
 
 export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<StampResult> {
   const { doc, bytes } = await loadForEdit(args.inputPath, args);
