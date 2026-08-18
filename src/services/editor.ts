@@ -33,6 +33,7 @@ import type {
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
+import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import {
   applyFieldValue,
   cleanUpAfterFlatten,
@@ -48,7 +49,6 @@ import {
   reserveExistingObjectNumbers,
 } from './incremental.js';
 import { saveEdited, saveRawBytes } from './output.js';
-import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
 import { isTagged } from './struct-append.js';

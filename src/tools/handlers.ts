@@ -14,16 +14,12 @@ import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
 import { addAnnotation } from '../services/edit-annotation.js';
 import { attachFileToPdf } from '../services/edit-attach.js';
-import { addWatermark, stampPageNumbers } from '../services/edit-stamp.js';
 import { addBookmarks } from '../services/edit-bookmarks.js';
 import { ensurePdfa } from '../services/edit-ensure-pdfa.js';
 import { ensureTagged } from '../services/edit-ensure-tagged.js';
 import { setMetadata } from '../services/edit-metadata.js';
-import {
-  fillForm,
-  flattenForm,
-  tagFormFields,
-} from '../services/editor.js';
+import { addWatermark, stampPageNumbers } from '../services/edit-stamp.js';
+import { fillForm, flattenForm, tagFormFields } from '../services/editor.js';
 import { hasNonLatin1 } from '../services/layout.js';
 import {
   deletePages,

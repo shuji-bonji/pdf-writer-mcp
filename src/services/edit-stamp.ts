@@ -26,8 +26,8 @@ import { parsePageSpec } from '../utils/page-spec.js';
 import { rgbFromHex } from './color.js';
 import { assertDocMdpAllows } from './doc-mdp.js';
 import { openForEdit } from './edit-open.js';
-import { EMBEDDED_FONT_OBJECTS, fontHostFor, STANDARD_FONT_OBJECTS } from './font-pool.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
+import { EMBEDDED_FONT_OBJECTS, fontHostFor, STANDARD_FONT_OBJECTS } from './font-pool.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
 import { drawTextOnPage } from './page-draw.js';
@@ -148,9 +148,7 @@ export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkRes
     `Watermarked ${targets.length} page(s)${behind ? ' behind content' : ''}${artifact ? ' as artifacts' : ''}`,
   );
 
-  const saved = preserve
-    ? await appendOpened(opened, args)
-    : await saveOpened(opened, args);
+  const saved = preserve ? await appendOpened(opened, args) : await saveOpened(opened, args);
   return { ...saved, watermarked: targets.length, artifact };
 }
 
@@ -201,8 +199,6 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
 
   logger.info('Editor', `Stamped ${targets.length} page(s)${artifact ? ' as artifacts' : ''}`);
 
-  const saved = preserve
-    ? await appendOpened(opened, args)
-    : await saveOpened(opened, args);
+  const saved = preserve ? await appendOpened(opened, args) : await saveOpened(opened, args);
   return { ...saved, stamped: targets.length, artifact };
 }
