@@ -32,7 +32,13 @@ async function makeFixture(name: string, pages: number, rotation = 0): Promise<s
   return path;
 }
 
-/** ページのコンテンツストリームを連結する */
+/**
+ * ページのコンテンツストリームを連結する。
+ *
+ * **圧縮の有無を辞書の `/Filter` で判断する。** 以前は `inflateSync` が通ったものだけを
+ * 拾っていたが、新しい出口は書き出し時に Flate を掛けない（ADR-0003 §4）ので、
+ * それだと中身が 1 本も取れず、`toContain` も `not.toContain` も何も測らなくなる。
+ */
 function pageContent(pdf: Buffer): string {
   const out: string[] = [];
   let idx = pdf.indexOf('stream', 0, 'latin1');
@@ -41,17 +47,28 @@ function pageContent(pdf: Buffer): string {
       idx = pdf.indexOf('stream', idx + 6, 'latin1');
       continue;
     }
+    // `stream` の直前にあるストリーム辞書を読む（`<<` … `>>`）
+    const dictStart = pdf.lastIndexOf('<<', idx, 'latin1');
+    const header = dictStart === -1 ? '' : pdf.subarray(dictStart, idx).toString('latin1');
     let start = idx + 6;
     if (pdf[start] === 0x0d) start++;
     if (pdf[start] === 0x0a) start++;
     const end = pdf.indexOf('endstream', start, 'latin1');
     if (end === -1) break;
-    try {
-      const data = inflateSync(pdf.subarray(start, end)).toString('latin1');
-      if (data.includes('Tj') || data.includes('BMC')) out.push(data);
-    } catch {
-      // フォント等
+    const body = pdf.subarray(start, end);
+    let data: string | null = null;
+    if (header.includes('/FlateDecode')) {
+      try {
+        data = inflateSync(body).toString('latin1');
+      } catch {
+        data = null; // フォントプログラム等
+      }
+    } else if (!header.includes('/Filter') && !body.includes(0)) {
+      // 非圧縮。フォントプログラムを取り違えないように、NUL を含むものは除く
+      // （内容ストリームは演算子と 16 進文字列だけなので NUL が現れない）
+      data = body.toString('latin1');
     }
+    if (data !== null && (data.includes('Tj') || data.includes('BMC'))) out.push(data);
     idx = pdf.indexOf('stream', end, 'latin1');
   }
   return out.join('\n');
