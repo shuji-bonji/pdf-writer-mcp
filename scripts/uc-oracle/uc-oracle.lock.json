@@ -1,7 +1,7 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-18T12:21:20.029Z",
- "writerVersion": "0.20.0",
+ "capturedAt": "2026-08-18T13:07:43.138Z",
+ "writerVersion": "0.20.1",
  "tooling": {
   "qpdf": "12.4.0",
   "verapdf": "1.30.0"
@@ -136,7 +136,7 @@
    },
    "sha256": "5c6f03b606778196246307ea372c8be27ab9850f1c4978a61d2ffa6b39ce23db",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -164,7 +164,7 @@
    },
    "sha256": "a73b862490146bb217439ac34f9694cbe6220bba21dd666c3fc54cf028b82176",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -220,7 +220,7 @@
    },
    "sha256": "a1fccfd80691b4e58b6c683d16e86f42dbf39fbd63f661d8f810413f2eb6b8aa",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -248,7 +248,7 @@
    },
    "sha256": "edb193f2c4bf8789606d23da60d56c9d11aaed7a7392a42e2fb7b498a0133da4",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -285,7 +285,7 @@
    },
    "sha256": "6bcaa2554bcbab556818ec75a5ec461f219895a84f0ac8a031e2ab02264a3be3",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    },
    "verify": [
@@ -325,7 +325,7 @@
    },
    "sha256": "920915bd992ed89cdb98b6aa23deb5e2a5c7e13dcca55cac29c3bebf166f669f",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -383,7 +383,7 @@
    },
    "sha256": "d411e92001516684660b66bd15a455df828741009cf7ec0dc2df80830f39ef9a",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -415,7 +415,7 @@
    },
    "sha256": "498e56e73b139a4aa33c56d7876578ce9ec85ee7b06aaf0271e70147d2867985",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -454,7 +454,7 @@
    },
    "sha256": "2c98570be9397b6b4124b24053344992a49a7261c03778979cd240025995394f",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -482,7 +482,7 @@
    },
    "sha256": "1c314a881c434217bcdc5edf28afd15757ee9aa9aed064770abca1b1b3ee0e0c",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -510,7 +510,7 @@
    },
    "sha256": "1517d23c33c06fbae5690210168e8be621a034585672a388e197293bae9fedad",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -552,7 +552,7 @@
    },
    "sha256": "b8a772e88d020d58c8c1f8552b0a7ec8f702eab50583c3287613df8877d3c719",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   },
@@ -606,7 +606,7 @@
    },
    "sha256": "6d30c05041402325412ea483d78c68aa61eaeebdd5f82e43b95e0b6d291e0380",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    },
    "verify": [
@@ -844,7 +844,7 @@
    },
    "sha256": "f8e109d565af787a67da79c205cdde1ade1cf5766fce8e14551797756c5aae0b",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    },
    "verify": [
@@ -882,7 +882,7 @@
    },
    "sha256": "0ad1910e37aec4efa6360af98ee8a5fc81bc8a143343cab4ab31ef8d26211e84",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    },
    "verify": [
@@ -1290,7 +1290,7 @@
    },
    "sha256": "d10ffaceca6185be7fa8b7f5ed164ace6a03410d11747429e89f563ab90e8d84",
    "meta": {
-    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.0",
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.20.1",
     "creator": null
    }
   }
