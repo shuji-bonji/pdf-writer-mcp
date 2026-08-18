@@ -90,6 +90,8 @@ export interface AcroForm {
   readonly dict: CosDict;
   /** `/Fields` の並び順に深さ優先で並べた終端フィールド */
   readonly fields: readonly AcroField[];
+  /** 木を歩いて見たフィールド辞書の参照すべて（非終端も含む） */
+  readonly nodes: readonly CosRef[];
 }
 
 // --------------------------------------------------------------------------- ビット
@@ -127,11 +129,12 @@ export async function readAcroForm(editor: PdfDocumentEditor): Promise<AcroForm 
   if (acro.kind !== 'dict') return null;
 
   const fields: AcroField[] = [];
+  const nodes: CosRef[] = [];
   const seen = new Set<string>();
   for (const kid of await arrayItems(editor, acro, 'Fields')) {
-    await walk(editor, kid, '', fields, seen);
+    await walk(editor, kid, '', fields, seen, nodes);
   }
-  return { ref: acroRaw.kind === 'ref' ? acroRaw : null, dict: acro, fields };
+  return { ref: acroRaw.kind === 'ref' ? acroRaw : null, dict: acro, fields, nodes };
 }
 
 /** XFA を使っているか（§12.7.8 / PDF/UA-1 7.15 が禁じる） */
@@ -152,6 +155,7 @@ async function walk(
   prefix: string,
   out: AcroField[],
   seen: Set<string>,
+  nodes: CosRef[],
 ): Promise<void> {
   if (nodeRaw.kind !== 'ref') return; // R-12.7.4.1-1: 直接オブジェクトのフィールドは無い
   const key = `${nodeRaw.objectNumber} ${nodeRaw.generationNumber}`;
@@ -164,6 +168,7 @@ async function walk(
   const partial = textOf(await resolveMaybe(editor, dictGetRaw(node, 'T')));
   if (partial === undefined) return; // Widget であってフィールドではない
   const name = prefix === '' ? partial : `${prefix}.${partial}`;
+  nodes.push(nodeRaw);
 
   const kids = await arrayItems(editor, node, 'Kids');
   const childFields: CosObject[] = [];
@@ -177,7 +182,7 @@ async function walk(
   }
 
   if (childFields.length > 0) {
-    for (const child of childFields) await walk(editor, child, name, out, seen);
+    for (const child of childFields) await walk(editor, child, name, out, seen, nodes);
     return;
   }
 
@@ -275,12 +280,19 @@ async function inheritedName(
   return value?.kind === 'name' ? value.value : undefined;
 }
 
-/** 継承を解決した `/V`（R-12.7.4.1-3） */
-export function fieldValue(
+/**
+ * 継承を解決した `/V`（R-12.7.4.1-3）。
+ *
+ * 🔴 **`field.dict` ではなく `field.ref` から読み直す。** `AcroField.dict` は
+ * `readAcroForm` を呼んだ時点のスナップショットなので、値を書いた後に使うと
+ * **書く前の値が返る**。
+ */
+export async function fieldValue(
   editor: PdfDocumentEditor,
   field: AcroField,
 ): Promise<CosObject | undefined> {
-  return inherited(editor, field.dict, 'V');
+  const current = await editor.resolve(field.ref);
+  return inherited(editor, current.kind === 'dict' ? current : field.dict, 'V');
 }
 
 // --------------------------------------------------------------------------- 値の読み出し

@@ -45,8 +45,21 @@ export interface FontHost {
 export interface WriterFont extends TextMetrics {
   /** `/Resources /Font` に入れる参照 */
   readonly ref: CosRef;
-  /** 表示用の名前（`CreateResult.font` に返る） */
+  /** 表示用の名前（`CreateResult.font` に返る）。ファイル名なので拡張子を含む */
   readonly displayName: string;
+  /**
+   * フォントの PostScript 名（サブセットのタグは付かない）。
+   * `/DA` と `/DR /Font` の資源名に使う（R-12.7.4.3-7）—— ここに
+   * `displayName` を使うと `/NotoSansJP-Regular.otf` という資源名になる。
+   */
+  readonly postScriptName: string;
+  /**
+   * ベースラインより上（1000 単位のグリフ空間・§9.2.4）。
+   * フォーム欄の縦位置を決めるのに要る（`acroform-layout.ts`）。
+   */
+  readonly ascent: number;
+  /** ベースラインより下。**負**で持つ（§9.8.1 Table 122 の `/Descent` と同じ符号） */
+  readonly descent: number;
   /** `Tj` に渡す文字列オブジェクト（§9.4.3） */
   encode(text: string): CosObject;
   widthOfTextAtSize(text: string, size: number): number;
@@ -75,6 +88,10 @@ export function embedStandardFont(doc: FontHost, postScriptName: string): Writer
   return {
     ref,
     displayName: postScriptName,
+    postScriptName,
+    // AFM の Ascender / Descender は型上 void を含むので既定値で受ける（§9.2.4 の 1000 単位）
+    ascent: typeof afm.Ascender === 'number' ? afm.Ascender : 750,
+    descent: typeof afm.Descender === 'number' ? afm.Descender : -250,
     encode(text: string): CosObject {
       // WinAnsi は 1 文字 1 バイト。範囲外は `assertRenderable`（renderers/text.ts）が
       // 先に弾いているので、ここに来る文字列は Latin-1 に収まっている。
@@ -210,6 +227,9 @@ export function embedFontProgram(
   const font: WriterFont = {
     ref: built.font,
     displayName,
+    postScriptName: fk.postscriptName ?? displayName.replace(/\.[^.]+$/, ''),
+    ascent: scaled(fk.ascent, unitsPerEm),
+    descent: scaled(fk.descent, unitsPerEm),
     encode(text: string): CosObject {
       const glyphs = fk.layout(text).glyphs;
       const bytes = new Uint8Array(glyphs.length * 2);

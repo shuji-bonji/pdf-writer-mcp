@@ -20,7 +20,7 @@ import { ensureTagged } from '../services/edit-ensure-tagged.js';
 import { setMetadata } from '../services/edit-metadata.js';
 import { addWatermark, stampPageNumbers } from '../services/edit-stamp.js';
 import { tagFormFields } from '../services/edit-tag-form.js';
-import { fillForm, flattenForm } from '../services/editor.js';
+import { fillForm, flattenFormTool as flattenForm } from '../services/edit-form.js';
 import { hasNonLatin1 } from '../services/layout.js';
 import {
   deletePages,

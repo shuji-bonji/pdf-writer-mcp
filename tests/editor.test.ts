@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { containsSignature } from '../src/services/editor.js';
+import { containsSignature } from '../src/services/signature-scan.js';
 import {
   handleDeletePages,
   handleExtractPages,

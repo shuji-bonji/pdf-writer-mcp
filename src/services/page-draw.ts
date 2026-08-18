@@ -19,7 +19,6 @@
  */
 
 import {
-  COS_NULL,
   ContentStreamBuilder,
   type CosDict,
   type CosObject,
@@ -32,6 +31,7 @@ import { PdfWriterError } from '../errors.js';
 import type { Rgb } from './color.js';
 import { dict, name, num, real } from './cos.js';
 import type { WriterFont } from './font-embed.js';
+import { resourcesWith } from './page-resources.js';
 
 /** ページ資源に載せるときの名前。既存の名前とぶつからないものを選ぶ */
 const FONT_KEY = 'PWMF0';
@@ -140,7 +140,23 @@ export async function drawTextOnPage(
 
   const entries = new Map<string, CosObject>(page.dict.entries);
   entries.set('Contents', await contentsWith(editor, page.dict, added, options.behind));
-  entries.set('Resources', await resourcesWith(editor, page, font.ref, opacity));
+  entries.set(
+    'Resources',
+    await resourcesWith(editor, page, {
+      Font: { [FONT_KEY]: font.ref },
+      // Table 57: `/ca` は塗り、`/CA` は線の alpha。不透明なら状態を作らない
+      ExtGState:
+        opacity < 1
+          ? {
+              [GS_KEY]: dict([
+                ['Type', name('ExtGState')],
+                ['ca', real(opacity)],
+                ['CA', real(opacity)],
+              ]),
+            }
+          : {},
+    }),
+  );
   editor.set(page.ref.objectNumber, { kind: 'dict', entries }, page.ref.generationNumber);
   return added;
 }
@@ -167,44 +183,4 @@ async function contentsWith(
   }
   const items = behind ? [added, ...existing] : [...existing, added];
   return { kind: 'array', items };
-}
-
-/**
- * `/Resources` にフォント（と必要なら `/ExtGState`）を載せた辞書を返す。
- *
- * 資源は §7.7.3.4 で祖先から継承される。ページ自身に `/Resources` を書くと
- * その継承は以後使われないので、**継承していた値をページに書き写してから**足す ——
- * そうしないと既存の内容ストリームが使っている資源名が解決できなくなる。
- */
-async function resourcesWith(
-  editor: PdfDocumentEditor,
-  page: PageEntry,
-  fontRef: CosRef,
-  opacity: number,
-): Promise<CosObject> {
-  const raw = await editor.pageAttribute(page.index, 'Resources');
-  const resolved = raw === undefined ? COS_NULL : await editor.resolve(raw);
-  const entries = new Map<string, CosObject>(resolved.kind === 'dict' ? resolved.entries : []);
-
-  const fonts = await editor.resolve(entries.get('Font') ?? COS_NULL);
-  const fontEntries = new Map<string, CosObject>(fonts.kind === 'dict' ? fonts.entries : []);
-  fontEntries.set(FONT_KEY, fontRef);
-  entries.set('Font', { kind: 'dict', entries: fontEntries });
-
-  if (opacity < 1) {
-    const states = await editor.resolve(entries.get('ExtGState') ?? COS_NULL);
-    const stateEntries = new Map<string, CosObject>(states.kind === 'dict' ? states.entries : []);
-    // Table 57: `/ca` は塗り、`/CA` は線の alpha
-    stateEntries.set(
-      GS_KEY,
-      dict([
-        ['Type', name('ExtGState')],
-        ['ca', real(opacity)],
-        ['CA', real(opacity)],
-      ]),
-    );
-    entries.set('ExtGState', { kind: 'dict', entries: stateEntries });
-  }
-
-  return { kind: 'dict', entries };
 }

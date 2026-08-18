@@ -24,7 +24,7 @@ import {
   StandardFonts,
 } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { fillForm, flattenForm } from '../src/services/editor.js';
+import { fillForm, flattenFormTool as flattenForm } from '../src/services/edit-form.js';
 import { listFields } from '../src/services/form.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import { FillFormSchema, FlattenFormSchema, parseArgs } from '../src/utils/validation.js';

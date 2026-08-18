@@ -392,3 +392,34 @@ export function tokenizeWithOffsets(source: string): Token[] {
 export function tokenize(source: string): string[] {
   return tokenizeWithOffsets(source).map((t) => t.text);
 }
+
+/**
+ * `/DA` の `Tf` の被演算子だけを差し替え、**それ以外の演算子はそのまま残す**。
+ *
+ * 🔴 `/DA` は「テキスト状態を決める演算子の並び」で、色（`rg` / `g` / `k`）や
+ * 文字間隔（`Tc`）が入っている（R-12.7.4.3-5）。writer が要るのはフォントを
+ * 自分が埋め込んだものへ向け直すことだけなので、`/DA` を組み立て直すと
+ * **文書作成者が指定した色を黒で上書きする**ことになる。
+ *
+ * `Tf` が無ければ末尾に足す（R-12.7.4.3-6 は最低でも `Tf` を求めている）。
+ */
+export function replaceDaFont(source: string, fontName: string, size: number): string {
+  const escaped = escapeName(fontName);
+  const tokens = tokenizeWithOffsets(source);
+  for (let i = tokens.length - 1; i >= 2; i -= 1) {
+    if (tokens[i]?.text !== 'Tf') continue;
+    const start = tokens[i - 2]?.start as number;
+    const end = tokens[i]?.end as number;
+    return `${source.slice(0, start)}/${escaped} ${size} Tf${source.slice(end)}`;
+  }
+  const separator = source.length === 0 || /\s$/.test(source) ? '' : ' ';
+  return `${source}${separator}/${escaped} ${size} Tf`;
+}
+
+/** §7.3.5: 名前に書けない文字を `#xx` にする（大文字 —— pdf-lib は小文字を復号できない） */
+export function escapeName(value: string): string {
+  return value.replace(
+    /[^\x21-\x7e]|[#()<>[\]{}/%]/g,
+    (ch) => `#${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`,
+  );
+}
