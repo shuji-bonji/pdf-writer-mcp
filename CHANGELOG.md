@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0] - 2026-08-18
+
+### Changed
+
+- **pdf-lib is no longer a runtime dependency.** Every tool now writes PDFs through
+  [normativepdf](https://github.com/shuji-bonji/normativepdf) 0.6.1, a clause-driven
+  library in which each behaviour is tied to an ISO 32000 clause. `grep -rl "from 'pdf-lib'" src/`
+  went from **17 files to 0**, and `pdf-lib` moved to `devDependencies`.
+
+  It stays in the test suite on purpose, as an **independent reader**: the tests read the
+  bytes this server writes with a library that shares none of its code, so a mistake in
+  the writer cannot hide behind the same mistake in the reader.
+
+  **No tool schema changed.** Arguments, defaults, error codes and `nextAction` values are
+  the same as 0.19.0.
+
+- **`@pdf-lib/standard-fonts` is now a direct dependency.** The AFM width tables for the
+  standard 14 faces (§9.6.2.2) used to arrive transitively through pdf-lib.
+
+- **Text is positioned per line by `Tm`, and `TL` / `T*` are no longer written.**
+  ISO 32000-2 §9.4.1 Table 105 says `BT` initialises the text and line matrices and `ET`
+  discards them, so leading set for one text object cannot carry to the next; the old path
+  set `TL` and then overrode every line's position anyway. Measured after the change:
+  PDF/A-3b **146 / 146**, PDF/UA-1 **106 / 106**, PDF/A-4 **109 / 109** — all unchanged.
+  19 golden specimens moved, and all 21 differing lines were the removed `TL` / `T*`
+  operators themselves; no object count and no other structure changed.
+
+  Extracted text, line spacing and glyph positions are unchanged. Content streams are not
+  byte-identical to 0.19.0; anything that diffed them will see the difference.
+
+### Added
+
+- **A conformance report is generated for every release** (`docs/CONFORMANCE.md`,
+  `npm run report:conformance`). It is produced from the differential-oracle lock rather
+  than written by hand, and `prepublishOnly` refuses to publish when the file has drifted
+  from the lock.
+
+  The report records **which builds decided the verdicts** — qpdf 12.4.0 for structure,
+  veraPDF 1.30.0 for conformance. A rule count is only comparable across runs of the same
+  build, so the number and the build that produced it travel together.
+
+  It also states what the table does *not* answer, including the axes the specimen matrix
+  covers with only one shape (0 as of 2026-08-18).
+
+### Fixed
+
+- **`WriterDocument.reserve()` now tells the editor which number it took.** The file's own
+  rule — one numbering source per document — was a comment rather than something the code
+  enforced. Measured: `reserve()` handed out 3 and the very next `editor.allocate()`
+  returned 3 as well, so a later `write()` overwrote the other object. A reserved number is
+  now held with a null object (§7.3.10) until its content arrives.
+
+  No released tool reached this: the creation path never calls `editor.allocate()`
+  (`src/` has 0 uses of `doc.editor`). The fix removes the way it could.
+
 ## [0.19.0] - 2026-08-13
 
 ### Fixed

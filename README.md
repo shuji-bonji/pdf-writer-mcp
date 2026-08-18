@@ -6,7 +6,7 @@
 
 [日本語](./README.ja.md)
 
-MCP server that **creates** PDFs from text, Markdown, or tabular data and **edits** existing ones (metadata and page operations). Built on [pdf-lib](https://pdf-lib.js.org/), with CJK font embedding via harfbuzz subsetting.
+MCP server that **creates** PDFs from text, Markdown, or tabular data and **edits** existing ones (metadata and page operations). Built on [normativepdf](https://github.com/shuji-bonji/normativepdf) — a clause-driven PDF library in which every behaviour is tied to an ISO 32000 clause — with CJK font embedding via harfbuzz subsetting.
 
 Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji/pdf-reader-mcp) (structure analysis) and [pdf-verify-mcp](https://github.com/shuji-bonji/pdf-verify-mcp) (authenticity verification). Where `pdf-reader-mcp` tells you *what is in* a PDF and `pdf-verify-mcp` tells you *whether it is genuine*, `pdf-writer-mcp` is the one that *writes it*.
 
@@ -96,7 +96,7 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
 Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
 > [!IMPORTANT]
-> **Editing signed PDFs**: pdf-lib rewrites the whole file on save, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default.
+> **Editing signed PDFs**: an ordinary save rewrites the whole file, so editing normally invalidates existing signatures. PDFs containing `/ByteRange` are rejected by default.
 >
 > - `preserveSignatures: true` — appends an ISO 32000 incremental update that **keeps every signature valid** (the original bytes are untouched). Supported by every editing tool that adds to a document: `add_annotation`, `set_metadata`, `add_bookmarks`, `tag_form_fields`, `ensure_tagged`, `attach_file`, `stamp_page_numbers`, `add_watermark` (on tagged PDFs the structure-tree changes ride the same increment)
 > - `allowBreakingSignatures: true` — proceed destructively, invalidating signatures
@@ -219,7 +219,7 @@ Set the `SOURCE_DATE_EPOCH` environment variable (UNIX seconds, per the [reprodu
 
 ## Text extraction
 
-Generated PDFs are selectable, copyable, searchable, and screen-reader accessible: pdf-lib emits a ToUnicode CMap even for embedded subset fonts. This is covered by regression tests (`extract.test.ts`, `render.test.ts`).
+Generated PDFs are selectable, copyable, searchable, and screen-reader accessible: a ToUnicode CMap (§9.10.3) is written even for embedded subset fonts. This is covered by regression tests (`extract.test.ts`, `render.test.ts`).
 
 > [!NOTE]
 > Output from v0.13.x and earlier could make poppler-based viewers print `Mismatch between font type and embedded font file`. That was a symptom of a real conformance defect (W-2: CFF fonts embedded via `FontFile2`), **fixed in v0.14.0** — current output produces no such warning.

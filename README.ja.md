@@ -6,7 +6,7 @@
 
 [English](./README.md)
 
-テキスト / Markdown / 表データからの **PDF 生成** と、既存 PDF の **編集**（メタデータ・ページ操作）を行う MCP (Model Context Protocol) サーバです。[pdf-lib](https://pdf-lib.js.org/) をコアに、harfbuzz サブセットによる日本語フォント埋め込みに対応します。
+テキスト / Markdown / 表データからの **PDF 生成** と、既存 PDF の **編集**（メタデータ・ページ操作）を行う MCP (Model Context Protocol) サーバです。すべての振る舞いを ISO 32000 の条項に紐づけたライブラリ [normativepdf](https://github.com/shuji-bonji/normativepdf) をコアに、harfbuzz サブセットによる日本語フォント埋め込みに対応します。
 
 [pdf-reader-mcp](https://github.com/shuji-bonji/pdf-reader-mcp)（構造解析）、[pdf-verify-mcp](https://github.com/shuji-bonji/pdf-verify-mcp)（真正性検証）と同じ PDF family の一員です。`pdf-reader-mcp` が「何があるか」を読み、`pdf-verify-mcp` が「本物か」を検証するのに対し、`pdf-writer-mcp` は「それを書く」役割を担います。
 
@@ -96,7 +96,7 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 共通オプション: `outputPath` / `returnBase64` / `allowBreakingSignatures`。
 
 > [!IMPORTANT]
-> **署名済み PDF の編集**: pdf-lib は保存時にファイル全体を再構築するため、通常の編集では既存の電子署名は必ず無効化されます。`/ByteRange` を含む PDF は既定でエラーになります。
+> **署名済み PDF の編集**: 通常の保存はファイル全体を書き直すため、通常の編集では既存の電子署名は必ず無効化されます。`/ByteRange` を含む PDF は既定でエラーになります。
 >
 > - `preserveSignatures: true` — **署名を保持したまま** ISO 32000 の増分更新として末尾追記します（元のバイト列に一切触れません）。対応: 文書に追加する編集ツールすべて（`add_annotation` / `set_metadata` / `add_bookmarks` / `tag_form_fields` / `ensure_tagged` / `attach_file` / `stamp_page_numbers` / `add_watermark`。タグ付き文書では構造木の変更も同じ増分に載ります）
 > - `allowBreakingSignatures: true` — 署名を無効化して破壊的に続行します
@@ -219,7 +219,7 @@ veraPDF 1.30.0 で実測: `pdfa-4` **109/109 COMPLIANT**。CSV を添付した�
 
 ## テキスト抽出
 
-生成される PDF はテキストの選択・コピー・全文検索・スクリーンリーダ読み上げが可能です。埋め込みサブセットフォントでも pdf-lib が ToUnicode CMap を出力するためで、この性質は回帰テスト（`extract.test.ts` / `render.test.ts`）で担保しています。
+生成される PDF はテキストの選択・コピー・全文検索・スクリーンリーダ読み上げが可能です。埋め込みサブセットフォントでも ToUnicode CMap（§9.10.3）を書いているためで、この性質は回帰テスト（`extract.test.ts` / `render.test.ts`）で担保しています。
 
 > [!NOTE]
 > v0.13.x 以前の出力では、poppler 系のビューアが `Mismatch between font type and embedded font file` という警告を出すことがありました。これは CFF フォントを `FontFile2` で埋め込んでいた条文違反（W-2）の症状で、**v0.14.0 で是正済み**です（現行の出力では警告は出ません）。
