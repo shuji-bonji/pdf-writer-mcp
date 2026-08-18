@@ -1,9 +1,10 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-18T10:35:51.402Z",
+ "capturedAt": "2026-08-18T12:01:40.220Z",
  "writerVersion": "0.19.0",
  "tooling": {
-  "qpdf": "12.4.0"
+  "qpdf": "12.4.0",
+  "verapdf": "1.30.0"
  },
  "verifyRan": true,
  "counts": {
