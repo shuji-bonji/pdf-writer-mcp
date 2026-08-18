@@ -73,20 +73,12 @@
  },
  "pages": [
   {
-   "/Annots": [],
    "/Contents": [
     {
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "/Artifact BMC q /ExtGState#0 gs BT 0.502 0.502 0.502 rg /Font#1 60 Tf 24 TL 0.7071 0.7071 -0.7071 0.7071 247.1101 340.7167 Tm <str:22> Tj T* ET Q EMC"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "q"
+      "ops": "/Artifact BMC q /ExtGState#0 gs BT 0.502 0.502 0.502 rg /Font#1 60 Tf 0.7071 0.7071 -0.7071 0.7071 247.1101 340.7167 Tm <str:22> Tj ET Q EMC"
      }
     },
     {
@@ -94,13 +86,6 @@
       "basis": "filtered",
       "kind": "content",
       "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:26> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:66> Tj T* ET Q EMC"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "Q"
      }
     }
    ],
@@ -113,6 +98,7 @@
    "/Resources": {
     "/ExtGState": {
      "/ExtGState#0": {
+      "/CA": 0.15,
       "/Type": "/ExtGState",
       "/ca": 0.15
      }
@@ -200,10 +186,10 @@
       "/Type": "/Font"
      },
      "/Font#1": {
-      "/BaseFont": "/QMMOTG+NotoSansJP-Regular",
+      "/BaseFont": "/TIILQS+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
-        "/BaseFont": "/QMMOTG+NotoSansJP-Regular",
+        "/BaseFont": "/TIILQS+NotoSansJP-Regular",
         "/CIDSystemInfo": {
          "/Ordering": "Identity",
          "/Registry": "Adobe",
@@ -229,7 +215,7 @@
            "sha256": "eb022b066a27b421"
           }
          },
-         "/FontName": "/QMMOTG+NotoSansJP-Regular",
+         "/FontName": "/TIILQS+NotoSansJP-Regular",
          "/ItalicAngle": 0,
          "/StemV": 0,
          "/Type": "/FontDescriptor",
@@ -256,14 +242,13 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 412,
-        "sha256": "dd36f22bc6cfeb5c"
+        "bytes": 394,
+        "sha256": "b4f0010c13ae6380"
        }
       },
       "/Type": "/Font"
      }
-    },
-    "/XObject": {}
+    }
    },
    "/StructParents": 0,
    "/Type": "/Page"
@@ -276,5 +261,5 @@
  "pageCount": 1,
  "encrypted": false,
  "headerVersion": "1.7",
- "objectCount": 29
+ "objectCount": 23
 }

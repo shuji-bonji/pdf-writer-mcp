@@ -20,34 +20,19 @@
  },
  "pages": [
   {
-   "/Annots": [],
    "/Contents": [
     {
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "q"
+      "ops": "q BT 0 0 0 rg /Font#1 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#1 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:58> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#1 11 Tf 24 TL 1 0 0 1 56 721.54 Tm <str:42> Tj T* ET Q"
      }
     },
     {
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:14> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:58> Tj T* ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 721.54 Tm <str:42> Tj T* ET Q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "Q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "q BT 0.4 0.4 0.4 rg /Font#1 9 Tf 24 TL 1 0 0 1 288.865 24 Tm <str:22> Tj T* ET Q"
+      "ops": "q BT 0.4 0.4 0.4 rg /Font#0 9 Tf 1 0 0 1 288.865 24 Tm <str:22> Tj ET Q"
      }
     }
    ],
@@ -58,9 +43,8 @@
     841.89
    ],
    "/Resources": {
-    "/ExtGState": {},
     "/Font": {
-     "/Font#0": {
+     "/Font#1": {
       "/BaseFont": "/IRSBKX+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
@@ -140,11 +124,11 @@
       },
       "/Type": "/Font"
      },
-     "/Font#1": {
-      "/BaseFont": "/UESAYR+NotoSansJP-Regular",
+     "/Font#0": {
+      "/BaseFont": "/DCTLFB+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
-        "/BaseFont": "/UESAYR+NotoSansJP-Regular",
+        "/BaseFont": "/DCTLFB+NotoSansJP-Regular",
         "/CIDSystemInfo": {
          "/Ordering": "Identity",
          "/Registry": "Adobe",
@@ -170,7 +154,7 @@
            "sha256": "3eb48551850d83db"
           }
          },
-         "/FontName": "/UESAYR+NotoSansJP-Regular",
+         "/FontName": "/DCTLFB+NotoSansJP-Regular",
          "/ItalicAngle": 0,
          "/StemV": 0,
          "/Type": "/FontDescriptor",
@@ -196,46 +180,30 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 398,
-        "sha256": "9139e81aceccc01c"
+        "bytes": 380,
+        "sha256": "1b5a01233105f4dd"
        }
       },
       "/Type": "/Font"
      }
-    },
-    "/XObject": {}
+    }
    },
    "/Type": "/Page"
   },
   {
-   "/Annots": [],
    "/Contents": [
     {
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "q"
+      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#1 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:22> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 56 731.29 172.92 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 56 731.29 172.92 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 61 740.29 Tm <str:18> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 228.92 731.29 151.89 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 228.92 731.29 151.89 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 233.92 740.29 Tm <str:18> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 380.81 731.29 158.47 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 380.81 731.29 158.47 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 385.81 740.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 56 710.29 172.92 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 61 719.29 Tm <str:42> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 228.92 710.29 151.89 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 233.92 719.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 380.81 710.29 158.47 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 385.81 719.29 Tm <str:14> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 56 689.29 172.92 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 61 698.29 Tm <str:42> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 228.92 689.29 151.89 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 233.92 698.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 380.81 689.29 158.47 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#1 10 Tf 24 TL 1 0 0 1 385.81 698.29 Tm <str:14> Tj T* ET Q EMC"
      }
     },
     {
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:22> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 56 731.29 172.92 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 56 731.29 172.92 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 61 740.29 Tm <str:18> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 228.92 731.29 151.89 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 228.92 731.29 151.89 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 233.92 740.29 Tm <str:18> Tj T* ET Q EMC /Artifact BMC q 0.93 0.93 0.96 rg 380.81 731.29 158.47 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 380.81 731.29 158.47 21 re S Q EMC /TH <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 385.81 740.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 56 710.29 172.92 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 61 719.29 Tm <str:42> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 228.92 710.29 151.89 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 233.92 719.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 380.81 710.29 158.47 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 385.81 719.29 Tm <str:14> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 56 689.29 172.92 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 61 698.29 Tm <str:42> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 228.92 689.29 151.89 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 233.92 698.29 Tm <str:26> Tj T* ET Q EMC /Artifact BMC q 0.7 0.7 0.72 RG 0.5 w 380.81 689.29 158.47 21 re S Q EMC /TD <str:10> BDC q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 24 TL 1 0 0 1 385.81 698.29 Tm <str:14> Tj T* ET Q EMC"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "Q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "q BT 0.4 0.4 0.4 rg /Font#1 9 Tf 24 TL 1 0 0 1 288.865 24 Tm <str:22> Tj T* ET Q"
+      "ops": "q BT 0.4 0.4 0.4 rg /Font#0 9 Tf 1 0 0 1 288.865 24 Tm <str:22> Tj ET Q"
      }
     }
    ],
@@ -246,9 +214,8 @@
     841.89
    ],
    "/Resources": {
-    "/ExtGState": {},
     "/Font": {
-     "/Font#0": {
+     "/Font#1": {
       "/BaseFont": "/EQSPRR+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
@@ -335,11 +302,11 @@
       },
       "/Type": "/Font"
      },
-     "/Font#1": {
-      "/BaseFont": "/UESAYR+NotoSansJP-Regular",
+     "/Font#0": {
+      "/BaseFont": "/DCTLFB+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
-        "/BaseFont": "/UESAYR+NotoSansJP-Regular",
+        "/BaseFont": "/DCTLFB+NotoSansJP-Regular",
         "/CIDSystemInfo": {
          "/Ordering": "Identity",
          "/Registry": "Adobe",
@@ -365,7 +332,7 @@
            "sha256": "3eb48551850d83db"
           }
          },
-         "/FontName": "/UESAYR+NotoSansJP-Regular",
+         "/FontName": "/DCTLFB+NotoSansJP-Regular",
          "/ItalicAngle": 0,
          "/StemV": 0,
          "/Type": "/FontDescriptor",
@@ -391,14 +358,13 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 398,
-        "sha256": "9139e81aceccc01c"
+        "bytes": 380,
+        "sha256": "1b5a01233105f4dd"
        }
       },
       "/Type": "/Font"
      }
-    },
-    "/XObject": {}
+    }
    },
    "/StructParents": 0,
    "/Type": "/Page"
@@ -411,5 +377,5 @@
  "pageCount": 2,
  "encrypted": false,
  "headerVersion": "1.7",
- "objectCount": 33
+ "objectCount": 26
 }
