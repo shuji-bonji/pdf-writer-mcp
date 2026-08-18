@@ -31,9 +31,9 @@ import { ENV_KEYS, outputDate } from '../config.js';
 import { LIMITS } from '../constants.js';
 import { PdfWriterError } from '../errors.js';
 import type { AttachmentRelationship } from '../types/index.js';
-import { guessMimeType } from './mime.js';
 import { arr, dict, int, name, stream, textString } from './cos.js';
 import { textOf } from './cos-read.js';
+import { guessMimeType } from './mime.js';
 import { pdfDate } from './pdf-date.js';
 
 export interface EmbeddedFileInfo {

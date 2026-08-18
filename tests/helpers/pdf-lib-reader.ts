@@ -17,13 +17,10 @@ import {
   type PDFDocument,
   PDFDropdown,
   type PDFField,
-  PDFHexString,
   PDFName,
   PDFOptionList,
   PDFRadioGroup,
-  type PDFRawStream,
   PDFSignature,
-  PDFString,
   PDFTextField,
 } from 'pdf-lib';
 

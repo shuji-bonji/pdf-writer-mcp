@@ -20,8 +20,8 @@ import { type CosObject, dictGet, writeFile as writeCos } from 'normativepdf';
 import { PDFArray, PDFDocument, PDFName } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openForEdit } from '../src/services/edit-open.js';
-import { readPreviousSection } from '../src/services/xref-locate.js';
 import { appendOpened } from '../src/services/incremental-append.js';
+import { readPreviousSection } from '../src/services/xref-locate.js';
 
 let dir: string;
 beforeAll(async () => {

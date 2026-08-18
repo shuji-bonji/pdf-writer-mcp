@@ -12,9 +12,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFNumber } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { isTagged } from './helpers/pdf-lib-reader.js';
 import { handleAddAnnotation, handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { EditResult } from '../src/types/index.js';
+import { isTagged } from './helpers/pdf-lib-reader.js';
 
 const fontPath = process.env.TEST_FONT_PATH;
 let dir: string;
