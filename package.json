@@ -24,7 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "node scripts/sync-plugin-version.mjs --check && npm run build",
+    "prepublishOnly": "node scripts/sync-plugin-version.mjs --check && node scripts/conformance-report.mjs --check && npm run build",
     "lint": "biome lint ./src ./tests",
     "lint:fix": "biome lint --fix ./src ./tests",
     "format": "biome format ./src ./tests",
@@ -34,7 +34,8 @@
     "verify:published": "node scripts/verify-published.mjs",
     "oracle": "npm run build && node scripts/uc-oracle/run.mjs",
     "oracle:verify": "npm run build && node scripts/uc-oracle/run.mjs --verify",
-    "oracle:update": "npm run build && node scripts/uc-oracle/run.mjs --update --verify"
+    "oracle:update": "npm run build && node scripts/uc-oracle/run.mjs --update --verify",
+    "report:conformance": "node scripts/conformance-report.mjs"
   },
   "keywords": [
     "mcp",
