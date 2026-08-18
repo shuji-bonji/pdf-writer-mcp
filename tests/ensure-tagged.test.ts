@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
 import { ensureTagged } from '../src/services/edit-ensure-tagged.js';
 import { addWatermark, stampPageNumbers } from '../src/services/edit-stamp.js';
-import { isTagged } from '../src/services/struct-append.js';
+import { isTagged } from './helpers/pdf-lib-reader.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { EnsureTaggedResult } from '../src/types/index.js';
 

@@ -12,7 +12,8 @@ import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFRawStream } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { guessMimeType, listEmbeddedFiles } from '../src/services/attachment.js';
+import { guessMimeType } from '../src/services/mime.js';
+import { listEmbeddedFiles } from './helpers/pdf-lib-reader.js';
 import { handleAttachFile, handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { AttachResult } from '../src/types/index.js';
 

@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PDFArray, PDFDict, PDFDocument, type PDFHexString, PDFName, PDFNumber } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { normalizeAnnotationText } from '../src/services/annotation.js';
+import { normalizeAnnotationText } from '../src/services/annotation-cos.js';
 import { addAnnotation } from '../src/services/edit-annotation.js';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
 import { addBookmarks } from '../src/services/edit-bookmarks.js';
