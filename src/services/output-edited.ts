@@ -102,7 +102,20 @@ export async function saveOpened(
         : 'An object in the source file could not be read back, so the file cannot be rewritten.',
     });
   }
-  const pageCount = (await editor.pages()).length;
+  return saveRawBytes(bytes, (await editor.pages()).length, opts);
+}
+
+/**
+ * 出来上がったバイト列をファイルへ／base64 へ。
+ *
+ * 出口が 3 本（全書き直し・増分更新・ページ操作）あって、`outputPath` と
+ * `returnBase64` の扱いは共通なので 1 か所に置く。旧 `output.ts` から移した。
+ */
+export async function saveRawBytes(
+  bytes: Uint8Array,
+  pageCount: number,
+  opts: CommonEditOptions,
+): Promise<EditResult> {
   const result: EditResult = { pageCount, bytes: bytes.length };
 
   if (opts.outputPath) {

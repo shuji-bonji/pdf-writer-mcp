@@ -36,7 +36,7 @@ import {
 } from './doc-level.js';
 import { type OpenedForEdit, openForEdit } from './edit-open.js';
 import { setInfoEntries } from './info-dict.js';
-import { saveRawBytes } from './output.js';
+import { saveRawBytes } from './output-edited.js';
 import { touchModDate } from './output-edited.js';
 
 /** 基本メタデータを src から dst へ引き継ぐ（ページの複写は文書情報を運ばない） */
