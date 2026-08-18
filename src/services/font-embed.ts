@@ -24,7 +24,7 @@ import { buildType0Font, type CosObject, type CosRef, sniffFontProgram } from 'n
 import { PdfWriterError } from '../errors.js';
 import { logger } from '../utils/logger.js';
 import { arr, dict, hex, int, name, num, stream } from './cos.js';
-import { makeSubsetCharsetIdentity } from './font-conformance.js';
+import { makeSubsetCharsetIdentity } from './sfnt-cff.js';
 import type { TextMetrics } from './metrics.js';
 /**
  * このモジュールが文書に求めるのは「**同期に番号を配れること**」だけである。

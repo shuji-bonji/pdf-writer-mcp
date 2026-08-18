@@ -29,7 +29,6 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFRef } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { patchHeaderVersion } from '../src/services/pdf-version.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 
 const execFileAsync = promisify(execFile);
@@ -186,21 +185,6 @@ describe('the 1.7 default is untouched', () => {
       const explicit = await create({ pdfVersion: '1.7' }, 'v17-explicit.pdf');
       expect(Buffer.from(omitted).equals(Buffer.from(explicit))).toBe(true);
     });
-  });
-});
-
-describe('patchHeaderVersion', () => {
-  it('refuses to rewrite bytes that do not start with the header pdf-lib writes', () => {
-    // pdf-lib が書くヘッダが変わったら、黙って上書きせず気づかせる
-    const bogus = new Uint8Array(Buffer.from('%PDF-1.4\nrest'));
-    expect(() => patchHeaderVersion(bogus, '2.0')).toThrow(/Expected the saved document/);
-  });
-
-  it('is a no-op when the header already says the requested version', () => {
-    const already = new Uint8Array(Buffer.from('%PDF-2.0\nrest'));
-    const before = Buffer.from(already).toString('latin1');
-    patchHeaderVersion(already, '2.0');
-    expect(Buffer.from(already).toString('latin1')).toBe(before);
   });
 });
 

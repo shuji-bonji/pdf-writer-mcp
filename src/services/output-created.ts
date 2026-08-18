@@ -26,7 +26,7 @@ import { arr, dict, hex, name, stream, textString } from './cos.js';
 import { pdfDate } from './pdf-date.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
 import type { WriterDocument } from './writer-doc.js';
-import { buildXmpPacket } from './xmp.js';
+import { buildXmpPacket } from './xmp-build.js';
 
 /**
  * `/ID`（§14.4 Table 15）。

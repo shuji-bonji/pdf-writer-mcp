@@ -30,7 +30,7 @@ import {
 import { documentDate } from '../config.js';
 import { name, stream } from './cos.js';
 import { pdfDateToIso, textOf } from './cos-read.js';
-import { buildXmpPacket, type XmpOptions } from './xmp.js';
+import { buildXmpPacket, type XmpOptions } from './xmp-build.js';
 
 /** `/Info` を辞書として読む（無ければ `undefined`）。 */
 async function readInfo(editor: PdfDocumentEditor): Promise<CosDict | undefined> {

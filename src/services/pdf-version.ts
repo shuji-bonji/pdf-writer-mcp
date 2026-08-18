@@ -34,81 +34,9 @@
  *   （pdf-lib の `PDFHeader#copyBytesInto` が `%` + 0x81×4 を書くので満たされる）
  */
 
-import { PDFDict, type PDFDocument, PDFName, PDFRef } from 'pdf-lib';
-import { PdfWriterError } from '../errors.js';
 
 export const PDF_VERSIONS = ['1.7', '2.0'] as const;
 export type PdfVersion = (typeof PDF_VERSIONS)[number];
 
 /** 既定は 1.7 — 既存の出力バイト列を 1 バイトも動かさないため */
 export const DEFAULT_PDF_VERSION: PdfVersion = '1.7';
-
-/**
- * §14.3.3 が PDF 2.0 でも非推奨にしていない Info のキー。
- * 「In PDF 2.0 such use is deprecated **except for two entries, CreationDate and ModDate**」。
- */
-const INFO_KEYS_ALIVE_IN_PDF20 = new Set(['CreationDate', 'ModDate']);
-
-/** pdf-lib が必ず書くヘッダ。差し替えの前提（同じ長さであること）はここで固定する */
-const PDF_LIB_HEADER = '%PDF-1.7';
-
-/**
- * 保存済みバイト列のヘッダを指定版に差し替える（R-7.5.2-3 / -4）。**破壊的に書き換える**。
- *
- * `doc.save()` の直後に呼ぶこと。pdf-lib は `context.header` を見ないので、
- * 版を出力に反映する経路はここしかない（モジュール冒頭の説明を参照）。
- */
-export function patchHeaderVersion(bytes: Uint8Array, version: PdfVersion): Uint8Array {
-  const target = `%PDF-${version}`;
-  // 長さが違うと xref の全オフセットがずれる。想定外の版が増えたらここで止まる
-  if (target.length !== PDF_LIB_HEADER.length) {
-    throw new PdfWriterError(
-      `Cannot rewrite the PDF header to ${version}: "${target}" is not the same length as "${PDF_LIB_HEADER}", so every byte offset in the cross-reference table would shift.`,
-      'INTERNAL_ERROR',
-    );
-  }
-
-  const actual = String.fromCharCode(...bytes.subarray(0, target.length));
-  if (actual === target) return bytes;
-  if (actual !== PDF_LIB_HEADER) {
-    // pdf-lib が書くヘッダが変わった = この関数の前提が崩れている。
-    // 黙って上書きすると「版を偽った文書」を出すので、ここで気づかせる
-    throw new PdfWriterError(
-      `Expected the saved document to start with "${PDF_LIB_HEADER}" but found "${actual}". The PDF version was not rewritten.`,
-      'INTERNAL_ERROR',
-    );
-  }
-
-  for (let i = 0; i < target.length; i++) bytes[i] = target.charCodeAt(i);
-  return bytes;
-}
-
-/**
- * Info 辞書を PDF 2.0 の作法へ寄せる（§14.3.3）。**削除したキー名を返す**。
- *
- * 消すのは Title / Author / Subject / Keywords / Creator / Producer / Trapped ——
- * **pdf-lib が `PDFDocument.create()` の時点で勝手に入れる Producer / Creator を含む**。
- * 呼び出し側が何も指定しなくても既定で非推奨エントリが載っているので、
- * 「書かない」ではなく「消す」必要がある。
- *
- * 表に無い独自キーも消す。§14.3.3 が非推奨にしているのは特定のキーではなく
- * **「Info で document level metadata を表現すること」そのもの**なので、
- * 独自キーを残すのは条文の読み方として一貫しない。
- *
- * 日付 2 つを残すのは条文どおりであると同時に、§14.3.4（Info と XMP の
- * 作成/更新日時が fully equivalent であること）を成立させる側でもある。
- */
-export function trimInfoForPdf20(doc: PDFDocument): string[] {
-  const info = doc.context.trailerInfo.Info;
-  const dict = info instanceof PDFRef ? doc.context.lookup(info) : info;
-  if (!(dict instanceof PDFDict)) return [];
-
-  const removed: string[] = [];
-  for (const [key] of dict.entries()) {
-    const name = key.asString().replace(/^\//, '');
-    if (INFO_KEYS_ALIVE_IN_PDF20.has(name)) continue;
-    dict.delete(PDFName.of(name));
-    removed.push(name);
-  }
-  return removed;
-}

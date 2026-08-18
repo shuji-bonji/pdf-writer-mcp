@@ -33,11 +33,10 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
 import { ensurePdfa } from '../src/services/edit-ensure-pdfa.js';
-import {
-  ensureFileIdentifier,
-  ensureSrgbOutputIntent,
-  hasPdfaDeclaration,
-} from '../src/services/pdfa-conformance.js';
+import { openForEdit } from '../src/services/edit-open.js';
+ import { saveOpened } from '../src/services/output-edited.js';
+import { ensureFileIdentifier, ensureSrgbOutputIntent } from '../src/services/pdfa-cos.js';
+import { hasPdfaDeclaration } from './helpers/pdf-lib-reader.js';
 import { buildSrgbIccProfile, SRGB_CONDITION_IDENTIFIER } from '../src/services/srgb-icc.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 
@@ -129,14 +128,33 @@ describe('sRGB ICC profile generation', () => {
   });
 });
 
+/**
+ * COS 版（`pdfa-cos.ts`）を測る。
+ *
+ * 🔴 **書き手は COS、読み手は pdf-lib。** 自分で書いて自分で読み戻すと共有の誤りが
+ * 出ないので（GUARDS.md の T-2）、保存したバイト列を pdf-lib で読み直して確かめる。
+ * 以前は pdf-lib 版の同名関数を直接呼んでいたが、その実装は撤去した。
+ */
+async function editedWith(
+  name: string,
+  apply: (editor: Parameters<typeof ensureFileIdentifier>[0]) => Promise<unknown>,
+): Promise<PDFDocument> {
+  const input = join(dir, `${name}-in.pdf`);
+  const output = join(dir, `${name}-out.pdf`);
+  await handleCreateTextPdf({ text: 'x', outputPath: input });
+  const opened = await openForEdit(input, {});
+  await apply(opened.editor);
+  await saveOpened(opened, { outputPath: output });
+  return PDFDocument.load(await readFile(output), { updateMetadata: false });
+}
+
 describe('ensureFileIdentifier', () => {
   it('writes two identical byte strings on first write (R-14.4-7 / -11)', async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([200, 200]);
-
-    expect(doc.context.trailerInfo.ID).toBeUndefined();
-    expect(ensureFileIdentifier(doc)).toBe(true);
-
+    const doc = await editedWith('id-first', async (editor) => {
+      // 生成パスは既に /ID を書くので、まず外してから測る
+      editor.removeTrailerEntry('ID');
+      expect(await ensureFileIdentifier(editor)).toBe(true);
+    });
     const id = doc.context.trailerInfo.ID as PDFArray;
     expect(id).toBeInstanceOf(PDFArray);
     expect(id.size()).toBe(2);
@@ -144,39 +162,51 @@ describe('ensureFileIdentifier', () => {
   });
 
   it('keeps the permanent identifier of an already-identified file (R-14.4-8)', async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([200, 200]);
-    const permanent = PDFHexString.of('0123456789ABCDEF0123456789ABCDEF');
-    doc.context.trailerInfo.ID = doc.context.obj([permanent]); // 壊れた 1 要素の形
-
-    expect(ensureFileIdentifier(doc)).toBe(true);
+    const permanent = new Uint8Array(16).fill(0xab);
+    const doc = await editedWith('id-keep', async (editor) => {
+      // 壊れた 1 要素の形。第 1 要素は保持し、第 2 要素を足す
+      editor.setTrailerEntry('ID', {
+        kind: 'array',
+        items: [{ kind: 'string', bytes: permanent, form: 'hex' }],
+      });
+      expect(await ensureFileIdentifier(editor)).toBe(true);
+    });
     const id = doc.context.trailerInfo.ID as PDFArray;
     expect(id.size()).toBe(2);
-    expect(String(id.get(0))).toBe(String(permanent));
+    const first = (id.lookup(0) as PDFHexString).asBytes();
+    expect(Buffer.from(first).toString('hex')).toBe(Buffer.from(permanent).toString('hex'));
     // 第 2 要素は「最終更新時の内容」なので別値になる（R-14.4-10）
-    expect(String(id.get(1))).not.toBe(String(permanent));
+    expect(String(id.get(1))).not.toBe(String(id.get(0)));
   });
 
   it('leaves a well-formed two-element ID alone', async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([200, 200]);
-    const a = PDFHexString.of('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
-    const b = PDFHexString.of('BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');
-    doc.context.trailerInfo.ID = doc.context.obj([a, b]);
-
-    expect(ensureFileIdentifier(doc)).toBe(false);
+    const a = new Uint8Array(16).fill(0xaa);
+    const b = new Uint8Array(16).fill(0xbb);
+    const doc = await editedWith('id-keep2', async (editor) => {
+      editor.setTrailerEntry('ID', {
+        kind: 'array',
+        items: [
+          { kind: 'string', bytes: a, form: 'hex' },
+          { kind: 'string', bytes: b, form: 'hex' },
+        ],
+      });
+      expect(await ensureFileIdentifier(editor)).toBe(false);
+    });
     const id = doc.context.trailerInfo.ID as PDFArray;
-    expect(String(id.get(0))).toBe(String(a));
-    expect(String(id.get(1))).toBe(String(b));
+    expect(Buffer.from((id.lookup(0) as PDFHexString).asBytes()).toString('hex')).toBe(
+      Buffer.from(a).toString('hex'),
+    );
+    expect(Buffer.from((id.lookup(1) as PDFHexString).asBytes()).toString('hex')).toBe(
+      Buffer.from(b).toString('hex'),
+    );
   });
 });
 
 describe('ensureSrgbOutputIntent', () => {
   it('adds a GTS_PDFA1 intent with an embedded ICC profile (Table 365)', async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([200, 200]);
-
-    expect(ensureSrgbOutputIntent(doc)).toBe(true);
+    const doc = await editedWith('oi-add', async (editor) => {
+      expect(await ensureSrgbOutputIntent(editor)).toBe(true);
+    });
 
     const intents = outputIntents(doc);
     expect(intents.size()).toBe(1);
@@ -186,7 +216,9 @@ describe('ensureSrgbOutputIntent', () => {
     expect(intent.get(PDFName.of('Type'))).toBe(PDFName.of('OutputIntent'));
 
     // OutputConditionIdentifier は Required
-    const condition = intent.lookup(PDFName.of('OutputConditionIdentifier')) as PDFHexString;
+    const condition = intent.lookup(PDFName.of('OutputConditionIdentifier')) as unknown as {
+      decodeText(): string;
+    };
     expect(condition.decodeText()).toBe(SRGB_CONDITION_IDENTIFIER);
 
     // DestOutputProfile は条文上 optional だが、自己完結のため必ず埋める
@@ -196,11 +228,10 @@ describe('ensureSrgbOutputIntent', () => {
   });
 
   it('does not add a second PDF/A intent when one already exists (idempotent)', async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([200, 200]);
-
-    expect(ensureSrgbOutputIntent(doc)).toBe(true);
-    expect(ensureSrgbOutputIntent(doc)).toBe(false);
+    const doc = await editedWith('oi-idem', async (editor) => {
+      expect(await ensureSrgbOutputIntent(editor)).toBe(true);
+      expect(await ensureSrgbOutputIntent(editor)).toBe(false);
+    });
     expect(outputIntents(doc).size()).toBe(1);
   });
 });

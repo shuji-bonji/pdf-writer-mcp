@@ -23,7 +23,7 @@ import { openForEdit } from './edit-open.js';
 import { findNonEmbeddedFonts } from './font-read.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
-import { PDFA4_REV } from './pdfa-conformance.js';
+import { PDFA4_REV } from './pdfa-cos.js';
 import { hasPdfaDeclaration, normalizePdfaConformance, stripInfoForPdfa4 } from './pdfa-cos.js';
 import { declarePdfa } from './xmp-cos.js';
 

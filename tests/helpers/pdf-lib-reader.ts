@@ -10,6 +10,7 @@
  */
 
 import {
+  decodePDFRawStream,
   PDFArray,
   PDFButton,
   PDFCheckBox,
@@ -22,6 +23,7 @@ import {
   PDFRadioGroup,
   PDFSignature,
   PDFTextField,
+  PDFRawStream,
 } from 'pdf-lib';
 
 /** タグ付き PDF か（§14.7.1: `/StructTreeRoot` と `/MarkInfo /Marked true`） */
@@ -149,4 +151,23 @@ export function describeField(field: PDFField): FormFieldInfo {
 
 export function listFields(doc: PDFDocument): FormFieldInfo[] {
   return doc.getForm().getFields().map(describeField);
+}
+
+// --------------------------------------------------------------------------- PDF/A
+
+/**
+ * XMP に PDF/A 宣言（`pdfaid:part`）があるか。
+ * **自称を見るだけで、適合しているかは分からない**（判定は veraPDF = `pdf-verify-mcp` の仕事）。
+ */
+export function hasPdfaDeclaration(doc: PDFDocument): boolean {
+  const metadata = doc.catalog.lookup(PDFName.of('Metadata'));
+  if (!(metadata instanceof PDFRawStream)) return false;
+  try {
+    const bytes = metadata.dict.has(PDFName.of('Filter'))
+      ? decodePDFRawStream(metadata).decode()
+      : metadata.contents;
+    return /<pdfaid:part>/.test(new TextDecoder().decode(bytes));
+  } catch {
+    return false;
+  }
 }

@@ -249,3 +249,12 @@ export async function stripInfoForPdfa4(editor: PdfDocumentEditor): Promise<stri
   }
   return `reduced the Info dictionary to ModDate, because /PieceInfo requires it (PDF/A-4 6.1.3-5): removed ${removed.join(', ')}`;
 }
+
+/**
+ * `pdfaid:rev` に書く値。PDF/A-4 = **ISO 19005-4:2020** なので 2020。
+ *
+ * **T2**（ISO 19005-4 はコーパス外）。条文で「rev が必須か・値は何か」を確かめる術が無いので、
+ * 規格の発行年を当て、**veraPDF が受けるかどうかで裏を取っている**。
+ * 第二段階（19005-4 購入後）に Table 2 で確認すること。
+ */
+export const PDFA4_REV = 2020;
