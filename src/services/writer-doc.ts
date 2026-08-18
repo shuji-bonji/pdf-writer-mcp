@@ -8,13 +8,19 @@
  * 「ページを足す・そこに描く」という writer だけの関心を載せる。
  *
  * **番号は writer が持つ。** `PdfDocumentEditor.allocate` は非同期である
- * （初回に全参照を走査して、定義の無い番号を配らないようにする）。空から作った文書には
- * 走査すべき参照が無く、一方 `StructObjectSink.reserve()` と `FontObjectSink.allocate()` は
- * **同期**を要求する。だからここでは自前の採番器を持ち、
- * **`editor.allocate()` は呼ばない** — 2 つの採番器が同じ文書に対して動くと、
- * どちらも相手の配った番号を知らないまま重複を配る。
- * 下限は `PdfDocumentEditor.rootPagesRef` の次（= 3）で、これは create() が
- * catalog に 1・根ノードに 2 を使うと決めていることに従う。
+ * （初回に全参照を走査して、定義の無い番号を配らないようにする）。一方
+ * `StructObjectSink.reserve()` と `FontObjectSink.allocate()` は**同期**を要求する。
+ * だからここでは自前の採番器を持つ。下限は `PdfDocumentEditor.rootPagesRef` の次（= 3）で、
+ * これは create() が catalog に 1・根ノードに 2 を使うと決めていることに従う。
+ *
+ * 🔴 **採った番号は、その場で editor に伝える。** 2 つの採番器が同じ文書に対して
+ * 動くと、どちらも相手の配った番号を知らないまま重複を配る。
+ * `editor.allocate` は「自分が `set` で書いた番号」は避けるが、
+ * **`reserve()` はまだ何も書かないので伝わらない** —— 実測（2026-08-18）:
+ * `reserve()` が 3 を配った直後の `editor.allocate()` も 3 を返し、
+ * 後から `write()` するとそちらが消えた。
+ * だから `reserve()` は空の値を置いて番号を押さえる。これで
+ * 「`editor.allocate()` を呼ばない」という約束を、コードの側が守れるようになる。
  *
  * **ページの同一性。** 旧実装は `PDFPage` オブジェクトそのものを `Map` の鍵にしていた
  * （`struct-tree.ts` の 3 つの Map）。COS には同一性が無いので、ここでは `WriterPage`
@@ -23,6 +29,7 @@
  */
 
 import {
+  COS_NULL,
   ContentStreamBuilder,
   type CosObject,
   type CosRef,
@@ -220,6 +227,10 @@ export class WriterDocument {
   reserve(): CosRef {
     const objectNumber = this.#next;
     this.#next += 1;
+    // 空の値で番号を押さえる。§7.3.10 が「解放項目への参照は null オブジェクト」と
+    // 言うとおり、null は「まだ何も無い」を表せる唯一の値である。
+    // `write()` が来れば上書きされ、来なければ save が落とす（下記）
+    this.editor.set(objectNumber, COS_NULL);
     return { kind: 'ref', objectNumber, generationNumber: 0 };
   }
 
