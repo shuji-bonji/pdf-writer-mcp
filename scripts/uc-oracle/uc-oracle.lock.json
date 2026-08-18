@@ -1,13 +1,13 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-18T08:51:44.400Z",
+ "capturedAt": "2026-08-18T10:35:51.402Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
  },
  "verifyRan": true,
  "counts": {
-  "measured": 27,
+  "measured": 29,
   "unavailable": 0,
   "failed": 0,
   "structureUnreadable": 1
@@ -15,14 +15,14 @@
  "axisCoverage": {
   "pdfVersion": {
    "shapes": {
-    "1.7": 6,
-    "2.0": 8
+    "1.7": 7,
+    "2.0": 9
    },
    "distinct": 2
   },
   "font": {
    "shapes": {
-    "cff": 16,
+    "cff": 18,
     "std14": 1,
     "truetype": 2
    },
@@ -30,7 +30,7 @@
   },
   "tagged": {
    "shapes": {
-    "false": 6,
+    "false": 7,
     "repaired": 1,
     "true": 7
    },
@@ -39,7 +39,7 @@
   "flavour": {
    "shapes": {
     "pdfa-3b": 2,
-    "pdfa-4": 1,
+    "pdfa-4": 2,
     "pdfa-4f": 1,
     "pdfua-1": 2
    },
@@ -54,7 +54,7 @@
   },
   "op": {
    "shapes": {
-    "annotate": 4,
+    "annotate": 5,
     "doc-level": 1,
     "merge": 1,
     "page-number": 1,
@@ -66,9 +66,10 @@
   },
   "attachment": {
    "shapes": {
+    "false": 1,
     "true": 3
    },
-   "distinct": 1
+   "distinct": 2
   },
   "form": {
    "shapes": {
@@ -94,7 +95,7 @@
   },
   "revisions": {
    "shapes": {
-    "1": 3,
+    "1": 4,
     "2": 1,
     "4": 1,
     "8": 1
@@ -103,9 +104,10 @@
   },
   "signed": {
    "shapes": {
+    "false": 1,
     "true": 2
    },
-   "distinct": 1
+   "distinct": 2
   }
  },
  "specimens": {
@@ -754,6 +756,57 @@
     }
    ]
   },
+  "conformance-pdfa4": {
+   "uc": "UC-4",
+   "axes": {
+    "attachment": false,
+    "flavour": "pdfa-4",
+    "pdfVersion": "2.0",
+    "font": "cff",
+    "tagged": false
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "ensure_pdfa",
+     "response": {
+      "pageCount": 1,
+      "flavour": "4",
+      "addedRequirements": [
+       "sRGB output intent (GTS_PDFA1)",
+       "XMP pdfaid (part 4, rev 2020)",
+       "removed the Info dictionary (PDF/A-4 6.1.3-4)"
+      ],
+      "wasDeclared": false,
+      "warnings": [
+       "The document already has a trailer /ID; it was left unchanged.",
+       "This file now CLAIMS PDF/A-4 (pdfaid:part=4, rev=2020), but conformance was NOT checked here. Only document-level requirements were supplied; unembedded fonts, encryption, JavaScript, LZW compression and similar violations are left as they are. If the document does not actually conform, that claim is now false. Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: \"pdfa-4\") — and note that a PDF/A verdict comes from veraPDF, not from quoted ISO 19005 text."
+      ],
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "5d9342d5642e8c58b736470678ae39f5dacee38534b62ca9e29257d2b52e873d",
+   "meta": {
+    "producer": null,
+    "creator": null
+   },
+   "verify": [
+    {
+     "flavour": "pdfa-4",
+     "status": "decided",
+     "compliant": true,
+     "passedRules": 109,
+     "checkedRules": 109,
+     "violations": [],
+     "expect": "compliant"
+    }
+   ]
+  },
   "conformance-ensure-tagged-ua1": {
    "uc": "UC-2",
    "axes": {
@@ -1208,6 +1261,36 @@
     "valid": 5,
     "digestMatches": 6,
     "expectValid": 5
+   }
+  },
+  "input-append-unsigned": {
+   "uc": "UC-7",
+   "axes": {
+    "signed": false,
+    "op": "annotate",
+    "font": "cff",
+    "revisions": 1,
+    "pdfVersion": "1.7"
+   },
+   "status": "measured",
+   "responses": [
+    {
+     "tool": "add_annotation",
+     "response": {
+      "pageCount": 1,
+      "incremental": true,
+      "isError": false
+     }
+    }
+   ],
+   "qpdfCheck": "clean",
+   "structure": {
+    "status": "measured"
+   },
+   "sha256": "d10ffaceca6185be7fa8b7f5ed164ace6a03410d11747429e89f563ab90e8d84",
+   "meta": {
+    "producer": "@shuji-bonji/pdf-writer-mcp/0.19.0",
+    "creator": null
    }
   }
  }

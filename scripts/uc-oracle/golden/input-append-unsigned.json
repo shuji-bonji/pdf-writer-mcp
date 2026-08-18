@@ -1,0 +1,164 @@
+{
+ "root": {
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/Type": "/Catalog"
+ },
+ "pages": [
+  {
+   "/Annots": [
+    {
+     "/AP": {
+      "/N": {
+       "/BBox": [
+        0,
+        0,
+        228,
+        20
+       ],
+       "/Subtype": "/Form",
+       "/Type": "/XObject",
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 153,
+        "sha256": "a5803eff66dfc56f"
+       }
+      }
+     },
+     "/C": [
+      1,
+      0.8314,
+      0
+     ],
+     "/Contents": "appended without signing",
+     "/F": 4,
+     "/M": "<date>",
+     "/Name": "/Note",
+     "/Open": false,
+     "/Rect": [
+      72,
+      700,
+      300,
+      720
+     ],
+     "/Subtype": "/Text",
+     "/Type": "/Annot"
+    }
+   ],
+   "/Contents": {
+    "@stream": {
+     "basis": "filtered",
+     "kind": "content",
+     "ops": "q BT 0 0 0 rg /Font#0 18 Tf 1 0 0 1 56 771.49 Tm <str:14> Tj ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 56 743.49 Tm <str:58> Tj ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 56 721.54 Tm <str:42> Tj ET Q"
+    }
+   },
+   "/MediaBox": [
+    0,
+    0,
+    595.28,
+    841.89
+   ],
+   "/Resources": {
+    "/Font": {
+     "/Font#0": {
+      "/BaseFont": "/IRSBKX+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/IRSBKX+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 4648,
+           "sha256": "300745b00fb7c51d"
+          }
+         },
+         "/FontName": "/IRSBKX+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          224,
+          278,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          278,
+          340,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000,
+          1000
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 633,
+        "sha256": "d6fa976fda3d15ac"
+       }
+      },
+      "/Type": "/Font"
+     }
+    }
+   },
+   "/Type": "/Page"
+  }
+ ],
+ "info": {
+  "/Producer": "<opaque>",
+  "/Title": "請求書"
+ },
+ "pageCount": 1,
+ "encrypted": false,
+ "headerVersion": "1.7",
+ "objectCount": 12
+}

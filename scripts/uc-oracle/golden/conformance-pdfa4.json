@@ -1,0 +1,176 @@
+{
+ "root": {
+  "/Metadata": {
+   "/Subtype": "/XML",
+   "/Type": "/Metadata",
+   "@stream": {
+    "basis": "filtered",
+    "kind": "xmp",
+    "xmp": {
+     "pdfaidPart": "4",
+     "pdfaidRev": "2020",
+     "pdfaidConformance": null,
+     "pdfuaidPart": null,
+     "dcTitle": null,
+     "dcLanguage": null,
+     "hasCreateDate": true,
+     "hasModifyDate": true,
+     "shape": "<x:xmpmeta ,<rdf:RDF ,<rdf:Description ,<pdfaid:part>,<pdfaid:rev>,<rdf:Description ,<xmp:CreatorTool>,<xmp:CreateDate>,<xmp:ModifyDate>"
+    }
+   }
+  },
+  "/OutputIntents": [
+   {
+    "/DestOutputProfile": {
+     "/N": 3,
+     "@stream": {
+      "basis": "filtered",
+      "kind": "binary",
+      "bytes": 548,
+      "sha256": "b1cd40f777b1b5f0"
+     }
+    },
+    "/Info": "sRGB IEC61966-2.1",
+    "/OutputConditionIdentifier": "sRGB IEC61966-2.1",
+    "/S": "/GTS_PDFA1",
+    "/Type": "/OutputIntent"
+   }
+  ],
+  "/Pages": {
+   "/Count": 1,
+   "/Kids": [
+    {
+     "@page": 0
+    }
+   ],
+   "/Type": "/Pages"
+  },
+  "/Type": "/Catalog"
+ },
+ "pages": [
+  {
+   "/Contents": {
+    "@stream": {
+     "basis": "filtered",
+     "kind": "content",
+     "ops": "q BT 0 0 0 rg /Font#0 18 Tf 1 0 0 1 56 771.49 Tm <str:18> Tj ET Q q BT 0.05 0.05 0.05 rg /Font#0 20 Tf 1 0 0 1 56 728.29 Tm <str:30> Tj ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 56 702.49 Tm <str:62> Tj ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 70 676.54 Tm <str:34> Tj ET Q q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 70 658.59 Tm <str:34> Tj ET Q q 0.93 0.93 0.96 rg 56 618.44 226.54 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 56 618.44 226.54 21 re S Q q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 1 0 0 1 61 627.44 Tm <str:14> Tj ET Q q 0.93 0.93 0.96 rg 282.54 618.44 256.74 21 re f Q q 0.7 0.7 0.72 RG 0.5 w 282.54 618.44 256.74 21 re S Q q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 1 0 0 1 287.54 627.44 Tm <str:22> Tj ET Q q 0.7 0.7 0.72 RG 0.5 w 56 597.44 226.54 21 re S Q q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 1 0 0 1 61 606.44 Tm <str:18> Tj ET Q q 0.7 0.7 0.72 RG 0.5 w 282.54 597.44 256.74 21 re S Q q BT 0.15 0.15 0.15 rg /Font#0 10 Tf 1 0 0 1 287.54 606.44 Tm <str:42> Tj ET Q"
+    }
+   },
+   "/MediaBox": [
+    0,
+    0,
+    595.28,
+    841.89
+   ],
+   "/Resources": {
+    "/Font": {
+     "/Font#0": {
+      "/BaseFont": "/FRSIAJ+NotoSansJP-Regular",
+      "/DescendantFonts": [
+       {
+        "/BaseFont": "/FRSIAJ+NotoSansJP-Regular",
+        "/CIDSystemInfo": {
+         "/Ordering": "Identity",
+         "/Registry": "Adobe",
+         "/Supplement": 0
+        },
+        "/FontDescriptor": {
+         "/Ascent": 1160,
+         "/CapHeight": 733,
+         "/Descent": -288,
+         "/Flags": 4,
+         "/FontBBox": [
+          -1002,
+          -1048,
+          2928,
+          1808
+         ],
+         "/FontFile3": {
+          "/Subtype": "/OpenType",
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 6564,
+           "sha256": "0046f260d3b64343"
+          }
+         },
+         "/FontName": "/FRSIAJ+NotoSansJP-Regular",
+         "/ItalicAngle": 0,
+         "/StemV": 0,
+         "/Type": "/FontDescriptor",
+         "/XHeight": 543
+        },
+        "/Subtype": "/CIDFontType0",
+        "/Type": "/Font",
+        "/W": [
+         0,
+         [
+          1000,
+          224,
+          555,
+          467,
+          347,
+          278,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          555,
+          278,
+          608,
+          657,
+          688,
+          293,
+          535,
+          812,
+          633,
+          599,
+          531,
+          563,
+          510,
+          620,
+          554,
+          275,
+          552,
+          284,
+          926,
+          610,
+          606,
+          377,
+          607,
+          521,
+          521,
+          270,
+          340
+         ]
+        ]
+       }
+      ],
+      "/Encoding": "/Identity-H",
+      "/Subtype": "/Type0",
+      "/ToUnicode": {
+       "@stream": {
+        "basis": "filtered",
+        "kind": "binary",
+        "bytes": 899,
+        "sha256": "5cfeba38ffede761"
+       }
+      },
+      "/Type": "/Font"
+     }
+    }
+   },
+   "/Type": "/Page"
+  }
+ ],
+ "info": null,
+ "pageCount": 1,
+ "encrypted": false,
+ "headerVersion": "2.0",
+ "objectCount": 12
+}
