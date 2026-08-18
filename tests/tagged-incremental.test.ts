@@ -15,7 +15,7 @@ import { type PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, StandardFonts 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
 import { addAnnotation } from '../src/services/edit-annotation.js';
-import { tagFormFields } from '../src/services/editor.js';
+import { tagFormFields } from '../src/services/edit-tag-form.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import type { EditResult, TagFormFieldsResult } from '../src/types/index.js';
 

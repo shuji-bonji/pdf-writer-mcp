@@ -448,3 +448,13 @@ async function resolveMaybe(
   const value = await editor.resolve(raw);
   return value.kind === 'null' ? undefined : value;
 }
+
+/** 「見つからないフィールド名」を、実在する名前つきで伝える */
+export function unknownFieldError(name: string, form: AcroForm): Error {
+  const available = form.fields.map((f) => `${f.name} (${f.kind})`).join(', ');
+  return new Error(
+    available.length > 0
+      ? `Form field "${name}" not found. Available fields: ${available}`
+      : `Form field "${name}" not found — this PDF has no AcroForm fields.`,
+  );
+}

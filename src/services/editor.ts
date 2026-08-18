@@ -18,18 +18,14 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { PDFDocument, PDFRef } from 'pdf-lib';
-import { documentDate } from '../config.js';
+import { PDFDocument } from 'pdf-lib';
 import { LIMITS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
   CommonEditOptions,
-  EditResult,
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
-  TagFormFieldsArgs,
-  TagFormFieldsResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
@@ -41,14 +37,8 @@ import {
   listFields,
   readOnlyWarnings,
   refreshAppearances,
-  tagWidgets,
 } from './form.js';
-import {
-  buildIncrementalUpdate,
-  findDocMdpPermission,
-  reserveExistingObjectNumbers,
-} from './incremental.js';
-import { saveEdited, saveRawBytes } from './output.js';
+import { saveEdited } from './output.js';
 import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
 import { isTagged } from './struct-append.js';
@@ -116,62 +106,6 @@ export async function loadForEdit(
 // ---------------------------------------------------------------------------
 
 /**
- * DocMDP（認証署名）の許可レベル検査（ISO 32000-2 §12.8.2.2）。
- * 注釈は P=3 でのみ許可。メタデータ・しおり等の変更はどの P でも許可されない
- * （P=2 はフォーム記入と署名、P=3 は + 注釈のみ）。
- *
- * **DSS / DTS の例外について（B-11・family 内で条文解釈を揃えるための注記）**:
- * §12.8.2.2 は P の全値に対して例外を置いている — **DSS（文書セキュリティストア・§12.8.4.3）と
- * 文書タイムスタンプ（DTS・§12.8.5）の追加に必要なデータ「のみ」を含む増分更新は、
- * 文書への変更とみなしてはならない**（R-12.8.2.2.2-5・shall not。Table 257 の P 行が
- * 選択肢の列挙より前に置いているため 1/2/3 のいずれにも効く）。
- * P=1 の本文も「any changes shall invalidate the signature **with the exception of subsequent
- * DSS and/or document timestamp incremental updates**」と明示する（R-12.8.2.2.1-6）。
- *
- * **本サーバに実害は無い** — writer は DSS も DTS も書かないため、ここで拒否する変更
- * （注釈・メタデータ・しおり・構造・描画・添付）はいずれも例外に当たらない。
- * それでも明記するのは、verify #5 が「P=1 の LTV を誤検知する」と指摘しており、
- * **family 内で同じ条文の解釈がずれると trust の判定が割れる**ため。
- * 将来 writer が DSS/DTS を扱うなら、この関数は「DSS/DTS のみの増分は常に許可」を
- * 先に判定する必要がある。
- */
-function assertDocMdpAllows(
-  doc: PDFDocument,
-  change: 'annotation' | 'metadata-or-outline' | 'structure' | 'content',
-): void {
-  const p = findDocMdpPermission(doc);
-  if (p === undefined) return; // 承認署名のみ — 増分更新は合法（「署名後の変更あり」にはなる）
-  if (change === 'annotation' && p >= 3) return;
-  const label =
-    change === 'annotation'
-      ? p === 1
-        ? 'the author declared the document final; any change (except DSS/DTS) invalidates it.'
-        : 'only form fill-in and signing are permitted; annotations are not.'
-      : change === 'structure'
-        ? 'structure (tagging) changes are not among the permitted change types at any level.'
-        : change === 'content'
-          ? 'drawing onto page content is not among the permitted change types at any level.'
-          : 'metadata and outline changes are not among the permitted change types at any level.';
-  throw new PdfWriterError(
-    `This PDF carries a certification signature (DocMDP) with permission level P=${p} — ${label}` +
-      ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
-    'SIGNED_PDF',
-    {
-      retryable: true,
-      hint: 'ISO 32000-2 §12.8.2.2: P=2 permits form fill-in; P=3 additionally permits annotations.',
-      next_actions: [NEXT_ACTIONS.allowBreakingSignatures()],
-    },
-  );
-}
-
-/** ModificationDate を更新し、既存 Info オブジェクトなら dirty に積む */
-function touchModificationDate(doc: PDFDocument, since: number, dirty: PDFRef[]): void {
-  doc.setModificationDate(documentDate(doc));
-  const info = doc.context.trailerInfo.Info;
-  if (info instanceof PDFRef && info.objectNumber <= since) dirty.push(info);
-}
-
-/**
  * フォーム系の共通前処理。
  * 「値を適用 → 描画される文字を集める → その字だけサブセットしたフォントで外観を作り直す」
  * という順番が重要。先にフォントを埋め込むと、後から入れた値の字がサブセットに無く豆腐になる。
@@ -204,38 +138,6 @@ async function prepareFormAppearances(
   }
   return { warnings };
 }
-
-/** 増分更新でビルドして保存する（前方バイト一致 = 署名保持） */
-async function saveWithPreservedSignatures(
-  doc: PDFDocument,
-  originalBytes: Uint8Array,
-  opts: CommonEditOptions,
-  dirtyRefs: PDFRef[],
-  since: number,
-  what: string,
-): Promise<EditResult> {
-  const update = await buildIncrementalUpdate({
-    original: originalBytes,
-    doc,
-    dirtyRefs,
-    sinceObjectNumber: since,
-  });
-  logger.info(
-    'Editor',
-    `${what} via incremental update (${update.objectsWritten} object(s), ${update.xrefStyle} xref, ` +
-      `+${update.bytes.length - originalBytes.length} bytes); signatures preserved`,
-  );
-  const saved = await saveRawBytes(update.bytes, doc.getPageCount(), opts);
-  const result: EditResult = { ...saved, incremental: true };
-  if (update.warnings.length > 0) {
-    result.warnings = [...(result.warnings ?? []), ...update.warnings];
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Tier A ツール本体（ページ操作は page-ops.ts へ）
-// ---------------------------------------------------------------------------
 
 export async function fillForm(args: FillFormArgs): Promise<FormResult> {
   const { doc } = await loadForEdit(args.inputPath, args);
@@ -312,114 +214,6 @@ function flattenAndWarn(
   return true;
 }
 
-/**
- * タグ付き PDF のフォームを PDF/UA-1 準拠へ修復する（B-6）。
- *
- * fill_form は「入力が準拠していれば出力も準拠」（構造木に触らない）だが、
- * タグ付き PDF に AcroForm が**あるだけ**では PDF/UA-1 に通らない。本ツールが
- * 7.18.4-1（Widget を Form 構造要素に内包）/ 7.18.3-1（/Tabs S）/
- * 7.18.1-3（フィールドに /TU）を後付けで満たす。
- *
- * タグ無し文書は対象外（フォームのためだけに構造木を作り始めない —
- * ゼロからのタグ付けは create 系の tagged: true、既存文書の完全なタグ付けは
- * Tier C の ensure_tagged の領分）。
- */
-export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFieldsResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-
-  if (!isTagged(doc)) {
-    throw new PdfWriterError(
-      `"${args.inputPath}" is not a tagged PDF, so there is no structure tree to repair. ` +
-        'tag_form_fields fixes forms inside already-tagged PDFs (PDF/UA-1 7.18.4).',
-      'INVALID_ARGUMENT',
-      {
-        hint:
-          'To produce a tagged PDF from scratch, use the create tools with "tagged": true. ' +
-          'Full tagging of an existing untagged PDF (ensure_tagged) is a future Tier C feature.',
-      },
-    );
-  }
-
-  const form = doc.getForm();
-  if (form.hasXFA()) {
-    throw new PdfWriterError(
-      'This PDF uses XFA forms, which pdf-writer-mcp does not support.',
-      'UNSUPPORTED_PDF_FEATURE',
-    );
-  }
-  if (form.getFields().length === 0) {
-    throw invalidArg(`"${args.inputPath}" has no AcroForm fields to tag.`);
-  }
-
-  if (preserve) {
-    // 構造タグ付けは DocMDP の許可種別に含まれない（認証文書は全レベルで拒否）
-    assertDocMdpAllows(doc, 'structure');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-
-  const outcome = tagWidgets(doc, args.labels ?? {});
-
-  const warnings: string[] = [];
-  if (outcome.unlabeled.length > 0) {
-    warnings.push(
-      `No label given for ${outcome.unlabeled.length} field(s); the field name was used as /TU ` +
-        `(${outcome.unlabeled.join(', ')}). Pass "labels" with human-readable names — ` +
-        'screen readers announce /TU, and "user.name" reads poorly.',
-    );
-  }
-  if (outcome.orphaned.length > 0) {
-    warnings.push(
-      `${outcome.orphaned.length} widget(s) were not found in any page's /Annots and were left ` +
-        `untouched (${outcome.orphaned.join(', ')}).`,
-    );
-  }
-
-  logger.info(
-    'Editor',
-    `Tagged ${outcome.tagged} widget(s) into Form structure elements` +
-      (outcome.skipped > 0 ? `, ${outcome.skipped} already tagged` : ''),
-  );
-
-  if (preserve) {
-    const dirty = [...outcome.dirtiedRefs];
-    touchModificationDate(doc, since, dirty);
-    const saved = await saveWithPreservedSignatures(
-      doc,
-      bytes,
-      args,
-      dirty,
-      since,
-      `Tagged ${outcome.tagged} widget(s)`,
-    );
-    return {
-      ...saved,
-      taggedWidgets: outcome.tagged,
-      skippedWidgets: outcome.skipped,
-      fields: listFields(doc),
-      warnings:
-        [...(saved.warnings ?? []), ...warnings].length > 0
-          ? [...(saved.warnings ?? []), ...warnings]
-          : undefined,
-    };
-  }
-
-  // 値は変えないので pdf-lib の外観再生成（Helvetica）を走らせない
-  const saved = await saveEdited(doc, args, { updateFieldAppearances: false });
-  return {
-    ...saved,
-    taggedWidgets: outcome.tagged,
-    skippedWidgets: outcome.skipped,
-    fields: listFields(doc),
-    warnings: warnings.length > 0 ? warnings : undefined,
-  };
-}
-
-/**
- * ensure_tagged（Tier C・B-7c）: 既存 PDF を PDF/UA-1 の器に載せる。
- * 詳細と限界は services/ensure-tagged.ts の冒頭コメントを参照。
- */
 export async function flattenForm(args: FlattenFormArgs): Promise<FormResult> {
   const { doc } = await loadForEdit(args.inputPath, args);
   const form = doc.getForm();

@@ -15,10 +15,10 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, StandardFonts } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFString, StandardFonts } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
-import { tagFormFields } from '../src/services/editor.js';
+import { tagFormFields } from '../src/services/edit-tag-form.js';
 import { handleCreateTextPdf, handleTagFormFields } from '../src/tools/handlers.js';
 import type { TagFormFieldsResult } from '../src/types/index.js';
 
@@ -153,7 +153,9 @@ describe('tag_form_fields', () => {
     const tuOf = (fieldName: string): string | undefined => {
       const field = doc.getForm().getFieldMaybe(fieldName);
       const tu = field?.acroField.dict.lookup(PDFName.of('TU'));
-      return tu instanceof PDFHexString ? tu.decodeText() : undefined;
+      // §7.9.2.2 のテキスト文字列。字句の形（リテラル `(…)` か 16 進 `<…>`・§7.3.4）は
+      // 内容に意味を持たないので、どちらでも読む。形を固定すると内容ではなく形を測る
+      return tu instanceof PDFHexString || tu instanceof PDFString ? tu.decodeText() : undefined;
     };
     expect(tuOf('user.name')).toBe('氏名');
     expect(tuOf('agree')).toBe('agree');
