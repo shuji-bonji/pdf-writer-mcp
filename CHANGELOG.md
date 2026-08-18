@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1] - 2026-08-18
+
+**No code changed between 0.20.0 and 0.20.1.** Use this version rather than 0.20.0.
+
+### Fixed
+
+- **Re-released so the package carries npm provenance again.** 0.20.0 was published
+  from a workstation instead of through the release workflow, and its registry entry has
+  no `dist.attestations` — measured against the registry: 0.19.0 has the field, 0.20.0
+  does not. Publishing is done by `.github/workflows/publish.yml` on a `v*` tag, through
+  npm Trusted Publisher (OIDC), which is what produces the attestation.
+
+  npm does not allow a version number to be reused once published, so this is a new
+  version rather than a re-publish of 0.20.0.
+
+- **`publishConfig.provenance` is now set**, so publishing outside the workflow fails
+  instead of silently producing a release without an attestation. That is how the sibling
+  `pdf-verify-mcp` is configured, and it is why the same mistake stopped there.
+
+- **The npm description and keywords still said `pdf-lib`.** They now name normativepdf,
+  which is what 0.20.0 actually builds on.
+
 ## [0.20.0] - 2026-08-18
 
 ### Changed

@@ -1,7 +1,7 @@
 {
   "name": "@shuji-bonji/pdf-writer-mcp",
-  "version": "0.20.0",
-  "description": "MCP server that generates and edits PDFs (text/Markdown/table creation, metadata & page operations) using pdf-lib, with Japanese font embedding (fontkit subset).",
+  "version": "0.20.1",
+  "description": "MCP server that generates and edits PDFs (text/Markdown/table creation, metadata & page operations) built on normativepdf, with Japanese font embedding (fontkit subset).",
   "type": "module",
   "bin": {
     "pdf-writer-mcp": "dist/index.js"
@@ -41,9 +41,13 @@
     "mcp",
     "model-context-protocol",
     "pdf",
-    "pdf-lib",
+    "normativepdf",
     "markdown-to-pdf"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "author": "shuji-bonji",
   "license": "MIT",
   "repository": {
