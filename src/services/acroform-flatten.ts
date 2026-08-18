@@ -32,6 +32,7 @@ import {
 } from 'normativepdf';
 import type { AcroForm } from './acroform-read.js';
 import { name, num } from './cos.js';
+import { pruneRefsTo } from './cos-prune.js';
 import { freshResourceName, resourcesWith } from './page-resources.js';
 import { detachStructElements, structParentOf } from './struct-detach.js';
 
@@ -286,16 +287,22 @@ export async function flattenForm(
   for (const ref of await detachStructElements(editor, structParents)) mark(ref);
 
   // 参照を外し終えてから消す。ページ資源に残した外観は消さない
+  const removed: CosRef[] = [];
   for (const [key, ref] of doomed) {
     if (keptAppearances.has(key)) continue;
-    editor.delete(ref.objectNumber, ref.generationNumber);
+    removed.push(ref);
   }
   // フィールド辞書は非終端も含めて消す（`/AcroForm` を消したので誰も指していない）
   for (const ref of form.nodes) {
     const key = `${ref.objectNumber} ${ref.generationNumber}`;
     if (keptAppearances.has(key) || doomed.has(key)) continue;
-    editor.delete(ref.objectNumber, ref.generationNumber);
+    removed.push(ref);
   }
+
+  // 🔴 消す前に、消す相手を指している参照を取り除く。入力に元から孤児が居て
+  // 消す相手を指していることがある（`form-basic.pdf` は `/T user` の辞書を 2 つ持つ）
+  await pruneRefsTo(editor, removed);
+  for (const ref of removed) editor.delete(ref.objectNumber, ref.generationNumber);
   return { ...outcome, baked };
 }
 
