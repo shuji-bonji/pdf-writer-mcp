@@ -13,12 +13,10 @@
  */
 
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
-import type {
-  FillFormArgs,
-  FlattenFormArgs,
-  FormResult,
-} from '../types/index.js';
+import type { FillFormArgs, FlattenFormArgs, FormResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { ensureDefaultResources, refreshTextAppearance } from './acroform-appearance.js';
+import { flattenForm as bakeForm } from './acroform-flatten.js';
 import {
   type AcroField,
   type AcroForm,
@@ -30,14 +28,12 @@ import {
   readAcroForm,
   usesXfa,
 } from './acroform-read.js';
-import { ensureDefaultResources, refreshTextAppearance } from './acroform-appearance.js';
-import { flattenForm as bakeForm } from './acroform-flatten.js';
 import { applyFieldValue, readOnlyWarnings } from './acroform-write.js';
 import { textOf } from './cos-read.js';
 import type { OpenedForEdit } from './edit-open.js';
 import { openForEdit } from './edit-open.js';
-import { EMBEDDED_FONT_OBJECTS, fontHostFor, STANDARD_FONT_OBJECTS } from './font-pool.js';
 import { applyMissingGlyphPolicy, embedFontFor, openFont } from './font-manager.js';
+import { EMBEDDED_FONT_OBJECTS, fontHostFor, STANDARD_FONT_OBJECTS } from './font-pool.js';
 import { saveOpened } from './output-edited.js';
 import { assertRenderable } from './renderers/text.js';
 import { isTaggedDoc } from './tagged-cos.js';

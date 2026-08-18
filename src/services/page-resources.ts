@@ -14,12 +14,7 @@
  * 解決できなくなる（§3.28.2 で 1 度作った欠陥）。
  */
 
-import {
-  COS_NULL,
-  type CosObject,
-  type PageEntry,
-  type PdfDocumentEditor,
-} from 'normativepdf';
+import { COS_NULL, type CosObject, type PageEntry, type PdfDocumentEditor } from 'normativepdf';
 
 /** 資源の種別（`/Font` `/ExtGState` `/XObject` …）ごとに「名前 → 値」を足す */
 export type ResourceAdditions = Readonly<Record<string, Readonly<Record<string, CosObject>>>>;

@@ -25,12 +25,6 @@ import {
   dictGetRaw,
   type PdfDocumentEditor,
 } from 'normativepdf';
-import type { AcroField, AcroForm } from './acroform-read.js';
-import {
-  FF_COMB,
-  FF_MULTILINE,
-  hasFlag,
-} from './acroform-read.js';
 import {
   type DefaultAppearance,
   layoutFieldText,
@@ -38,8 +32,10 @@ import {
   replaceDaFont,
   spliceTxMarkedContent,
 } from './acroform-layout.js';
-import { textOf } from './cos-read.js';
+import type { AcroField, AcroForm } from './acroform-read.js';
+import { FF_COMB, FF_MULTILINE, hasFlag } from './acroform-read.js';
 import { dict, int, name, num } from './cos.js';
+import { textOf } from './cos-read.js';
 import type { WriterFont } from './font-embed.js';
 
 /** 枠の内側に取る余白（pt）。ビューアの慣習に合わせて 2 */

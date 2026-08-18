@@ -68,7 +68,9 @@ export function parseDefaultAppearance(source: string): DefaultAppearance {
 
 /** §7.3.5 の `#xx` を戻す */
 function decodeName(raw: string): string {
-  return raw.replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
+  return raw.replace(/#([0-9A-Fa-f]{2})/g, (_, hex) =>
+    String.fromCharCode(Number.parseInt(hex, 16)),
+  );
 }
 
 // --------------------------------------------------------------------------- `/Tx BMC` … `EMC`
@@ -275,12 +277,7 @@ function combLines(
  * 値の中の改行で必ず切り、そのうえで幅に収まらない行を折り返す。
  * 空白で切れないほど長い語は 1 文字ずつ詰める（語を丸ごと捨てない）。
  */
-export function wrapLines(
-  value: string,
-  font: Measure,
-  size: number,
-  maxWidth: number,
-): string[] {
+export function wrapLines(value: string, font: Measure, size: number, maxWidth: number): string[] {
   const out: string[] = [];
   for (const paragraph of value.split(/\r\n|[\r\n]/)) {
     if (paragraph === '') {

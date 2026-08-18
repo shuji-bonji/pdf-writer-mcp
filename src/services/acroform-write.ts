@@ -19,14 +19,14 @@ import {
   type AcroField,
   type AcroForm,
   choiceOptions,
-  type FieldValue,
   FF_MULTI_SELECT,
   FF_READ_ONLY,
+  type FieldValue,
   hasFlag,
   unknownFieldError,
 } from './acroform-read.js';
-import { textOf } from './cos-read.js';
 import { arr, int, name, textString } from './cos.js';
+import { textOf } from './cos-read.js';
 
 function typeError(field: AcroField, expected: string, got: FieldValue): Error {
   return new Error(
@@ -117,7 +117,8 @@ export async function applyFieldValue(
     case 'radio': {
       if (typeof value !== 'string') throw typeError(field, 'a string', value);
       const options = await radioOptionNames(editor, field);
-      const index = options.findIndex((o) => o === value);
+      // options は string[] なので indexOf で同じ（biome の useIndexOf）
+      const index = options.indexOf(value);
       if (index < 0) {
         throw new Error(
           `Form field "${field.name}" has no option "${value}". Available options: ${options.join(', ')}`,
@@ -157,10 +158,7 @@ async function setButtonState(
 }
 
 /** ラジオの選択肢名（`/Opt` があればそれ、無ければ各 Widget の「入」状態） */
-async function radioOptionNames(
-  editor: PdfDocumentEditor,
-  field: AcroField,
-): Promise<string[]> {
+async function radioOptionNames(editor: PdfDocumentEditor, field: AcroField): Promise<string[]> {
   const raw = dictGetRaw(field.dict, 'Opt');
   if (raw !== undefined && raw.kind !== 'null') {
     const resolved = await editor.resolve(raw);

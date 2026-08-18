@@ -131,10 +131,7 @@ async function normalAppearanceRef(
  * `/AP` の下にあるストリーム参照をすべて集める（`/N` `/R` `/D` と状態の副辞書）。
  * 焼き込んだ 1 本以外は誰も指さなくなるので、消す候補になる。
  */
-async function appearanceRefs(
-  editor: PdfDocumentEditor,
-  widget: CosDict,
-): Promise<CosRef[]> {
+async function appearanceRefs(editor: PdfDocumentEditor, widget: CosDict): Promise<CosRef[]> {
   const apRaw = dictGetRaw(widget, 'AP');
   if (apRaw === undefined) return [];
   const ap = await editor.resolve(apRaw);
