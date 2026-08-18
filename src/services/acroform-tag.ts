@@ -17,9 +17,9 @@
  */
 
 import { type CosDict, type CosObject, type CosRef, dictGetRaw } from 'normativepdf';
-import type { OpenedForEdit } from './edit-open.js';
 import { type AcroForm, unknownFieldError } from './acroform-read.js';
 import { textString } from './cos.js';
+import type { OpenedForEdit } from './edit-open.js';
 import { appendObjRefToStructTree } from './struct-annot.js';
 
 export interface TagWidgetsOutcome {

@@ -379,20 +379,14 @@ async function selectedTexts(
  * 「入」状態の名前を並べる。`/Opt` があるとき `/AP /N` の鍵は `/0` `/1` のような
  * 位置の名前になりうる（R-12.7.5.2.3-14）ので、この 2 つは別物である。
  */
-export async function radioOptions(
-  editor: PdfDocumentEditor,
-  field: AcroField,
-): Promise<string[]> {
+export async function radioOptions(editor: PdfDocumentEditor, field: AcroField): Promise<string[]> {
   const exports = await exportValues(editor, field);
   if (exports !== null) return exports;
   return field.widgets.map((w) => w.onState).filter((s): s is string => s !== null);
 }
 
 /** ラジオの `/Opt`（文字列の配列）。無ければ null */
-async function exportValues(
-  editor: PdfDocumentEditor,
-  field: AcroField,
-): Promise<string[] | null> {
+async function exportValues(editor: PdfDocumentEditor, field: AcroField): Promise<string[] | null> {
   const raw = dictGetRaw(field.dict, 'Opt');
   if (raw === undefined || raw.kind === 'null') return null;
   const out: string[] = [];

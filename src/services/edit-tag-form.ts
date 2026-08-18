@@ -19,7 +19,7 @@
  * - `/ModDate` は `saveOpened` / `appendOpened` が更新する
  */
 
-import { PdfWriterError, invalidArg } from '../errors.js';
+import { invalidArg, PdfWriterError } from '../errors.js';
 import type { TagFormFieldsArgs, TagFormFieldsResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { listFields, readAcroForm, usesXfa } from './acroform-read.js';
