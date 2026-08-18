@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { PDFArray, PDFDocument, PDFName, StandardFonts } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { addWatermark } from '../src/services/editor.js';
+import { addWatermark } from '../src/services/edit-stamp.js';
 import { centeredOrigin } from '../src/services/watermark.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
 import { AddWatermarkSchema, parseArgs } from '../src/utils/validation.js';

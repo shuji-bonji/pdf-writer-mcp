@@ -176,11 +176,11 @@ describe('openForEdit — 署名ガード', () => {
   });
 });
 
-describe('新しい出口にまだ無いもの（L4′.2 で足す）', () => {
-  it('output-edited.ts は normalizeEmbeddedFonts をまだ呼んでいない', async () => {
-    // 旧出口（output.ts の saveEdited）は保存前に必ず走らせる。呼ぶ相手が
-    // まだ pdf-lib の文書を取るので、新出口からは呼べない。**足したらこのテストを
-    // 消し、output-edited.ts の冒頭の ⚠️ も一緒に消すこと**
+describe('新しい出口は pdf-lib の後始末を持たない', () => {
+  it('output-edited.ts は normalizeEmbeddedFonts を呼ばない', async () => {
+    // 旧出口（output.ts の saveEdited）は保存前に必ず走らせていた。新しい経路で
+    // フォントを埋め込むのは buildType0Font で、バイト列から辞書の型を導くので
+    // 是正すべき誤りが作れない（§3.27.2 / §3.28）。呼ぶ必要が無い
     const { readFile } = await import('node:fs/promises');
     const source = await readFile(
       new URL('../src/services/output-edited.ts', import.meta.url),

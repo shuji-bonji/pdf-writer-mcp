@@ -20,26 +20,19 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PDFDocument, PDFRef } from 'pdf-lib';
 import { documentDate } from '../config.js';
-import { LIMITS, STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
+import { LIMITS } from '../constants.js';
 import { invalidArg, NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type {
-  AddWatermarkArgs,
   CommonEditOptions,
   EditResult,
   FillFormArgs,
   FlattenFormArgs,
   FormResult,
-  StampPageNumbersArgs,
-  StampResult,
   TagFormFieldsArgs,
   TagFormFieldsResult,
-  WatermarkResult,
 } from '../types/index.js';
 import { logger } from '../utils/logger.js';
-import { parsePageSpec } from '../utils/page-spec.js';
-import { rgbFromHex } from './color.js';
 import { applyMissingGlyphPolicy, openFont } from './font-manager.js';
-import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import {
   applyFieldValue,
   cleanUpAfterFlatten,
@@ -52,15 +45,13 @@ import {
 import {
   buildIncrementalUpdate,
   findDocMdpPermission,
-  pageContentDirtyRefs,
   reserveExistingObjectNumbers,
 } from './incremental.js';
 import { saveEdited, saveRawBytes } from './output.js';
-import { formatPageNumber, stampPage } from './page-number.js';
+import { embedFontIntoPdfLib } from './font-manager-pdflib.js';
 import { assertRenderable } from './renderers/text.js';
 import { containsSignature } from './signature-scan.js';
-import { isTagged, markArtifactOnPage } from './struct-append.js';
-import { watermarkPage } from './watermark.js';
+import { isTagged } from './struct-append.js';
 
 // 署名検知は `signature-scan.ts` へ移した（L4′.1 = 新しい入口と共有するため）。
 // ここから再輸出しているのは `tests/editor.test.ts` が この経路で import しているから。
@@ -180,174 +171,6 @@ function touchModificationDate(doc: PDFDocument, since: number, dirty: PDFRef[])
   if (info instanceof PDFRef && info.objectNumber <= since) dirty.push(info);
 }
 
-/** 増分更新でビルドして保存する（前方バイト一致 = 署名保持） */
-async function saveWithPreservedSignatures(
-  doc: PDFDocument,
-  originalBytes: Uint8Array,
-  opts: CommonEditOptions,
-  dirtyRefs: PDFRef[],
-  since: number,
-  what: string,
-): Promise<EditResult> {
-  const update = await buildIncrementalUpdate({
-    original: originalBytes,
-    doc,
-    dirtyRefs,
-    sinceObjectNumber: since,
-  });
-  logger.info(
-    'Editor',
-    `${what} via incremental update (${update.objectsWritten} object(s), ${update.xrefStyle} xref, ` +
-      `+${update.bytes.length - originalBytes.length} bytes); signatures preserved`,
-  );
-  const saved = await saveRawBytes(update.bytes, doc.getPageCount(), opts);
-  const result: EditResult = { ...saved, incremental: true };
-  if (update.warnings.length > 0) {
-    result.warnings = [...(result.warnings ?? []), ...update.warnings];
-  }
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Tier A ツール本体（ページ操作は page-ops.ts へ）
-// ---------------------------------------------------------------------------
-
-export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<StampResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    // ページ内容への描画追記は DocMDP の許可種別に無い（認証文書は全レベル拒否）
-    assertDocMdpAllows(doc, 'content');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-  const total = doc.getPageCount();
-
-  const format = args.format ?? STAMP_DEFAULTS.format;
-  const position = args.position ?? STAMP_DEFAULTS.position;
-  const margin = args.margin ?? STAMP_DEFAULTS.margin;
-  const fontSize = args.fontSize ?? STAMP_DEFAULTS.fontSize;
-  const startAt = args.startAt ?? STAMP_DEFAULTS.startAt;
-  const color = rgbFromHex(args.color ?? STAMP_DEFAULTS.color);
-
-  const targets = args.pages
-    ? parsePageSpec(args.pages, total)
-    : Array.from({ length: total }, (_, i) => i + 1);
-
-  // 刻むテキストを先に確定させる。フォントのサブセットは「実際に描く文字」に依存するため
-  // （ADR-7/8）、番号を振り終えてから埋め込む必要がある。
-  const stamps = targets.map((pageNo, i) => ({
-    page: doc.getPage(pageNo - 1),
-    text: formatPageNumber(format, startAt + i, total),
-  }));
-
-  const source = await openFont(args.fontPath);
-  const texts = stamps.map((s) => s.text);
-  for (const t of texts) assertRenderable(t, source);
-  const applied = applyMissingGlyphPolicy(texts, source, 'error');
-  const loaded = await embedFontIntoPdfLib(doc, source, applied.texts);
-
-  const tagged = isTagged(doc);
-  for (const [i, stamp] of stamps.entries()) {
-    stampPage(stamp.page, applied.texts[i], {
-      font: loaded.font,
-      fontSize,
-      color,
-      position,
-      margin,
-      // タグ付き PDF ではページ番号を Artifact にする（PDF/UA 7.1-3）
-      markArtifact: tagged ? (page, draw) => markArtifactOnPage(doc, page, draw) : undefined,
-    });
-  }
-
-  logger.info(
-    'Editor',
-    `Stamped ${stamps.length} page(s)${tagged ? ' as artifacts (tagged PDF)' : ''}`,
-  );
-
-  if (preserve) {
-    const dirty: PDFRef[] = [];
-    for (const stamp of stamps) dirty.push(...pageContentDirtyRefs(stamp.page));
-    touchModificationDate(doc, since, dirty);
-    const saved = await saveWithPreservedSignatures(
-      doc,
-      bytes,
-      args,
-      dirty,
-      since,
-      `Stamped ${stamps.length} page(s)`,
-    );
-    return { ...saved, stamped: stamps.length, artifact: tagged };
-  }
-
-  const saved = await saveEdited(doc, args);
-  return { ...saved, stamped: stamps.length, artifact: tagged };
-}
-
-export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkResult> {
-  const { doc, bytes } = await loadForEdit(args.inputPath, args);
-  const preserve = args.preserveSignatures === true;
-  if (preserve) {
-    assertDocMdpAllows(doc, 'content');
-    await reserveExistingObjectNumbers(doc, bytes);
-  }
-  const since = doc.context.largestObjectNumber;
-  const total = doc.getPageCount();
-
-  const fontSize = args.fontSize ?? WATERMARK_DEFAULTS.fontSize;
-  const opacity = args.opacity ?? WATERMARK_DEFAULTS.opacity;
-  const angle = args.angle ?? WATERMARK_DEFAULTS.angle;
-  const behind = args.behind ?? WATERMARK_DEFAULTS.behind;
-  const color = rgbFromHex(args.color ?? WATERMARK_DEFAULTS.color);
-
-  const targets = args.pages
-    ? parsePageSpec(args.pages, total)
-    : Array.from({ length: total }, (_, i) => i + 1);
-
-  // 透かし文字も create 系と同じ font-manager を通す（harfbuzz サブセット・グリフ検査）
-  const source = await openFont(args.fontPath);
-  assertRenderable(args.text, source);
-  const applied = applyMissingGlyphPolicy([args.text], source, 'error');
-  const loaded = await embedFontIntoPdfLib(doc, source, applied.texts);
-
-  const tagged = isTagged(doc);
-  for (const pageNo of targets) {
-    watermarkPage(doc.getPage(pageNo - 1), applied.texts[0], {
-      font: loaded.font,
-      fontSize,
-      color,
-      opacity,
-      angle,
-      behind,
-      // タグ付き PDF では透かしを Artifact にする（PDF/UA 7.1-3）
-      markArtifact: tagged ? (page, draw) => markArtifactOnPage(doc, page, draw) : undefined,
-    });
-  }
-
-  logger.info(
-    'Editor',
-    `Watermarked ${targets.length} page(s)${behind ? ' behind content' : ''}${tagged ? ' as artifacts' : ''}`,
-  );
-
-  if (preserve) {
-    const dirty: PDFRef[] = [];
-    for (const pageNo of targets) dirty.push(...pageContentDirtyRefs(doc.getPage(pageNo - 1)));
-    touchModificationDate(doc, since, dirty);
-    const saved = await saveWithPreservedSignatures(
-      doc,
-      bytes,
-      args,
-      dirty,
-      since,
-      `Watermarked ${targets.length} page(s)`,
-    );
-    return { ...saved, watermarked: targets.length, artifact: tagged };
-  }
-
-  const saved = await saveEdited(doc, args);
-  return { ...saved, watermarked: targets.length, artifact: tagged };
-}
-
 /**
  * フォーム系の共通前処理。
  * 「値を適用 → 描画される文字を集める → その字だけサブセットしたフォントで外観を作り直す」
@@ -381,6 +204,38 @@ async function prepareFormAppearances(
   }
   return { warnings };
 }
+
+/** 増分更新でビルドして保存する（前方バイト一致 = 署名保持） */
+async function saveWithPreservedSignatures(
+  doc: PDFDocument,
+  originalBytes: Uint8Array,
+  opts: CommonEditOptions,
+  dirtyRefs: PDFRef[],
+  since: number,
+  what: string,
+): Promise<EditResult> {
+  const update = await buildIncrementalUpdate({
+    original: originalBytes,
+    doc,
+    dirtyRefs,
+    sinceObjectNumber: since,
+  });
+  logger.info(
+    'Editor',
+    `${what} via incremental update (${update.objectsWritten} object(s), ${update.xrefStyle} xref, ` +
+      `+${update.bytes.length - originalBytes.length} bytes); signatures preserved`,
+  );
+  const saved = await saveRawBytes(update.bytes, doc.getPageCount(), opts);
+  const result: EditResult = { ...saved, incremental: true };
+  if (update.warnings.length > 0) {
+    result.warnings = [...(result.warnings ?? []), ...update.warnings];
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Tier A ツール本体（ページ操作は page-ops.ts へ）
+// ---------------------------------------------------------------------------
 
 export async function fillForm(args: FillFormArgs): Promise<FormResult> {
   const { doc } = await loadForEdit(args.inputPath, args);

@@ -5,13 +5,10 @@
  * から（pdf-lib の `PDFDocument` ではなく normativepdf の `PdfDocumentEditor`）。
  * 2 本が 1 本に戻るのは L4′.7。
  *
- * ⚠️ **旧出口にあって、ここにまだ無いもの: `normalizeEmbeddedFonts`。**
- * 旧出口は保存の直前に「pdf-lib が書いたフォント辞書の是正」（B-14 / W-2 / W-3 / W-4）を
- * 必ず走らせる。それを呼ぶ相手（`font-conformance.ts`）は**まだ pdf-lib の文書を取る**ので、
- * ここからは呼べない。**L4′.2 で `font-conformance.ts` を移すときに、ここへ足す。**
- * それまでは、埋め込みフォントに触るサービス（`stamp_page_numbers` / `add_watermark`）を
- * この出口に繋がないこと —— 繋ぐと是正が黙って止まる。
- * この段落を消すときは `tests/edit-open.test.ts` の「まだ是正していない」を一緒に直すこと。
+ * **`normalizeEmbeddedFonts` は要らない。** 旧出口は保存の直前に
+ * 「pdf-lib が書いたフォント辞書の是正」（B-14 / W-2 / W-3 / W-4）を必ず走らせていた。
+ * 新しい経路でフォントを埋め込むのは `buildType0Font` で、これは**バイト列から辞書の型を
+ * 導く**ので、是正すべき誤りが作れない（`output-created.ts` の同じ判断と揃える）。
  *
  * 🔴 **回復読みで開いた文書は断る。** `edit-open.ts` が `startxref` を走査して組み直した
  * xref は推量なので（重ねる順は鎖の順ではなくオフセットの順）、**全書き直しはその推量を
