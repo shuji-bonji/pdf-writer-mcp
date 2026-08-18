@@ -320,6 +320,19 @@ export const SPECIMENS = [
     verify: [{ flavour: 'pdfa-4', expect: 'non-compliant' }],
   },
   {
+    id: 'conformance-pdfa4',
+    uc: 'UC-4',
+    // `attachment` 軸の**もう一形**。上の `-bare` と同じ入力・同じ flavour で、
+    // **添付しない**ところだけを変える。素の -4 が適合できることは、これまで
+    // どの検体も測っていなかった（-bare は「添付があると落ちる」を測る検体で、
+    // `-4f` は `f` 付きの別 flavour である）
+    axes: { attachment: false, flavour: 'pdfa-4', pdfVersion: '2.0', font: 'cff', tagged: false },
+    steps: [
+      { tool: 'ensure_pdfa', args: { inputPath: '{{create-markdown-cff-20}}', flavour: 'pdfa-4' } },
+    ],
+    verify: [{ flavour: 'pdfa-4', expect: 'compliant' }],
+  },
+  {
     id: 'conformance-ensure-tagged-ua1',
     uc: 'UC-2',
     axes: { tagged: 'repaired', font: 'cff', flavour: 'pdfua-1' },
@@ -486,6 +499,33 @@ export const SPECIMENS = [
       },
     ],
     verifySignatures: { expectValid: 5 },
+  },
+  {
+    id: 'input-append-unsigned',
+    uc: 'UC-7',
+    /**
+     * `signed` 軸の**もう一形**。同じツール・同じ `preserveSignatures: true` を、
+     * **署名の無い**文書に掛ける。
+     *
+     * 🔴 **増分更新の経路を、内製の入力で測るためでもある。** これまで
+     * `preserveSignatures: true`（＝ `appendOpened`）を通る検体は署名付きの
+     * 外部フィクスチャ 2 本だけで、それが手元に無いと**経路が丸ごと測られなく
+     * なっていた**（`unavailable` は緑にも赤にもしない）。
+     */
+    axes: { signed: false, op: 'annotate', font: 'cff', revisions: 1, pdfVersion: '1.7' },
+    steps: [
+      {
+        tool: 'add_annotation',
+        args: {
+          inputPath: '{{create-text-cff-17}}',
+          page: 1,
+          type: 'text',
+          rect: { x1: 72, y1: 700, x2: 300, y2: 720 },
+          contents: 'appended without signing',
+          preserveSignatures: true,
+        },
+      },
+    ],
   },
 ];
 
