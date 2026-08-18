@@ -10,9 +10,10 @@
  *   node scripts/conformance-report.mjs           # docs/CONFORMANCE.md を書き出す
  *   node scripts/conformance-report.mjs --check   # 内容が古ければ exit 1（publish 前の検査）
  *
- * ⚠️ **veraPDF の版は記録できていない。** `validate_conformance` の応答は
- * エンジン名と実行パスは返すが版を返さない。レポートにも書けないので、
- * 「どの版で測ったか」は今のところ追えない（pdf-verify-mcp 側の課題）。
+ * veraPDF の版は lock の `tooling.verapdf` から来る。`validate_conformance` が
+ * 応答に載せるようになったので（pdf-verify-mcp 0.15.1）、判定を出したビルドが
+ * そのまま記録される —— **実行パスは版の代わりにならない**（実測: Homebrew の
+ * 置き場が `1.30.2` で veraPDF 自身が `1.30.0`）。
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -77,7 +78,7 @@ const report = `# 適合レポート
 | writer の版 | ${lock.writerVersion} |
 | 採取 | ${lock.capturedAt} |
 | 構造の読み手 | qpdf ${lock.tooling?.qpdf ?? '—'} |
-| 適合の判定 | veraPDF（版は記録できていない —— 下記） |
+| 適合の判定 | ${lock.tooling?.verapdf ? `veraPDF ${lock.tooling.verapdf}` : 'veraPDF（版が記録されていない採取）'} |
 
 ## 適合宣言（veraPDF）
 
@@ -93,13 +94,12 @@ ${signatures.join('\n')}
 
 ## この表が答えないこと
 
-- **veraPDF の版**。\`validate_conformance\` の応答はエンジン名と実行パスを返すが
-  版を返さないので、「どの版で測ったか」を記録できていない
 - **機械が判定できない事柄**。veraPDF 自身が
   「代替テキストと読み上げ順が意味として適切かは機械には判定できない」と注記する。
   PDF/UA-1 が 106/106 でも、人の確認は要る
 - **測っていない軸**。\`npm run oracle\` は「1 形しか無い軸」を毎回報告する。
   そこに挙がっている軸は、比較の相手が無いという意味で測れていない
+  （2026-08-18 時点では 0 件）
 `;
 
 if (process.argv.includes('--check')) {

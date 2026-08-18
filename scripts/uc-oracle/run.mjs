@@ -193,6 +193,8 @@ function substitute(value, ctx) {
 // ---------------------------------------------------------------- 採取
 
 async function capture() {
+  /** 判定を出した veraPDF の版。--verify を付けた実行でだけ入る */
+  let verapdfVersion = null;
   const work = KEEP ?? mkdtempSync(join(tmpdir(), 'uc-oracle-'));
   mkdirSync(work, { recursive: true });
   const csv = join(work, 'invoice.csv');
@@ -283,6 +285,11 @@ async function capture() {
             flavour: v.flavour,
             response_format: 'json',
           });
+          // 判定を出したビルドを控える。規則の数は**同じビルドの実行どうしでしか
+          // 比べられない**ので、採取の身元として lock に残す（qpdf の版と同じ扱い）
+          if (r.authoritativeValidation?.version) {
+            verapdfVersion = r.authoritativeValidation.version;
+          }
           record.verify.push(
             r.isError === true || r.engine !== 'verapdf'
               ? { flavour: v.flavour, status: 'undecided', engine: r.engine ?? 'error' }
@@ -341,7 +348,7 @@ async function capture() {
   verify?.child.kill();
   if (KEEP === null) rmSync(work, { recursive: true, force: true });
 
-  return { writerVersion, records };
+  return { writerVersion, records, verapdfVersion };
 }
 
 function qpdfCheck(path) {
@@ -494,7 +501,7 @@ function readGolden(id) {
 try {
   const identity = qpdfIdentity(QPDF);
   console.log(`# UC 差分オラクル（qpdf ${identity.qpdf}${WITH_VERIFY ? ' + verify' : ''}）`);
-  const { writerVersion, records } = await capture();
+  const { writerVersion, records, verapdfVersion } = await capture();
 
   const counts = { measured: 0, unavailable: 0, failed: 0, structureUnreadable: 0 };
   for (const r of Object.values(records)) {
@@ -554,7 +561,7 @@ try {
       // 2026-08-13 と記録された）。測った時刻は基準の身元なので丸めない
       capturedAt: new Date().toISOString(),
       writerVersion,
-      tooling: identity,
+      tooling: { ...identity, ...(verapdfVersion ? { verapdf: verapdfVersion } : {}) },
       verifyRan: WITH_VERIFY,
       counts,
       axisCoverage: coverage,
@@ -574,6 +581,12 @@ try {
     console.warn(
       `! qpdf の版が違う（採取 ${lock.tooling?.qpdf} / 今 ${identity.qpdf}）— ` +
         '差が実装のものか読み手のものか切り分けられない',
+    );
+  }
+  if (verapdfVersion !== null && lock.tooling?.verapdf && lock.tooling.verapdf !== verapdfVersion) {
+    console.warn(
+      `! veraPDF の版が違う（採取 ${lock.tooling.verapdf} / 今 ${verapdfVersion}）— ` +
+        '規則の数は同じビルドの実行どうしでしか比べられない',
     );
   }
   if (lock.verifyRan === true && !WITH_VERIFY) {
