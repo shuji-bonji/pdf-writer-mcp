@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | writer の版 | 0.19.0 |
-| 採取 | 2026-08-18T08:51:44.400Z |
+| 採取 | 2026-08-18T10:35:51.402Z |
 | 構造の読み手 | qpdf 12.4.0 |
 | 適合の判定 | veraPDF（版は記録できていない —— 下記） |
 
@@ -20,6 +20,7 @@
 | `conformance-attach-pdfa3b` | pdfa-3b | **COMPLIANT** | 146 / 146 | — |  |
 | `conformance-attach-pdfa4f` | pdfa-4f | **COMPLIANT** | 109 / 109 | — |  |
 | `conformance-attach-pdfa4-bare` | pdfa-4 | **NON-COMPLIANT** | 108 / 109 | ISO 19005-4:2020 6.9-3 | 意図した不適合（検知できることを測る検体） |
+| `conformance-pdfa4` | pdfa-4 | **COMPLIANT** | 109 / 109 | — |  |
 | `conformance-ensure-tagged-ua1` | pdfua-1 | **COMPLIANT** | 106 / 106 | — |  |
 | `conformance-tagged-ua1` | pdfua-1 | **COMPLIANT** | 106 / 106 | — |  |
 
