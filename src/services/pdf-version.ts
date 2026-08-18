@@ -34,7 +34,6 @@
  *   （pdf-lib の `PDFHeader#copyBytesInto` が `%` + 0x81×4 を書くので満たされる）
  */
 
-
 export const PDF_VERSIONS = ['1.7', '2.0'] as const;
 export type PdfVersion = (typeof PDF_VERSIONS)[number];
 

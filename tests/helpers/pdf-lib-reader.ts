@@ -21,9 +21,9 @@ import {
   PDFName,
   PDFOptionList,
   PDFRadioGroup,
+  PDFRawStream,
   PDFSignature,
   PDFTextField,
-  PDFRawStream,
 } from 'pdf-lib';
 
 /** タグ付き PDF か（§14.7.1: `/StructTreeRoot` と `/MarkInfo /Marked true`） */

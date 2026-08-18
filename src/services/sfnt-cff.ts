@@ -265,4 +265,3 @@ function refreshSfntChecksums(font: Uint8Array): void {
     view.setUint32(headOffset + 8, adjustment);
   }
 }
-

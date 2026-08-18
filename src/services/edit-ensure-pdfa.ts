@@ -23,8 +23,12 @@ import { openForEdit } from './edit-open.js';
 import { findNonEmbeddedFonts } from './font-read.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
-import { PDFA4_REV } from './pdfa-cos.js';
-import { hasPdfaDeclaration, normalizePdfaConformance, stripInfoForPdfa4 } from './pdfa-cos.js';
+import {
+  hasPdfaDeclaration,
+  normalizePdfaConformance,
+  PDFA4_REV,
+  stripInfoForPdfa4,
+} from './pdfa-cos.js';
 import { declarePdfa } from './xmp-cos.js';
 
 export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult> {

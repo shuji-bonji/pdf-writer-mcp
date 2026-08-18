@@ -26,7 +26,7 @@ import {
   PDFArray,
   PDFDict,
   PDFDocument,
-  PDFHexString,
+  type PDFHexString,
   PDFName,
   PDFRawStream,
 } from 'pdf-lib';
@@ -34,11 +34,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { attachFileToPdf } from '../src/services/edit-attach.js';
 import { ensurePdfa } from '../src/services/edit-ensure-pdfa.js';
 import { openForEdit } from '../src/services/edit-open.js';
- import { saveOpened } from '../src/services/output-edited.js';
+import { saveOpened } from '../src/services/output-edited.js';
 import { ensureFileIdentifier, ensureSrgbOutputIntent } from '../src/services/pdfa-cos.js';
-import { hasPdfaDeclaration } from './helpers/pdf-lib-reader.js';
 import { buildSrgbIccProfile, SRGB_CONDITION_IDENTIFIER } from '../src/services/srgb-icc.js';
 import { handleCreateTextPdf } from '../src/tools/handlers.js';
+import { hasPdfaDeclaration } from './helpers/pdf-lib-reader.js';
 
 let dir: string;
 
