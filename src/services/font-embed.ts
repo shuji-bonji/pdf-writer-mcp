@@ -26,7 +26,16 @@ import { logger } from '../utils/logger.js';
 import { arr, dict, hex, int, name, num, stream } from './cos.js';
 import { makeSubsetCharsetIdentity } from './font-conformance.js';
 import type { TextMetrics } from './metrics.js';
-import type { WriterDocument } from './writer-doc.js';
+/**
+ * このモジュールが文書に求めるのは「**同期に番号を配れること**」だけである。
+ *
+ * 生成パスの `WriterDocument` は自前の採番器でこれを満たす。編集パス（開いた文書）は
+ * `PdfDocumentEditor.allocate` が非同期なので、**番号を先に確保した池**で満たす
+ * （`font-pool.ts`）。型をここまで狭めておくと、器の違いがこのファイルに漏れない。
+ */
+export interface FontHost {
+  allocate(object: CosObject): CosRef;
+}
 
 /**
  * 文書に載ったフォント。**描画に必要なものと測定に必要なものが 1 つに揃っている。**
@@ -52,7 +61,7 @@ export interface WriterFont extends TextMetrics {
  * `/Encoding /WinAnsiEncoding` を明示するのは Table 109 の Encoding が Optional
  * だからで、省くとフォント固有の組み込み符号化になり、同じバイトが違う字を指す。
  */
-export function embedStandardFont(doc: WriterDocument, postScriptName: string): WriterFont {
+export function embedStandardFont(doc: FontHost, postScriptName: string): WriterFont {
   const afm = AfmFont.load(postScriptName as FontNames);
   const ref = doc.allocate(
     dict([
@@ -118,7 +127,7 @@ const scaledWidth = scaled;
  * `sniffFontProgram` の結果から決める —— **呼び出し側は名指しできない**（W-2 の再発防止）。
  */
 export function embedFontProgram(
-  doc: WriterDocument,
+  doc: FontHost,
   programBytes: Uint8Array,
   displayName: string,
 ): { font: WriterFont; notes: readonly string[] } {
@@ -237,7 +246,7 @@ export function embedFontProgram(
  * （GSUB の字形置換が起きると、描画に使う GID と cmap 由来の GID が食い違って
  * 数字が化ける）。片方だけ変えると抽出が静かに壊れる。
  */
-function buildToUnicode(doc: WriterDocument, fk: ReturnType<typeof fontkit.create>): CosRef {
+function buildToUnicode(doc: FontHost, fk: ReturnType<typeof fontkit.create>): CosRef {
   const mapping = new Map<number, number[]>();
   for (const codePoint of fk.characterSet) {
     let gid: number;

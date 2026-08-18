@@ -23,8 +23,12 @@ import { FONT_MAGIC } from '../constants.js';
 import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
-import { embedFontProgram, embedStandardFont, type WriterFont } from './font-embed.js';
-import type { WriterDocument } from './writer-doc.js';
+import {
+  embedFontProgram,
+  embedStandardFont,
+  type FontHost,
+  type WriterFont,
+} from './font-embed.js';
 
 /** 埋め込み前のフォント情報（グリフ照会に使う） */
 export interface FontSource {
@@ -121,7 +125,7 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
  * @param texts 描画予定の全テキスト（グリフ欠落ポリシー適用後のもの）
  */
 export async function embedFontFor(
-  doc: WriterDocument,
+  doc: FontHost,
   source: FontSource,
   texts: string[],
 ): Promise<LoadedFont> {
