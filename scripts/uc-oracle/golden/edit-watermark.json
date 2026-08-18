@@ -85,7 +85,7 @@
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 24 TL 1 0 0 1 56 771.49 Tm <str:26> Tj T* ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 24 TL 1 0 0 1 56 743.49 Tm <str:66> Tj T* ET Q EMC"
+      "ops": "/H1 <str:10> BDC q BT 0 0 0 rg /Font#0 18 Tf 1 0 0 1 56 771.49 Tm <str:26> Tj ET Q EMC /P <str:10> BDC q BT 0.1 0.1 0.1 rg /Font#0 11 Tf 1 0 0 1 56 743.49 Tm <str:66> Tj ET Q EMC"
      }
     }
    ],
