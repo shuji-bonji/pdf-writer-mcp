@@ -34,15 +34,20 @@ import type { Rgb } from './color.js';
 import { arr, dict, int, name, num, rect, stream } from './cos.js';
 import type { WriterFont } from './font-embed.js';
 
-/** `drawText` の引数。**旧実装（pdf-lib の `PDFPage.drawText`）と同じ形にしてある** */
+/**
+ * `drawText` の引数。
+ *
+ * ⚠️ **`lineHeight` は持たない。** 旧実装（pdf-lib の `PDFPage.drawText`）に合わせて
+ * `TL`（行送り）を受け取っていたが、行送りを使うのは `T*` / `'` / `"` だけで、
+ * この writer はそれらを出さない —— 行の位置は `layout.ts` が数え、
+ * 1 行ごとに `Tm` の平行移動で置く。渡す相手が居ない引数だった。
+ */
 export interface DrawTextArgs {
   x: number;
   y: number;
   size: number;
   font: WriterFont;
   color: Rgb;
-  /** `TL` に書く行送り。旧実装は既定 24 を常に書いていたので、既定値もそれに合わせる */
-  lineHeight?: number;
 }
 
 export interface DrawRectangleArgs {
@@ -119,12 +124,17 @@ export class WriterPage {
   // ------------------------------------------------------------------ 描画
 
   /**
-   * §9.4 のテキストオブジェクト 1 つ。
+   * §9.4 のテキストオブジェクト 1 つ（`q BT rg Tf Tm Tj ET Q`）。
    *
-   * 演算子の並びは旧実装と同じにしてある（`q BT rg Tf TL Tm Tj T* ET Q`）。
-   * 意味の無い並びを真似しているのではなく、**この並びがそのまま §9.4.1 の
-   * 「BT で始まり ET で終わる」形**だからで、差分オラクルの読みやすさは副産物である。
-   * 文脈検査は `ContentStreamBuilder` が持つので、`Tj` を `BT` の外に書くことはできない。
+   * §9.4.1 の「BT で始まり ET で終わる」形である。文脈検査は
+   * `ContentStreamBuilder` が持つので、`Tj` を `BT` の外に書くことはできない。
+   *
+   * 🔴 **`TL` と `T*` は書かない。** 旧実装（pdf-lib）は 1 行の描画でも
+   * `24 TL` を置き、`Tj` の後に `T*` を出していた。Table 105 は
+   * 「`BT` は Tm と Tlm を単位行列に初期化する」「`ET` はテキスト行列を捨てる」と言い、
+   * §9.4.1 は「Tm / Tlm はテキストオブジェクトをまたいで持続しない」と言う。
+   * つまり `ET` の直前の `T*` が動かすものは、その `ET` が捨てる ——
+   * **何も変えない演算子**である。`drawRectangle` の単位行列の `cm` と同じ理由で書かない。
    */
   drawText(text: string, options: DrawTextArgs): void {
     const key = this.fontResource(options.font);
@@ -133,10 +143,8 @@ export class WriterPage {
     c.op('BT');
     c.op('rg', num(options.color.r), num(options.color.g), num(options.color.b));
     c.op('Tf', name(key), num(options.size));
-    c.op('TL', num(options.lineHeight ?? DEFAULT_LEADING));
     c.op('Tm', int(1), int(0), int(0), int(1), num(options.x), num(options.y));
     c.op('Tj', options.font.encode(text));
-    c.op('T*');
     c.op('ET');
     c.op('Q');
   }
@@ -188,9 +196,6 @@ export class WriterPage {
     return this.#fonts;
   }
 }
-
-/** 旧実装が `TL` に常に書いていた値。§9.3.5 の行送りで、既定が無いので明示する */
-const DEFAULT_LEADING = 24;
 
 export class WriterDocument {
   readonly editor: PdfDocumentEditor;
