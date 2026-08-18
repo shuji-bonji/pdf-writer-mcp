@@ -7,9 +7,9 @@
  * 🔴 **DocMDP は `'content'`。** ページ内容への描画追記は §12.8.2.2 Table 257 の
  * 許可種別に無いので、認証署名のある文書では**どの許可レベルでも断る**。
  *
- * **測定は触っていない。** `watermark.ts` / `page-number.ts` は `TextMetrics` で
- * 抽象化済みだったので、位置の計算（`centeredOrigin` / 回転の考慮）はそのまま使う。
- * 変えたのは描画の器だけである。
+ * **測定は触っていない。** 位置の計算は `watermark.ts` の `centeredOrigin` と
+ * `page-number.ts` の `computePosition` を**そのまま呼ぶ**。変えたのは描画の器だけである。
+ * （両ファイルは pdf-lib の `drawText` を呼ぶ部分を落として、計算だけになった。）
  */
 
 import { COS_NULL, type PageEntry, type PdfDocumentEditor } from 'normativepdf';
@@ -17,7 +17,6 @@ import { STAMP_DEFAULTS, WATERMARK_DEFAULTS } from '../constants.js';
 import type {
   AddWatermarkArgs,
   StampPageNumbersArgs,
-  StampPosition,
   StampResult,
   WatermarkResult,
 } from '../types/index.js';
@@ -31,7 +30,7 @@ import { EMBEDDED_FONT_OBJECTS, fontHostFor, STANDARD_FONT_OBJECTS } from './fon
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
 import { drawTextOnPage } from './page-draw.js';
-import { formatPageNumber } from './page-number.js';
+import { computePosition, formatPageNumber } from './page-number.js';
 import { assertRenderable } from './renderers/text.js';
 import { isTaggedDoc } from './tagged-cos.js';
 import { centeredOrigin } from './watermark.js';
@@ -63,43 +62,6 @@ async function pageBox(
     height: Math.abs(y2 - y1),
     rotation: ((angle % 360) + 360) % 360,
   };
-}
-
-/** ページ番号の配置（`page-number.ts` の `computePosition` と同じ規則） */
-function stampPosition(
-  size: { width: number; height: number; rotation: number },
-  position: StampPosition,
-  textWidth: number,
-  fontSize: number,
-  margin: number,
-): { x: number; y: number } {
-  const { width, height, rotation } = size;
-  // 回転している場合、ユーザから見た幅・高さは入れ替わる
-  const swapped = rotation === 90 || rotation === 270;
-  const visualWidth = swapped ? height : width;
-  const visualHeight = swapped ? width : height;
-
-  const isRight = position.endsWith('right');
-  const isCenter = position.endsWith('center');
-  const isBottom = position.startsWith('bottom');
-
-  const vx = isRight
-    ? visualWidth - margin - textWidth
-    : isCenter
-      ? (visualWidth - textWidth) / 2
-      : margin;
-  const vy = isBottom ? margin : visualHeight - margin - fontSize;
-
-  switch (rotation) {
-    case 90:
-      return { x: vy, y: height - vx - textWidth };
-    case 180:
-      return { x: width - vx - textWidth, y: height - vy - fontSize };
-    case 270:
-      return { x: width - vy - fontSize, y: vx };
-    default:
-      return { x: vx, y: vy };
-  }
 }
 
 export async function addWatermark(args: AddWatermarkArgs): Promise<WatermarkResult> {
@@ -186,7 +148,7 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
     const text = applied.texts[i] as string;
     const size = await pageBox(opened.editor, pageNo - 1);
     const width = loaded.font.widthOfTextAtSize(text, fontSize);
-    const { x, y } = stampPosition(size, position, width, fontSize, margin);
+    const { x, y } = computePosition(size, position, width, fontSize, margin);
     await drawTextOnPage(
       opened.editor,
       pages[pageNo - 1] as PageEntry,

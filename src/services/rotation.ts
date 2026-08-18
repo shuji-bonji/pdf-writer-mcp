@@ -4,15 +4,14 @@
  * 色（`color.ts`）と同じ形の作業である。角度は PDF の意味を持たない数値で、
  * `/Rotate`（§7.7.3.3 Table 31）は「90 の倍数の整数」としか言っていない。
  * それを pdf-lib の `degrees()` で包んでいたために、`page-ops` / `page-number` /
- * `watermark` の 3 ファイルが pdf-lib を import していた。
+ * `watermark` の 3 ファイルが pdf-lib を import していた。**その 3 本は移し終えた**ので、
+ * 変換関数（`toPdfLibRotation`）は消し、このファイルから pdf-lib の import も消えた。
  *
  * **値は素の数値のままにする。** 独自の型を作らないのは、包む理由が
  * 「pdf-lib がそう要求するから」しかないため — その要求は撤去とともに消える。
  * 変換は描画境界（この関数）1 つに閉じ、生成パスを normativepdf に載せ替えたら
  * 中身が「`/Rotate` を書く」「`cm` 行列を書く」に変わる。
  */
-
-import { degrees } from 'pdf-lib';
 
 /**
  * `/Rotate` に書ける形へ正規化する。
@@ -26,12 +25,4 @@ export function normalizeRotation(angle: number): number {
     throw new RangeError(`/Rotate shall be a multiple of 90 (§7.7.3.3, Table 31); got ${angle}`);
   }
   return ((angle % 360) + 360) % 360;
-}
-
-/**
- * 描画境界。**pdf-lib の回転オブジェクトを要るのはここだけ。**
- * `page.setRotation` と `drawText({ rotate })` に渡す形を作る。
- */
-export function toPdfLibRotation(angle: number) {
-  return degrees(angle);
 }

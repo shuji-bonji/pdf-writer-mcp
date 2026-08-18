@@ -1,24 +1,17 @@
 /**
- * Page numbers (stamping)
+ * ページ番号の書式と配置 —— 計算だけを持つ。
  *
- * 既存 PDF の各ページにページ番号を刻む。
+ * 描画そのものは `page-draw.ts`（COS）にある。pdf-lib にも normativepdf にも依存しない。
  *
- * 設計の要点:
- *   - **Artifact**: ページ番号は本文の意味を持たない装飾なので、タグ付き PDF では
- *     `/Artifact BMC ... EMC` で囲む（PDF/UA-1 7.1-3）。囲まないと「タグ付けされていない
- *     コンテンツ」として準拠が壊れる。タグ無し PDF では素のまま描く。
- *   - **フォント**: 編集系で唯一フォントを要する。create 系と同じ font-manager を通し、
- *     harfbuzz サブセット（ADR-7/8）とグリフ検査の恩恵をそのまま受ける。
- *   - **回転**: ページが /Rotate を持つ場合、見た目の「右下」は座標系上の別の隅になる。
- *     ページの回転角に応じて配置を補正する。
+ * **回転**: ページが `/Rotate` を持つ場合、見た目の「右下」は座標系上の別の隅になる。
+ * ページの回転角に応じて配置を補正する。
+ *
+ * `stampPage` / `StampOptions` は消した（pdf-lib の `drawText` を呼ぶ関数だった）。
+ * `computePosition` は `PDFPage` ではなく素の寸法を取る形にして、
+ * `edit-stamp.ts` から**同じ関数**を呼べるようにした（§3.28 では複製していた）。
  */
 
-import type { PDFFont, PDFPage } from 'pdf-lib';
 import type { StampPosition } from '../types/index.js';
-import type { Rgb } from './color.js';
-import { toPdfLibColor } from './color-pdflib.js';
-import type { TextMetrics } from './metrics.js';
-import { toPdfLibRotation } from './rotation.js';
 
 /** ページ番号テキストの書式を展開する */
 export function formatPageNumber(template: string, pageNumber: number, total: number): string {
@@ -30,19 +23,26 @@ export interface StampLayout {
   y: number;
 }
 
+/** 配置の計算に要るページの寸法。`rotation` は 0 / 90 / 180 / 270 に畳んだ値 */
+export interface PageBox {
+  width: number;
+  height: number;
+  rotation: number;
+}
+
 /**
  * 配置を計算する。
- * ページの回転（/Rotate）を考慮し、「見た目の」指定位置に来るようにする。
+ * ページの回転（`/Rotate`）を考慮し、「見た目の」指定位置に来るようにする。
  */
 export function computePosition(
-  page: PDFPage,
+  page: PageBox,
   position: StampPosition,
   textWidth: number,
   fontSize: number,
   margin: number,
 ): StampLayout {
-  const { width, height } = page.getSize();
-  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+  const { width, height } = page;
+  const rotation = ((page.rotation % 360) + 360) % 360;
 
   // 回転している場合、ユーザから見た幅・高さは入れ替わる
   const swapped = rotation === 90 || rotation === 270;
@@ -70,44 +70,5 @@ export function computePosition(
       return { x: width - vy - fontSize, y: vx };
     default:
       return { x: vx, y: vy };
-  }
-}
-
-export interface StampOptions {
-  font: PDFFont;
-  fontSize: number;
-  /** 描画色（`rgbFromHex` で解いたもの） */
-  color: Rgb;
-  position: StampPosition;
-  margin: number;
-  /** タグ付き PDF なら Artifact で囲むためのコールバック */
-  markArtifact?: (page: PDFPage, draw: () => void) => void;
-}
-
-/** 1 ページにページ番号を描く */
-export function stampPage(page: PDFPage, text: string, options: StampOptions): void {
-  const { font, fontSize, color, position, margin } = options;
-  // 測定は TextMetrics 経由（metrics.ts）。描画の font とは経路を分ける
-  const metrics: TextMetrics = font;
-  const textWidth = metrics.widthOfTextAtSize(text, fontSize);
-  const { x, y } = computePosition(page, position, textWidth, fontSize, margin);
-  const rotation = ((page.getRotation().angle % 360) + 360) % 360;
-
-  const draw = (): void => {
-    page.drawText(text, {
-      x,
-      y,
-      size: fontSize,
-      font,
-      color: toPdfLibColor(color),
-      // ページの回転に合わせて文字も回す（回転ページで横倒しにならないように）
-      rotate: toPdfLibRotation(rotation),
-    });
-  };
-
-  if (options.markArtifact) {
-    options.markArtifact(page, draw);
-  } else {
-    draw();
   }
 }

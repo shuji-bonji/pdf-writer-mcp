@@ -97,25 +97,19 @@ describe('formatPageNumber', () => {
 });
 
 describe('computePosition', () => {
-  const page = { getSize: () => ({ width: 400, height: 600 }), getRotation: () => ({ angle: 0 }) };
+  const page = { width: 400, height: 600, rotation: 0 };
 
   it('places the text at each corner', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: 最小限のページスタブで足りる
-    const p = page as any;
-    expect(computePosition(p, 'bottom-left', 30, 9, 24)).toEqual({ x: 24, y: 24 });
-    expect(computePosition(p, 'bottom-right', 30, 9, 24)).toEqual({ x: 400 - 24 - 30, y: 24 });
-    expect(computePosition(p, 'bottom-center', 30, 9, 24)).toEqual({ x: (400 - 30) / 2, y: 24 });
-    expect(computePosition(p, 'top-left', 30, 9, 24)).toEqual({ x: 24, y: 600 - 24 - 9 });
+    expect(computePosition(page, 'bottom-left', 30, 9, 24)).toEqual({ x: 24, y: 24 });
+    expect(computePosition(page, 'bottom-right', 30, 9, 24)).toEqual({ x: 400 - 24 - 30, y: 24 });
+    expect(computePosition(page, 'bottom-center', 30, 9, 24)).toEqual({ x: (400 - 30) / 2, y: 24 });
+    expect(computePosition(page, 'top-left', 30, 9, 24)).toEqual({ x: 24, y: 600 - 24 - 9 });
   });
 
   it('compensates for page rotation so the position stays visually correct', () => {
     // 90 度回転したページでは、見た目の幅・高さが入れ替わる
-    const rotated = {
-      getSize: () => ({ width: 400, height: 600 }),
-      getRotation: () => ({ angle: 90 }),
-      // biome-ignore lint/suspicious/noExplicitAny: 同上
-    } as any;
-    const upright = computePosition(page as never, 'bottom-left', 30, 9, 24);
+    const rotated = { width: 400, height: 600, rotation: 90 };
+    const upright = computePosition(page, 'bottom-left', 30, 9, 24);
     const turned = computePosition(rotated, 'bottom-left', 30, 9, 24);
     // 回転ページでは座標が変わる（素朴に同じ座標を使うと隅からずれる）
     expect(turned).not.toEqual(upright);
