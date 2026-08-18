@@ -42,71 +42,6 @@
       },
       "/S": "/P",
       "/Type": "/StructElem"
-     },
-     {
-      "/K": {
-       "/Pg": {
-        "@page": 0
-       },
-       "/Type": "/OBJR"
-      },
-      "/Pg": {
-       "@page": 0
-      },
-      "/S": "/Form",
-      "/Type": "/StructElem"
-     },
-     {
-      "/K": {
-       "/Pg": {
-        "@page": 0
-       },
-       "/Type": "/OBJR"
-      },
-      "/Pg": {
-       "@page": 0
-      },
-      "/S": "/Form",
-      "/Type": "/StructElem"
-     },
-     {
-      "/K": {
-       "/Pg": {
-        "@page": 0
-       },
-       "/Type": "/OBJR"
-      },
-      "/Pg": {
-       "@page": 0
-      },
-      "/S": "/Form",
-      "/Type": "/StructElem"
-     },
-     {
-      "/K": {
-       "/Pg": {
-        "@page": 0
-       },
-       "/Type": "/OBJR"
-      },
-      "/Pg": {
-       "@page": 0
-      },
-      "/S": "/Form",
-      "/Type": "/StructElem"
-     },
-     {
-      "/K": {
-       "/Pg": {
-        "@page": 0
-       },
-       "/Type": "/OBJR"
-      },
-      "/Pg": {
-       "@page": 0
-      },
-      "/S": "/Form",
-      "/Type": "/StructElem"
      }
     ],
     "/S": "/Document",
@@ -114,9 +49,8 @@
    },
    "/ParentTree": {
     "@numtree": {
-     "entries": 6,
+     "entries": 1,
      "targets": {
-      "/Form": 5,
       "?": 1
      }
     }
@@ -131,15 +65,7 @@
  },
  "pages": [
   {
-   "/Annots": [],
    "/Contents": [
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "q"
-     }
-    },
     {
      "@stream": {
       "basis": "filtered",
@@ -158,14 +84,7 @@
      "@stream": {
       "basis": "filtered",
       "kind": "content",
-      "ops": "Q"
-     }
-    },
-    {
-     "@stream": {
-      "basis": "filtered",
-      "kind": "content",
-      "ops": "q 1 0 0 1 49.5 199.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#4 Do Q q 1 0 0 1 49.5 149.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#2 Do Q q 1 0 0 1 49.5 99.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#0 Do Q q 1 0 0 1 49.5 59.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#3 Do Q q 1 0 0 1 79.5 59.5 cm 1 0 0 1 0 0 cm 1 0 0 1 0 0 cm /XObject#1 Do Q"
+      "ops": "q 1 0 0 1 49.5 199.5 cm /XObject#4 Do Q q 1 0 0 1 49.5 149.5 cm /XObject#1 Do Q q 1 0 0 1 49.5 99.5 cm /XObject#0 Do Q q 1 0 0 1 49.5 59.5 cm /XObject#2 Do Q q 1 0 0 1 79.5 59.5 cm /XObject#3 Do Q"
      }
     }
    ],
@@ -179,40 +98,6 @@
     "/ExtGState": {},
     "/Font": {},
     "/XObject": {
-     "/XObject#0": {
-      "/BBox": [
-       0,
-       0,
-       121,
-       25
-      ],
-      "/Matrix": [
-       1,
-       0,
-       0,
-       1,
-       0,
-       0
-      ],
-      "/Resources": {
-       "/Font": {
-        "/Font#0": {
-         "/BaseFont": "/Font#0",
-         "/Encoding": "/WinAnsiEncoding",
-         "/Subtype": "/Type1",
-         "/Type": "/Font"
-        }
-       }
-      },
-      "/Subtype": "/Form",
-      "/Type": "/XObject",
-      "@stream": {
-       "basis": "filtered",
-       "kind": "binary",
-       "bytes": 269,
-       "sha256": "8fb25466b461b78f"
-      }
-     },
      "/XObject#4": {
       "/BBox": [
        0,
@@ -235,6 +120,73 @@
          "/Encoding": "/WinAnsiEncoding",
          "/Subtype": "/Type1",
          "/Type": "/Font"
+        },
+        "/Font#1": {
+         "/BaseFont": "/LOVLSF+NotoSansJP-Regular",
+         "/DescendantFonts": [
+          {
+           "/BaseFont": "/LOVLSF+NotoSansJP-Regular",
+           "/CIDSystemInfo": {
+            "/Ordering": "Identity",
+            "/Registry": "Adobe",
+            "/Supplement": 0
+           },
+           "/FontDescriptor": {
+            "/Ascent": 1160,
+            "/CapHeight": 733,
+            "/Descent": -288,
+            "/Flags": 4,
+            "/FontBBox": [
+             -1002,
+             -1048,
+             2928,
+             1808
+            ],
+            "/FontFile3": {
+             "/Subtype": "/OpenType",
+             "@stream": {
+              "basis": "filtered",
+              "kind": "binary",
+              "bytes": 3076,
+              "sha256": "32bf9ebb9cb0fa79"
+             }
+            },
+            "/FontName": "/LOVLSF+NotoSansJP-Regular",
+            "/ItalicAngle": 0,
+            "/StemV": 0,
+            "/Type": "/FontDescriptor",
+            "/XHeight": 543
+           },
+           "/Subtype": "/CIDFontType0",
+           "/Type": "/Font",
+           "/W": [
+            0,
+            [
+             1000,
+             657,
+             633,
+             599,
+             563,
+             510,
+             275,
+             606,
+             388,
+             468
+            ]
+           ]
+          }
+         ],
+         "/Encoding": "/Identity-H",
+         "/Subtype": "/Type0",
+         "/ToUnicode": {
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 450,
+           "sha256": "1815acd8f57a9ef5"
+          }
+         },
+         "/Type": "/Font"
         }
        }
       },
@@ -243,8 +195,8 @@
       "@stream": {
        "basis": "filtered",
        "kind": "binary",
-       "bytes": 267,
-       "sha256": "f0f77da2ec516f8a"
+       "bytes": 302,
+       "sha256": "e3fec266ac1a6e8a"
       }
      },
      "/XObject#1": {
@@ -267,8 +219,109 @@
       "@stream": {
        "basis": "filtered",
        "kind": "binary",
-       "bytes": 305,
-       "sha256": "acf815666cf5db99"
+       "bytes": 144,
+       "sha256": "31e0d341743e573e"
+      }
+     },
+     "/XObject#0": {
+      "/BBox": [
+       0,
+       0,
+       121,
+       25
+      ],
+      "/Matrix": [
+       1,
+       0,
+       0,
+       1,
+       0,
+       0
+      ],
+      "/Resources": {
+       "/Font": {
+        "/Font#0": {
+         "/BaseFont": "/Font#0",
+         "/Encoding": "/WinAnsiEncoding",
+         "/Subtype": "/Type1",
+         "/Type": "/Font"
+        },
+        "/Font#1": {
+         "/BaseFont": "/LOVLSF+NotoSansJP-Regular",
+         "/DescendantFonts": [
+          {
+           "/BaseFont": "/LOVLSF+NotoSansJP-Regular",
+           "/CIDSystemInfo": {
+            "/Ordering": "Identity",
+            "/Registry": "Adobe",
+            "/Supplement": 0
+           },
+           "/FontDescriptor": {
+            "/Ascent": 1160,
+            "/CapHeight": 733,
+            "/Descent": -288,
+            "/Flags": 4,
+            "/FontBBox": [
+             -1002,
+             -1048,
+             2928,
+             1808
+            ],
+            "/FontFile3": {
+             "/Subtype": "/OpenType",
+             "@stream": {
+              "basis": "filtered",
+              "kind": "binary",
+              "bytes": 3076,
+              "sha256": "32bf9ebb9cb0fa79"
+             }
+            },
+            "/FontName": "/LOVLSF+NotoSansJP-Regular",
+            "/ItalicAngle": 0,
+            "/StemV": 0,
+            "/Type": "/FontDescriptor",
+            "/XHeight": 543
+           },
+           "/Subtype": "/CIDFontType0",
+           "/Type": "/Font",
+           "/W": [
+            0,
+            [
+             1000,
+             657,
+             633,
+             599,
+             563,
+             510,
+             275,
+             606,
+             388,
+             468
+            ]
+           ]
+          }
+         ],
+         "/Encoding": "/Identity-H",
+         "/Subtype": "/Type0",
+         "/ToUnicode": {
+          "@stream": {
+           "basis": "filtered",
+           "kind": "binary",
+           "bytes": 450,
+           "sha256": "1815acd8f57a9ef5"
+          }
+         },
+         "/Type": "/Font"
+        }
+       }
+      },
+      "/Subtype": "/Form",
+      "/Type": "/XObject",
+      "@stream": {
+       "basis": "filtered",
+       "kind": "binary",
+       "bytes": 306,
+       "sha256": "c92301f797a93141"
       }
      },
      "/XObject#2": {
@@ -291,8 +344,8 @@
       "@stream": {
        "basis": "filtered",
        "kind": "binary",
-       "bytes": 144,
-       "sha256": "31e0d341743e573e"
+       "bytes": 305,
+       "sha256": "acf815666cf5db99"
       }
      },
      "/XObject#3": {
@@ -334,5 +387,5 @@
  "pageCount": 1,
  "encrypted": false,
  "headerVersion": "1.7",
- "objectCount": 54
+ "objectCount": 30
 }

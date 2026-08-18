@@ -1,6 +1,6 @@
 {
  "$comment": "pdf-lib 版 writer の出力を固定したゴールデン。Phase 3（生成パス移行）の A/B の相手。実装変更と同じコミットで更新しない — 基準を動かしながら測ることになる。veraPDF / 署名の判定は --verify を付けたホスト実行でしか入らない（undecided のまま固定しない）。",
- "capturedAt": "2026-08-18T00:39:00.186Z",
+ "capturedAt": "2026-08-18T02:30:29.189Z",
  "writerVersion": "0.19.0",
  "tooling": {
   "qpdf": "12.4.0"
@@ -905,7 +905,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "77c573278b1402610c2051db694243f2f495598cfa2ad2ebc252b426ecae2f37",
+   "sha256": "2ef137d0a1cb4c4379a0189426e155b9288100642c22143b522c214161ebcada",
    "meta": {
     "producer": "uc-oracle frozen input",
     "creator": "uc-oracle frozen input"
@@ -1009,7 +1009,7 @@
    "structure": {
     "status": "measured"
    },
-   "sha256": "5ef25b0d675fc0cdf126428af81f585d7b19a721d92d905114eb9e4f597b6d39",
+   "sha256": "c7733ecd6644545443ddd73e7b2c437a04bf76774f20685405e2ad16b6bd8189",
    "meta": {
     "producer": "uc-oracle frozen input",
     "creator": "uc-oracle frozen input"

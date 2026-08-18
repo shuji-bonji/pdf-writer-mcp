@@ -10,10 +10,10 @@
       "/Type": "/Font"
      },
      "/NotoSansJP-Regular": {
-      "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+      "/BaseFont": "/YICAIF+NotoSansJP-Regular",
       "/DescendantFonts": [
        {
-        "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+        "/BaseFont": "/YICAIF+NotoSansJP-Regular",
         "/CIDSystemInfo": {
          "/Ordering": "Identity",
          "/Registry": "Adobe",
@@ -35,11 +35,11 @@
           "@stream": {
            "basis": "filtered",
            "kind": "binary",
-           "bytes": 3624,
-           "sha256": "a0237e80d86e2237"
+           "bytes": 2360,
+           "sha256": "f6d5e6e81e86eea5"
           }
          },
-         "/FontName": "/BNYFRL+NotoSansJP-Regular",
+         "/FontName": "/YICAIF+NotoSansJP-Regular",
          "/ItalicAngle": 0,
          "/StemV": 0,
          "/Type": "/FontDescriptor",
@@ -51,14 +51,6 @@
          0,
          [
           1000,
-          657,
-          633,
-          563,
-          510,
-          275,
-          606,
-          388,
-          468,
           1000,
           1000,
           1000,
@@ -73,8 +65,8 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 511,
-        "sha256": "c626d7bc931481ca"
+        "bytes": 380,
+        "sha256": "9ef80326beb3d62b"
        }
       },
       "/Type": "/Font"
@@ -109,10 +101,16 @@
            "/Resources": {
             "/Font": {
              "/Font#0": {
-              "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+              "/BaseFont": "/Font#0",
+              "/Encoding": "/WinAnsiEncoding",
+              "/Subtype": "/Type1",
+              "/Type": "/Font"
+             },
+             "/Font#1": {
+              "/BaseFont": "/YICAIF+NotoSansJP-Regular",
               "/DescendantFonts": [
                {
-                "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+                "/BaseFont": "/YICAIF+NotoSansJP-Regular",
                 "/CIDSystemInfo": {
                  "/Ordering": "Identity",
                  "/Registry": "Adobe",
@@ -134,11 +132,11 @@
                   "@stream": {
                    "basis": "filtered",
                    "kind": "binary",
-                   "bytes": 3624,
-                   "sha256": "a0237e80d86e2237"
+                   "bytes": 2360,
+                   "sha256": "f6d5e6e81e86eea5"
                   }
                  },
-                 "/FontName": "/BNYFRL+NotoSansJP-Regular",
+                 "/FontName": "/YICAIF+NotoSansJP-Regular",
                  "/ItalicAngle": 0,
                  "/StemV": 0,
                  "/Type": "/FontDescriptor",
@@ -150,14 +148,6 @@
                  0,
                  [
                   1000,
-                  657,
-                  633,
-                  563,
-                  510,
-                  275,
-                  606,
-                  388,
-                  468,
                   1000,
                   1000,
                   1000,
@@ -172,8 +162,8 @@
                "@stream": {
                 "basis": "filtered",
                 "kind": "binary",
-                "bytes": 511,
-                "sha256": "c626d7bc931481ca"
+                "bytes": 380,
+                "sha256": "9ef80326beb3d62b"
                }
               },
               "/Type": "/Font"
@@ -185,8 +175,8 @@
            "@stream": {
             "basis": "filtered",
             "kind": "binary",
-            "bytes": 297,
-            "sha256": "db5b20b792b29a14"
+            "bytes": 302,
+            "sha256": "31698876f52282ac"
            }
           }
          },
@@ -751,10 +741,16 @@
        "/Resources": {
         "/Font": {
          "/Font#0": {
-          "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+          "/BaseFont": "/Font#0",
+          "/Encoding": "/WinAnsiEncoding",
+          "/Subtype": "/Type1",
+          "/Type": "/Font"
+         },
+         "/Font#1": {
+          "/BaseFont": "/YICAIF+NotoSansJP-Regular",
           "/DescendantFonts": [
            {
-            "/BaseFont": "/BNYFRL+NotoSansJP-Regular",
+            "/BaseFont": "/YICAIF+NotoSansJP-Regular",
             "/CIDSystemInfo": {
              "/Ordering": "Identity",
              "/Registry": "Adobe",
@@ -776,11 +772,11 @@
               "@stream": {
                "basis": "filtered",
                "kind": "binary",
-               "bytes": 3624,
-               "sha256": "a0237e80d86e2237"
+               "bytes": 2360,
+               "sha256": "f6d5e6e81e86eea5"
               }
              },
-             "/FontName": "/BNYFRL+NotoSansJP-Regular",
+             "/FontName": "/YICAIF+NotoSansJP-Regular",
              "/ItalicAngle": 0,
              "/StemV": 0,
              "/Type": "/FontDescriptor",
@@ -792,14 +788,6 @@
              0,
              [
               1000,
-              657,
-              633,
-              563,
-              510,
-              275,
-              606,
-              388,
-              468,
               1000,
               1000,
               1000,
@@ -814,8 +802,8 @@
            "@stream": {
             "basis": "filtered",
             "kind": "binary",
-            "bytes": 511,
-            "sha256": "c626d7bc931481ca"
+            "bytes": 380,
+            "sha256": "9ef80326beb3d62b"
            }
           },
           "/Type": "/Font"
@@ -827,8 +815,8 @@
        "@stream": {
         "basis": "filtered",
         "kind": "binary",
-        "bytes": 297,
-        "sha256": "db5b20b792b29a14"
+        "bytes": 302,
+        "sha256": "31698876f52282ac"
        }
       }
      },
@@ -1333,5 +1321,5 @@
  "pageCount": 1,
  "encrypted": false,
  "headerVersion": "1.7",
- "objectCount": 43
+ "objectCount": 41
 }
