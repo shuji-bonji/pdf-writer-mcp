@@ -17,6 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "check:engines": "node scripts/check-engines.mjs",
     "build": "tsc",
     "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json",
     "dev": "tsc -w",
@@ -65,7 +66,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
-    "@types/node": "^26.1.1",
+    "@types/node": "^22.10.0",
     "pdf-lib": "^1.17.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
