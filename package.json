@@ -18,6 +18,7 @@
   },
   "scripts": {
     "check:engines": "node scripts/check-engines.mjs",
+    "check:public-types": "node scripts/check-public-types.mjs",
     "build": "tsc",
     "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json",
     "dev": "tsc -w",

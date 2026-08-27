@@ -48,3 +48,5 @@ jobs:
           TEST_FONT_PATH: /tmp/NotoSansJP-Regular.otf
       - name: Build
         run: npm run build
+      - name: Check the published types carry no SDK / zod
+        run: npm run check:public-types
