@@ -62,7 +62,7 @@
     "marked": "^18.0.6",
     "normativepdf": "0.6.1",
     "subset-font": "^2.4.0",
-    "zod": "^4.4.3"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
