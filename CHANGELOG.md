@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0] - 2026-08-27
+
+Infrastructure only: no tool gained or lost a capability, and no tool's output
+changed. Three things reach callers — read **Changed** before upgrading.
+
+### Changed
+
+- **MCP SDK v1 → v2** (`@modelcontextprotocol/sdk@^1.29.0` →
+  `@modelcontextprotocol/server@^2.0.0`). One difference reaches callers: a
+  `tools/call` naming a tool this server does not have now comes back as a
+  **JSON-RPC error** (code `-32602`), where v1 returned a tool result with
+  `isError: true`. Client code that only reads `isError` will not see it, and
+  `await client.callTool(...)` throws instead of resolving. Failures of input
+  validation — a missing required argument, a key the schema does not declare —
+  still arrive as `isError: true`.
+- **Arguments the input schema does not declare are now rejected.** All 20
+  tools take a `.strict()` object, so an undeclared key fails the call with
+  `-32602 Unrecognized key`. Until now such a key was silently dropped and the
+  call ran (zod's default for an object is *strip*, not *strict*).
+- **`inputSchema` in `tools/list` changed in two ways, for all 20 tools**:
+  `$schema` is now `https://json-schema.org/draft/2020-12/schema` (was
+  draft-07), and `additionalProperties: false` is now stated (it was absent).
+  `add_bookmarks` additionally moves its recursive bookmark definition from
+  `#/definitions/` to `#/$defs/`, which is where the 2020-12 draft puts it — a
+  client that resolves `$ref` by string match on `#/definitions/` will not find
+  it. Tool names, descriptions and `required` are unchanged — measured tool by
+  tool against 0.20.1 with `scripts/tools-list-snapshot.mjs`, which speaks raw
+  JSON-RPC over stdio rather than using an SDK client.
+- `zod` is declared as `^4.2.0` and `@types/node` as `^22.10.0` (a
+  devDependency) — the versions all four servers in the family now share.
+
+### Added
+
+- `npm run check:public-types` fails if a type from the MCP SDK or from zod
+  appears in the published `.d.ts`. The published surface must not force a
+  consumer onto our versions of those.
+- `npm run check:engines` compares `engines.node` against what the dependency
+  tree asks for, and runs in CI alongside a lockfile check.
+
+### Notes
+
+- `engines.node` is unchanged: `>=20`.
+
 ## [0.20.1] - 2026-08-18
 
 **No code changed between 0.20.0 and 0.20.1.** Use this version rather than 0.20.0.
