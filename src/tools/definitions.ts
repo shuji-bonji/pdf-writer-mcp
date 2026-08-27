@@ -1,7 +1,7 @@
 /**
  * MCP Tool 定義（E-5: McpServer + Zod 移行後のレジストリ）
  *
- * 入力スキーマ（shape）は utils/validation.ts の Zod スキーマから導出する —
+ * 入力スキーマは utils/validation.ts の Zod スキーマをそのまま渡す —
  * 公開スキーマと実行時検証の情報源は一つ。実装は handlers.ts。
  *
  * description は英語が正典（B-21）。日本語はサイト側の翻訳メモリ
@@ -14,28 +14,28 @@
  *   - openWorldHint: ローカルファイルのみを扱うため false
  */
 
-import type { ZodRawShape } from 'zod';
+import type { ZodObject } from 'zod';
 import {
-  addAnnotationShape,
-  addBookmarksShape,
-  addWatermarkShape,
-  attachFileShape,
-  createMarkdownShape,
-  createTableShape,
-  createTextShape,
-  deletePagesShape,
-  ensurePdfaShape,
-  ensureTaggedShape,
-  extractPagesShape,
-  fillFormShape,
-  flattenFormShape,
-  mergePdfsShape,
-  reorderPagesShape,
-  rotatePagesShape,
-  setMetadataShape,
-  splitPdfShape,
-  stampPageNumbersShape,
-  tagFormFieldsShape,
+  AddAnnotationSchema,
+  AddBookmarksSchema,
+  AddWatermarkSchema,
+  AttachFileSchema,
+  CreateMarkdownSchema,
+  CreateTableSchema,
+  CreateTextSchema,
+  DeletePagesSchema,
+  EnsurePdfaSchema,
+  EnsureTaggedSchema,
+  ExtractPagesSchema,
+  FillFormSchema,
+  FlattenFormSchema,
+  MergePdfsSchema,
+  ReorderPagesSchema,
+  RotatePagesSchema,
+  SetMetadataInputSchema,
+  SplitPdfSchema,
+  StampPageNumbersSchema,
+  TagFormFieldsSchema,
 } from '../utils/validation.js';
 
 export interface ToolAnnotations {
@@ -49,7 +49,14 @@ export interface ToolDefinition {
   name: string;
   title: string;
   description: string;
-  shape: ZodRawShape;
+  /**
+   * registerTool に渡す入力スキーマ。
+   *
+   * SDK v2 は raw shape を受け付けない（型が合わず、移行ガイドも非推奨としている）。
+   * ZodObject をそのまま渡す。
+   */
+  // biome-ignore lint/suspicious/noExplicitAny: ツールごとに形が違う ZodObject をまとめて持つ
+  inputSchema: ZodObject<any>;
   annotations: ToolAnnotations;
 }
 
@@ -76,7 +83,7 @@ export const tools: ToolDefinition[] = [
     title: 'Create PDF from Plain Text',
     description:
       'Create a PDF from plain text. Honours line breaks (\\n) and treats blank lines as paragraph breaks. Long lines wrap automatically.',
-    shape: createTextShape,
+    inputSchema: CreateTextSchema,
     annotations: base,
   },
   {
@@ -85,7 +92,7 @@ export const tools: ToolDefinition[] = [
     description:
       'Create a PDF from Markdown. Supports headings, paragraphs, bullet/numbered lists, code blocks, quotes, horizontal rules and tables. ' +
       'Inline decoration markers are stripped and the text rendered plain (single font).',
-    shape: createMarkdownShape,
+    inputSchema: CreateMarkdownSchema,
     annotations: base,
   },
   {
@@ -93,7 +100,7 @@ export const tools: ToolDefinition[] = [
     title: 'Create Table PDF',
     description:
       'Create a ruled table PDF from headers and row data. Column widths are computed from the content, cells wrap, and the header row is redrawn after page breaks.',
-    shape: createTableShape,
+    inputSchema: CreateTableSchema,
     annotations: base,
   },
   {
@@ -104,7 +111,7 @@ export const tools: ToolDefinition[] = [
       'At least one of title / author / subject / keywords / creator is required. ' +
       'In documents with XMP (/Metadata), dc:title etc. are synchronized to prevent divergence. ' +
       'For signed PDFs, preserveSignatures: true updates while keeping the signatures intact.',
-    shape: setMetadataShape,
+    inputSchema: SetMetadataInputSchema,
     annotations: base,
   },
   {
@@ -113,7 +120,7 @@ export const tools: ToolDefinition[] = [
     description:
       'Merge multiple PDFs into one, in the given order. Document metadata is carried over from the first file. ' +
       PAGE_COPY_NOTE,
-    shape: mergePdfsShape,
+    inputSchema: MergePdfsSchema,
     annotations: base,
   },
   {
@@ -123,7 +130,7 @@ export const tools: ToolDefinition[] = [
       'Split a PDF into multiple files by page range. Each element of ranges becomes one file, ' +
       'named "<prefix>1.pdf", "<prefix>2.pdf", and so on. ' +
       PAGE_COPY_NOTE,
-    shape: splitPdfShape,
+    inputSchema: SplitPdfSchema,
     annotations: base,
   },
   {
@@ -132,21 +139,21 @@ export const tools: ToolDefinition[] = [
     description:
       'Create a new PDF containing only the given pages. The given order is preserved, so extraction doubles as reordering. ' +
       PAGE_COPY_NOTE,
-    shape: extractPagesShape,
+    inputSchema: ExtractPagesSchema,
     annotations: base,
   },
   {
     name: 'delete_pages',
     title: 'Delete Pages',
     description: `Create a new PDF with the given pages removed. Deleting every page is an error. ${PAGE_COPY_NOTE}`,
-    shape: deletePagesShape,
+    inputSchema: DeletePagesSchema,
     annotations: { ...base, destructiveHint: true },
   },
   {
     name: 'reorder_pages',
     title: 'Reorder Pages',
     description: `Reorder pages. order must list every page exactly once, in the new order. ${PAGE_COPY_NOTE}`,
-    shape: reorderPagesShape,
+    inputSchema: ReorderPagesSchema,
     annotations: base,
   },
   {
@@ -155,7 +162,7 @@ export const tools: ToolDefinition[] = [
     description:
       'Set the bookmarks (outline) of a PDF. Existing bookmarks are replaced. Nest with children. ' +
       'For signed PDFs, preserveSignatures: true sets them while keeping the signatures intact.',
-    shape: addBookmarksShape,
+    inputSchema: AddBookmarksSchema,
     annotations: base,
   },
   {
@@ -166,7 +173,7 @@ export const tools: ToolDefinition[] = [
       'Coordinates are in PDF space (origin bottom-left, pt). ' +
       'For signed PDFs, preserveSignatures: true appends an incremental update without invalidating existing signatures ' +
       '(in tagged documents the enclosure in an Annot structure element rides the same update, preserving PDF/UA conformance).',
-    shape: addAnnotationShape,
+    inputSchema: AddAnnotationSchema,
     annotations: { ...base, idempotentHint: false },
   },
   {
@@ -175,7 +182,7 @@ export const tools: ToolDefinition[] = [
     description:
       'Stamp a page number on each page. In tagged PDFs the stamp is wrapped as an Artifact, preserving PDF/UA conformance. ' +
       'Formats containing CJK text need fontPath or the PDF_WRITER_FONT environment variable.',
-    shape: stampPageNumbersShape,
+    inputSchema: StampPageNumbersSchema,
     annotations: base,
   },
   {
@@ -185,7 +192,7 @@ export const tools: ToolDefinition[] = [
       'Overlay a diagonal watermark across the middle of each page ("社外秘" / "DRAFT" / "COPY", etc.). ' +
       'Drawn faintly behind the content by default. In tagged PDFs it is wrapped as an Artifact, preserving PDF/UA conformance. ' +
       'CJK watermarks need fontPath or the PDF_WRITER_FONT environment variable.',
-    shape: addWatermarkShape,
+    inputSchema: AddWatermarkSchema,
     annotations: base,
   },
   {
@@ -197,7 +204,7 @@ export const tools: ToolDefinition[] = [
       'CJK values need fontPath or the PDF_WRITER_FONT environment variable. ' +
       'flatten: true makes the form non-interactive after filling, but on a tagged PDF that breaks PDF/UA conformance ' +
       'and additionally requires allowBreakingTags: true. XFA forms are not supported.',
-    shape: fillFormShape,
+    inputSchema: FillFormSchema,
     annotations: base,
   },
   {
@@ -209,7 +216,7 @@ export const tools: ToolDefinition[] = [
       'PDF_WRITER_FONT in case appearances must be regenerated. ' +
       'On tagged PDFs, Widget annotations disappear and Form structure elements are left dangling, ' +
       'so it refuses by default (allowBreakingTags: true to force).',
-    shape: flattenFormShape,
+    inputSchema: FlattenFormSchema,
     annotations: { ...base, destructiveHint: true },
   },
   {
@@ -222,7 +229,7 @@ export const tools: ToolDefinition[] = [
       'Widgets already bound to the structure tree are skipped, so it is safe to run repeatedly. ' +
       "Untagged documents are out of scope (rebuild with the create tools' tagged: true, or run ensure_tagged first). " +
       'For signed PDFs, preserveSignatures: true repairs while keeping the signatures intact (approval signatures only; certification signatures are refused).',
-    shape: tagFormFieldsShape,
+    inputSchema: TagFormFieldsSchema,
     annotations: base,
   },
   {
@@ -237,7 +244,7 @@ export const tools: ToolDefinition[] = [
       'NOT created. The new tree is a scaffold, not an accessible document; it needs human review. ' +
       "If you can build the structure right from the start, use the create tools' tagged: true. " +
       'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused).',
-    shape: ensureTaggedShape,
+    inputSchema: EnsureTaggedSchema,
     annotations: base,
   },
   {
@@ -263,7 +270,7 @@ export const tools: ToolDefinition[] = [
       'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
       'However, **the -4 flavours combined with preserveSignatures are refused unless the input is already PDF 2.0** ' +
       '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures).',
-    shape: ensurePdfaShape,
+    inputSchema: EnsurePdfaSchema,
     annotations: base,
   },
   {
@@ -273,14 +280,14 @@ export const tools: ToolDefinition[] = [
       'Embed (attach) a file into a PDF. Registers it under /Names /EmbeddedFiles and the catalog /AF, ' +
       'with an AFRelationship. For PDF/A-3 (ISO 19005-3) and Japanese e-bookkeeping-law (電子帳簿保存法) workflows ' +
       'that bundle "a human-readable invoice PDF + machine-readable data (CSV/XML)" into one file.',
-    shape: attachFileShape,
+    inputSchema: AttachFileSchema,
     annotations: base,
   },
   {
     name: 'rotate_pages',
     title: 'Rotate Pages',
     description: 'Rotate pages clockwise (90/180/270 degrees). All pages when pages is omitted.',
-    shape: rotatePagesShape,
+    inputSchema: RotatePagesSchema,
     annotations: base,
   },
 ];

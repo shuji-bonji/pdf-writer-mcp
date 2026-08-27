@@ -2,8 +2,7 @@
  * McpServer の構築（E-5）。
  * index.ts（stdio 接続）とテスト（InMemoryTransport）の両方から使う。
  */
-
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer } from '@modelcontextprotocol/server';
 import { PACKAGE_INFO } from './config.js';
 import { toStructuredError } from './errors.js';
 import { tools } from './tools/definitions.js';
@@ -69,7 +68,7 @@ export function buildServer(): McpServer {
       {
         title: tool.title,
         description: tool.description,
-        inputSchema: tool.shape,
+        inputSchema: tool.inputSchema,
         annotations: tool.annotations,
       },
       async (args: unknown) => {

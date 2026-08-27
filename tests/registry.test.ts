@@ -3,9 +3,7 @@
  * McpServer + Zod 移行後もツール名・必須フィールド・annotations が
  * 期待どおり公開されることを InMemoryTransport 経由で検証する。
  */
-
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildServer } from '../src/server.js';
 

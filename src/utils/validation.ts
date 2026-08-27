@@ -543,36 +543,43 @@ export const attachFileShape = {
 // 実行時検証用フルスキーマ（オブジェクト横断の制約はここに付ける）
 // ---------------------------------------------------------------------------
 
-export const CreateTextSchema = z.object(createTextShape);
-export const CreateMarkdownSchema = z.object(createMarkdownShape);
-export const CreateTableSchema = z.object(createTableShape);
-export const SetMetadataSchema = z
-  .object(setMetadataShape)
-  .refine(
-    (a) =>
-      a.title !== undefined ||
-      a.author !== undefined ||
-      a.subject !== undefined ||
-      a.keywords !== undefined ||
-      a.creator !== undefined,
-    { message: 'set_metadata requires at least one of: title, author, subject, keywords, creator' },
-  );
-export const MergePdfsSchema = z.object(mergePdfsShape);
-export const SplitPdfSchema = z.object(splitPdfShape);
-export const ExtractPagesSchema = z.object(extractPagesShape);
-export const DeletePagesSchema = z.object(deletePagesShape);
-export const ReorderPagesSchema = z.object(reorderPagesShape);
-export const RotatePagesSchema = z.object(rotatePagesShape);
-export const AddBookmarksSchema = z.object(addBookmarksShape);
-export const AddAnnotationSchema = z.object(addAnnotationShape);
-export const StampPageNumbersSchema = z.object(stampPageNumbersShape);
-export const AddWatermarkSchema = z.object(addWatermarkShape);
-export const FillFormSchema = z.object(fillFormShape);
-export const FlattenFormSchema = z.object(flattenFormShape);
-export const TagFormFieldsSchema = z.object(tagFormFieldsShape);
-export const EnsureTaggedSchema = z.object(ensureTaggedShape);
-export const EnsurePdfaSchema = z.object(ensurePdfaShape);
-export const AttachFileSchema = z.object(attachFileShape);
+export const CreateTextSchema = z.object(createTextShape).strict();
+export const CreateMarkdownSchema = z.object(createMarkdownShape).strict();
+export const CreateTableSchema = z.object(createTableShape).strict();
+/**
+ * set_metadata の公開スキーマ。
+ *
+ * `refine`（「1 つ以上の項目が要る」というオブジェクト横断の制約）は JSON Schema に
+ * 写らないので、registerTool に渡すスキーマと、ハンドラが parse するスキーマを分けてある。
+ * 分けても定義は 1 つで、下の SetMetadataSchema はこれを土台にする。
+ */
+export const SetMetadataInputSchema = z.object(setMetadataShape).strict();
+
+export const SetMetadataSchema = SetMetadataInputSchema.refine(
+  (a) =>
+    a.title !== undefined ||
+    a.author !== undefined ||
+    a.subject !== undefined ||
+    a.keywords !== undefined ||
+    a.creator !== undefined,
+  { message: 'set_metadata requires at least one of: title, author, subject, keywords, creator' },
+);
+export const MergePdfsSchema = z.object(mergePdfsShape).strict();
+export const SplitPdfSchema = z.object(splitPdfShape).strict();
+export const ExtractPagesSchema = z.object(extractPagesShape).strict();
+export const DeletePagesSchema = z.object(deletePagesShape).strict();
+export const ReorderPagesSchema = z.object(reorderPagesShape).strict();
+export const RotatePagesSchema = z.object(rotatePagesShape).strict();
+export const AddBookmarksSchema = z.object(addBookmarksShape).strict();
+export const AddAnnotationSchema = z.object(addAnnotationShape).strict();
+export const StampPageNumbersSchema = z.object(stampPageNumbersShape).strict();
+export const AddWatermarkSchema = z.object(addWatermarkShape).strict();
+export const FillFormSchema = z.object(fillFormShape).strict();
+export const FlattenFormSchema = z.object(flattenFormShape).strict();
+export const TagFormFieldsSchema = z.object(tagFormFieldsShape).strict();
+export const EnsureTaggedSchema = z.object(ensureTaggedShape).strict();
+export const EnsurePdfaSchema = z.object(ensurePdfaShape).strict();
+export const AttachFileSchema = z.object(attachFileShape).strict();
 
 /**
  * Zod 検証を family エラー（INVALID_ARGUMENT）へ変換して適用する。

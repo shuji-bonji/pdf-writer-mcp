@@ -10,8 +10,7 @@
 
 // stdout ガードは他のあらゆる import より先（side-effect first）
 import './utils/stdout-guard.js';
-
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { PACKAGE_INFO } from './config.js';
 import { buildServer } from './server.js';
 import { logger } from './utils/logger.js';
