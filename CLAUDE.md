@@ -7,7 +7,7 @@ PDF family（[reader](https://github.com/shuji-bonji/pdf-reader-mcp) = 何があ
 
 - 設計書: [`docs/DESIGN.md`](./docs/DESIGN.md)（ADR とフォント戦略の実測データは必読）
 - 残タスク: [`docs/TASKS.md`](./docs/TASKS.md)
-- 上位仕様: `Document-Note/mcps/PDFfamily/specs/05-pdf-writer-mcp.md`（Tier A/B/C 体系）
+- 上位仕様: `pdf-agent-stack/docs/specs/05-pdf-writer-mcp.md`（Tier A/B/C 体系）
 - 責務分担の提案: `mcps/pdf-family-role-architecture.md`
 
 ## ツール一覧（19）
