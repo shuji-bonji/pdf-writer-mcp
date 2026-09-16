@@ -42,13 +42,22 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
     ? await appendOpened(opened, args)
     : await saveOpened(opened, args);
 
-  const warnings = [...(saved.warnings ?? []), ...outcome.warnings];
+  // 宣言ツールは適合を測らない。ensure_pdfa と同型の CLAIMS … NOT checked を
+  // 応答に残す（Grok 実機 UC04 / stack #39）。
+  const claimsWarning =
+    'This file now CLAIMS PDF/UA-1 (pdfuaid:part=1), but conformance was NOT ' +
+    'checked here. Only document-level tagging requirements were supplied; reading order, ' +
+    'alternative text, and similar PDF/UA rules are left as they are. ' +
+    'If the document does not actually conform, that claim is now false. ' +
+    'Verify before relying on it: pdf-verify-mcp validate_conformance(flavour: "pdfua-1").';
+
+  const warnings = [...(saved.warnings ?? []), ...outcome.warnings, claimsWarning];
   return {
     ...saved,
     wasTagged: outcome.wasTagged,
     createdStructure: outcome.createdStructure,
     wrappedPages: outcome.wrappedPages,
     addedRequirements: outcome.addedRequirements,
-    ...(warnings.length > 0 ? { warnings } : {}),
+    warnings,
   };
 }
