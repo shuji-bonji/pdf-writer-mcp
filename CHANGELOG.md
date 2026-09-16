@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.1] - 2026-09-16
+
+### Fixed
+
+- **`ensure_tagged` now always returns a CLAIMS / NOT checked warning on
+  success**, matching `ensure_pdfa`. The tool writes a PDF/UA-1 declaration
+  (`pdfuaid:part=1`); it does not measure conformance. Until 0.21.0 the success
+  payload omitted that warning whenever no other warnings were present, so a
+  caller could treat a successful tag as a PDF/UA verdict. Measured in Grok
+  eval UC04 (pdf-agent-stack #39). Tests cover the untagged, missing
+  title/lang, and already-tagged paths.
+
 ## [0.21.0] - 2026-08-27
 
 Infrastructure only: no tool gained or lost a capability, and no tool's output
