@@ -3,7 +3,7 @@
  *
  *   - タグ無し文書: 構造木新設（Document > P × ページ）+ BDC/EMC の包み + 文書要件
  *   - タグ付き文書: 構造木は温存し、欠落要件のみ補う（冪等）
- *   - 正直さ: 足場であることを警告する / title・lang 欠落を警告する
+ *   - 正直さ: 足場であることを警告する / title・lang 欠落を警告する / CLAIMS … NOT checked
  *   - preserveSignatures: 前方バイト同一性
  *   - B-7b'': attach_file / stamp_page_numbers / add_watermark の増分対応
  */
@@ -65,6 +65,9 @@ describe('ensure_tagged — タグ無し文書', () => {
     expect(result.wrappedPages).toBe(2);
     // 足場であることを正直に警告する
     expect(result.warnings?.join('\n')).toMatch(/scaffold|starting point/i);
+    // 宣言ツールは適合を測っていない（stack #39 / ensure_pdfa と同型）
+    expect(result.warnings?.join('\n')).toMatch(/CLAIMS PDF\/UA-1/);
+    expect(result.warnings?.join('\n')).toMatch(/NOT checked/);
 
     const doc = await load(result);
     expect(isTagged(doc)).toBe(true); // StructTreeRoot + MarkInfo/Marked
@@ -108,6 +111,8 @@ describe('ensure_tagged — タグ無し文書', () => {
     const w = result.warnings?.join('\n') ?? '';
     expect(w).toMatch(/lang/i);
     expect(w).toMatch(/title/i);
+    expect(w).toMatch(/CLAIMS PDF\/UA-1/);
+    expect(w).toMatch(/NOT checked/);
   });
 
   it('preserveSignatures で前方バイトを保つ', async () => {
@@ -150,6 +155,8 @@ describe('ensure_tagged — タグ付き文書', () => {
     expect(result.wasTagged).toBe(true);
     expect(result.createdStructure).toBe(false);
     expect(result.wrappedPages).toBe(0);
+    expect(result.warnings?.join('\n')).toMatch(/CLAIMS PDF\/UA-1/);
+    expect(result.warnings?.join('\n')).toMatch(/NOT checked/);
 
     // 構造木の子要素数が変わらない = 温存された
     const doc = await load(result);
