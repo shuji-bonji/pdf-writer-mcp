@@ -240,13 +240,12 @@ FONT_REQUIRED 落ちを見逃す（v0.10.0 開発時に実際に起きた）。
 
 ## リリース
 
-1. `package.json` の version を上げる
-2. `CHANGELOG.md` に追記（英語）
-3. `docs/DESIGN.md` ヘッダのバージョン行を同期する（放置すると family 側文書が旧版数を参照する）
-4. コミット → push
-5. `git tag vX.Y.Z && git push origin vX.Y.Z` → `publish.yml` が Trusted Publisher (OIDC) で公開
+1. `CHANGELOG.md` に追記（英語）し stage する
+2. `docs/DESIGN.md` ヘッダのバージョン行を同期する（放置すると family 側文書が旧版数を参照する）
+3. `npm version patch`（または minor / major）。`package.json` と plugin.json を揃え、`.npmrc` の `sign-git-tag=true` で **SSH 署名付き** annotated tag を切る（v0.20.1 と同じ。`npm version` 既定は unsigned）
+4. `git push origin main --tags` → `publish.yml` が Trusted Publisher (OIDC) で公開。npm provenance はこれで付く。GitHub の tag Verified は 3 の SSH 署名
 
-タグと `package.json` の version が一致しないと publish workflow が停止する。
+タグと `package.json` の version が一致しないと publish workflow が停止する。tag 署名にはこのマシンの `gpg.format=ssh` と `user.signingkey` が要る。
 
 ## ドキュメント方針
 
