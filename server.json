@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.shuji-bonji/pdf-writer-mcp",
+  "title": "PDF Writer (PDF Agent Stack)",
+  "description": "Create and edit PDFs: text, Markdown, tables, metadata and pages, with Japanese font embedding.",
+  "websiteUrl": "https://shuji-bonji.github.io/pdf-agent-stack/",
+  "repository": {
+    "url": "https://github.com/shuji-bonji/pdf-writer-mcp",
+    "source": "github"
+  },
+  "version": "0.21.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@shuji-bonji/pdf-writer-mcp",
+      "version": "0.21.2",
+      "transport": { "type": "stdio" }
+    }
+  ]
+}
