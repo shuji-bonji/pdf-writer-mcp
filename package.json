@@ -21,7 +21,7 @@
     "check:engines": "node scripts/check-engines.mjs",
     "check:public-types": "node scripts/check-public-types.mjs",
     "build": "tsc",
-    "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json",
+    "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json server.json",
     "dev": "tsc -w",
     "start": "node dist/index.js",
     "test": "vitest run",
