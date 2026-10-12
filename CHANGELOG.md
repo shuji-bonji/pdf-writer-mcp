@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0] - 2026-10-12
+
+### Added
+
+- **`set_metadata` writes the W3C TDM Reservation Protocol (TDMRep) statement** (#4).
+  `tdmReservation` (0 = text-and-data-mining rights not reserved, 1 = reserved) and
+  `tdmPolicy` (URL) go to XMP as `tdm:reservation` / `tdm:policy` under
+  `http://www.w3.org/ns/tdmrep/` — the spelling the TDMRep Final Community Group Report
+  (2024-05-10) §6.6 gives for PDF (its EPUB section §6.5 writes `…tdmrep#`; a statement
+  found under that spelling in an existing packet is carried over in the PDF spelling).
+  Nothing is written unless asked, and no default is assumed for `reservation`. A document
+  without XMP gets a packet (Info values carried over, W-6 creation date kept); the result
+  says so in a warning. `tdmPolicy` without `tdmReservation` is rejected — the Report has
+  no such form.
+- **PDF/A and TDMRep coexist: the schema is described in `pdfaExtension:schemas`.**
+  ISO 19005 accepts an XMP property only from a predefined schema or one the packet
+  describes (19005-1 6.7.8, 19005-2/-3/-4 6.6.2.3). `tdm` is neither, which is why the
+  Report notes that "a PDF/A validator will raise errors". When the document declares
+  PDF/A — `ensure_pdfa` before or after `set_metadata`, in either order — the packet now
+  carries a description of the tdmrep schema (reservation as Integer, policy as URL,
+  category external), the same way the pdfuaid schema has been described since v0.4.
+  Documents that do not declare PDF/A get the statement without the description.
+
+  Acceptance, measured 2026-10-12 with veraPDF 1.28.2 on this version's output:
+  `ensure_pdfa` (3b) → `set_metadata` with `tdmReservation: 1, tdmPolicy` →
+  `verapdf -f 3b`: **compliant, 0 failed rules**. The same packet without the description
+  fails 6.6.2.3.1 test1 and test2 on both properties. pdf-reader-mcp 0.16.0
+  `inspect_catalog` reads the statement back as `declarations.tdm`. The counterpart on the
+  judging side is pdf-verify-mcp 0.31.0 (#23), which names the namespace when the
+  description is missing.
+
+### Changed
+
+- `set_metadata`'s "at least one field" check now also accepts `tdmReservation` alone.
+
 ## [0.21.1] - 2026-09-16
 
 ### Fixed

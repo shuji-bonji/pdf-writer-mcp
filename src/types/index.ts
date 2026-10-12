@@ -114,6 +114,10 @@ export interface SetMetadataArgs extends CommonEditOptions, PreservableEditOptio
   subject?: string;
   keywords?: string[];
   creator?: string;
+  /** #4: W3C TDMRep `tdm:reservation`（1 = 留保 / 0 = 留保しない）。省略時は書かない */
+  tdmReservation?: 0 | 1;
+  /** #4: `tdm:policy`（URL）。`tdmReservation` と対 */
+  tdmPolicy?: string;
 }
 
 export interface MergePdfsArgs extends CommonEditOptions {

@@ -81,7 +81,7 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 
 | ツール | 役割 |
 |--------|------|
-| `set_metadata` | Info 辞書の更新（`title` / `author` / `subject` / `keywords` / `creator`）。指定フィールドのみ変更。XMP を持つ文書では `dc:title` 等も同期する（PDF/UA・PDF/A 宣言は保持） |
+| `set_metadata` | Info 辞書の更新（`title` / `author` / `subject` / `keywords` / `creator`）。指定フィールドのみ変更。XMP を持つ文書では `dc:title` 等も同期する（PDF/UA・PDF/A 宣言は保持）。`tdmReservation`（0 \| 1）と `tdmPolicy` で W3C **TDMRep** の権利表明を XMP に書く（`tdm:reservation` / `tdm:policy`、名前空間 `http://www.w3.org/ns/tdmrep/`）。XMP の無い文書には XMP を新設し、PDF/A 文書では `pdfaExtension:schemas` にスキーマの記述も同梱するので、veraPDF が ISO 19005-2 6.6.2.3 で落とさない（v0.22.0） |
 | `add_bookmarks` | しおり（アウトライン）の設定。`children` で入れ子にでき、既存のしおりは置換 |
 | `add_annotation` | 付箋（`text`）/ ハイライト（`highlight`）/ 矩形（`square`）の注釈を追加。タグ付き PDF では `Annot` 構造要素に内包して PDF/UA 準拠を維持（`alt` で説明を渡す） |
 | `attach_file` | ファイルを埋め込む（`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`）。PDF/A-3 が要求する形式 |

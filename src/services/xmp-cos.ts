@@ -139,7 +139,23 @@ const facts = (text: string) => ({
   pdfaPart: /<pdfaid:part>\s*(\d+)\s*<\/pdfaid:part>/.exec(text)?.[1],
   pdfaConformance: /<pdfaid:conformance>\s*([^<\s]+)\s*<\/pdfaid:conformance>/.exec(text)?.[1],
   pdfaRev: /<pdfaid:rev>\s*(\d+)\s*<\/pdfaid:rev>/.exec(text)?.[1],
+  // #4: TDMRep は既存 XMP から引き継ぐ。読む側は Report の 2 綴り（…tdmrep/ と …tdmrep#）の
+  // どちらで宣言されていても `tdm:` 要素・属性を拾う（prefix は慣用の tdm に限る）
+  tdmReservation: (/<tdm:reservation>\s*([01])\s*<\/tdm:reservation>/.exec(text) ??
+    /\stdm:reservation\s*=\s*["']([01])["']/.exec(text))?.[1],
+  tdmPolicy: (/<tdm:policy>\s*([^<\s]+)\s*<\/tdm:policy>/.exec(text) ??
+    /\stdm:policy\s*=\s*["']([^"']+)["']/.exec(text))?.[1],
 });
+
+/** 書き込みの上書き指定（既存 XMP の値より優先する） */
+export interface XmpOverrides {
+  pdfaPart?: number;
+  pdfaConformance?: string;
+  pdfaRev?: number;
+  /** #4: TDMRep。`null` は既存の宣言を取り除く */
+  tdmReservation?: 0 | 1 | null;
+  tdmPolicy?: string | null;
+}
 
 export async function syncXmpWithInfo(
   editor: PdfDocumentEditor,
@@ -147,7 +163,7 @@ export async function syncXmpWithInfo(
    * 既存 XMP の値より優先して書き込む宣言（B-8 の `ensure_pdfa` 用）。
    * 保持ではなく**上書き**なので、新たに PDF/A を名乗らせるときに使う。
    */
-  overrides?: { pdfaPart?: number; pdfaConformance?: string; pdfaRev?: number },
+  overrides?: XmpOverrides,
 ): Promise<XmpSyncResult> {
   const none: XmpSyncResult = { updated: false, catalogTouched: false, warnings: [] };
 
@@ -209,6 +225,7 @@ export async function syncXmpWithInfo(
         ? Number(kept.pdfaRev)
         : undefined,
     lang: kept.lang,
+    ...tdmOptions(kept, overrides),
     // W-6: 既存 XMP に xmp:CreateDate が無ければ Info の /CreationDate から補う
     createDate: kept.createDate ?? (await infoCreationDateIso(editor)),
     now: documentDate(editor),
@@ -232,6 +249,25 @@ export async function syncXmpWithInfo(
  *
  * **自称と実体は別物**（`specs/09 §4`）。ここが作るのは宣言だけで、適合の判定は veraPDF が下す。
  */
+/**
+ * #4: TDMRep の書き込み値を決める。override の `null` は取り除く、`undefined` は既存を保つ。
+ * `policy` は `reservation` が無ければ書かない（Report の形に無い）。
+ */
+function tdmOptions(
+  kept: { tdmReservation?: string; tdmPolicy?: string },
+  overrides?: XmpOverrides,
+): Pick<XmpOptions, 'tdmReservation' | 'tdmPolicy'> {
+  const reservation =
+    overrides?.tdmReservation === null
+      ? undefined
+      : (overrides?.tdmReservation ??
+        (kept.tdmReservation !== undefined ? (Number(kept.tdmReservation) as 0 | 1) : undefined));
+  const policy =
+    overrides?.tdmPolicy === null ? undefined : (overrides?.tdmPolicy ?? kept.tdmPolicy);
+  if (reservation === undefined) return {};
+  return { tdmReservation: reservation, ...(policy !== undefined ? { tdmPolicy: policy } : {}) };
+}
+
 export async function declarePdfa(
   editor: PdfDocumentEditor,
   part: number,
@@ -250,6 +286,24 @@ export async function declarePdfa(
     });
   }
 
+  return createXmpFromInfo(editor, {
+    pdfaPart: part,
+    ...(conformance !== undefined ? { pdfaConformance: conformance } : {}),
+    ...(rev !== undefined ? { pdfaRev: rev } : {}),
+  });
+}
+
+/**
+ * XMP を持たない文書に XMP を**新設**する。Info 辞書（Title / Author / Subject / Keywords）と
+ * カタログの `/Lang`、Info の `/CreationDate`（W-6）を引き継ぎ、`extra` を重ねる。
+ * `declarePdfa`（PDF/A 宣言）と `set_metadata` の TDMRep（#4）が共用する。
+ */
+export async function createXmpFromInfo(
+  editor: PdfDocumentEditor,
+  extra: Omit<XmpOptions, 'now' | 'createDate'>,
+): Promise<XmpSyncResult> {
+  const rootRaw = dictGetRaw(editor.trailer(), 'Root');
+  const catalog = rootRaw === undefined ? COS_NULL : await editor.resolve(rootRaw);
   const lang = catalog.kind === 'dict' ? textOf(dictGet(catalog, 'Lang')) : undefined;
   const infoRaw = dictGetRaw(editor.trailer(), 'Info');
   const info = infoRaw === undefined ? COS_NULL : await editor.resolve(infoRaw);
@@ -261,10 +315,8 @@ export async function declarePdfa(
     ...((await infoText('Author')) !== undefined ? { author: await infoText('Author') } : {}),
     ...((await infoText('Subject')) !== undefined ? { subject: await infoText('Subject') } : {}),
     ...((await infoText('Keywords')) !== undefined ? { keywords: await infoText('Keywords') } : {}),
-    pdfaPart: part,
-    ...(conformance !== undefined ? { pdfaConformance: conformance } : {}),
-    ...(rev !== undefined ? { pdfaRev: rev } : {}),
     ...(lang !== undefined ? { lang } : {}),
+    ...extra,
     // W-6: 既存 PDF に XMP を新設する経路。作成日時は Info の /CreationDate から引き継ぐ
     ...((await infoCreationDateIso(editor)) !== undefined
       ? { createDate: await infoCreationDateIso(editor) }

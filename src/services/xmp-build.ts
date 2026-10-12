@@ -44,6 +44,15 @@ export interface XmpOptions {
   /** dc:language */
   lang?: string;
   /**
+   * W3C TDM Reservation Protocol（TDMRep）— `tdm:reservation`（shuji-bonji/pdf-writer-mcp#4）。
+   * Final Community Group Report 2024-05-10 §6.6（PDF）: 1 = text and data mining の権利を留保、
+   * 0 = 留保しない。名前空間は §6.6 の綴り `http://www.w3.org/ns/tdmrep/`（§6.5 EPUB 節の
+   * `…tdmrep#` ではない）。**既定では書かない** — 書き手が明示したときだけ載せる。
+   */
+  tdmReservation?: 0 | 1;
+  /** `tdm:policy` — TDM ポリシーの URL（§5.2）。`tdmReservation` と対で使う。 */
+  tdmPolicy?: string;
+  /**
    * xmp:CreateDate（ISO 8601）。更新時に元の作成日時を保持するために使う。省略時は現在時刻。
    *
    * **既存 PDF を読む経路では省略しないこと**（W-6）: `declarePdfa` / `ensure_tagged` は
@@ -116,6 +125,46 @@ const PDFUA_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
       </pdfaExtension:schemas>
     </rdf:Description>`;
 
+/**
+ * TDMRep の拡張スキーマ記述（#4）。
+ *
+ * `tdm` 名前空間は ISO 19005 の定義済みスキーマに無いので、PDF/A を宣言する文書では
+ * pdfuaid と同じく `pdfaExtension` で自己記述しないと、veraPDF が ISO 19005-2/-3 6.6.2.3.1
+ * （19005-1 は 6.7.8）で落とす。実測（veraPDF 1.28.2・2026-10-12）: 記述無しは test1・test2 が
+ * `tdm:reservation` / `tdm:policy` で FAIL、この記述を足すと XMP の違反は出ない。
+ * W3C Report §6.6 の注記「PDF/A validator will raise errors」はこの記述が無いときの話である。
+ */
+const TDM_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
+      xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/"
+      xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
+      xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">
+      <pdfaExtension:schemas>
+        <rdf:Bag>
+          <rdf:li rdf:parseType="Resource">
+            <pdfaSchema:schema>TDM Reservation Protocol Schema</pdfaSchema:schema>
+            <pdfaSchema:namespaceURI>http://www.w3.org/ns/tdmrep/</pdfaSchema:namespaceURI>
+            <pdfaSchema:prefix>tdm</pdfaSchema:prefix>
+            <pdfaSchema:property>
+              <rdf:Seq>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>reservation</pdfaProperty:name>
+                  <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>1 if text and data mining rights are reserved, 0 if they are not (W3C TDMRep)</pdfaProperty:description>
+                </rdf:li>
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>policy</pdfaProperty:name>
+                  <pdfaProperty:valueType>URL</pdfaProperty:valueType>
+                  <pdfaProperty:category>external</pdfaProperty:category>
+                  <pdfaProperty:description>URL of the TDM policy that applies to this document (W3C TDMRep)</pdfaProperty:description>
+                </rdf:li>
+              </rdf:Seq>
+            </pdfaSchema:property>
+          </rdf:li>
+        </rdf:Bag>
+      </pdfaExtension:schemas>
+    </rdf:Description>`;
+
 export function buildXmpPacket(opts: XmpOptions): string {
   // W-5: 呼び出し側が渡した Date（= Info 辞書に書くのと同じ瞬間）を使う。
   // SOURCE_DATE_EPOCH（E-6）設定時はどちらの経路でも同じ固定時刻になる
@@ -152,6 +201,23 @@ export function buildXmpPacket(opts: XmpOptions): string {
     // ISO 14289-1 5-1: pdfuaid は XMP の定義済みスキーマではないため、
     // PDF/A 拡張スキーマ記述（pdfaExtension）で宣言しないと準拠と認められない
     parts.push(PDFUA_EXTENSION_SCHEMA);
+  }
+
+  // #4: TDMRep。reservation が無い policy は Report の形に無いので書かない。
+  if (opts.tdmReservation !== undefined) {
+    const policy =
+      opts.tdmPolicy !== undefined
+        ? `      <tdm:policy>${escapeXml(opts.tdmPolicy)}</tdm:policy>\n`
+        : '';
+    parts.push(
+      `    <rdf:Description rdf:about="" xmlns:tdm="http://www.w3.org/ns/tdmrep/">\n` +
+        `      <tdm:reservation>${opts.tdmReservation}</tdm:reservation>\n` +
+        policy +
+        `    </rdf:Description>`,
+    );
+    // PDF/A を宣言する文書でだけ拡張スキーマを同梱する。宣言しない文書に足しても害は無いが、
+    // 要らないものを増やさない（受入条件: PDF/A 以外では書かない）
+    if (opts.pdfaPart !== undefined) parts.push(TDM_EXTENSION_SCHEMA);
   }
 
   const dc: string[] = [];

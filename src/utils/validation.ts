@@ -186,6 +186,17 @@ export const setMetadataShape = {
   subject: z.string().optional().describe('Subject.'),
   keywords: z.array(z.string()).optional().describe('Array of keywords.'),
   creator: z.string().optional().describe('Creating application name.'),
+  tdmReservation: z
+    .literal([0, 1])
+    .optional()
+    .describe(
+      'W3C TDM Reservation Protocol (TDMRep) rights statement, written to XMP as tdm:reservation: 1 = text-and-data-mining rights are reserved, 0 = they are not. Not written unless given. In a PDF/A document the tdmrep schema is also described in pdfaExtension:schemas, which ISO 19005 requires for a non-predefined namespace.',
+    ),
+  tdmPolicy: z
+    .string()
+    .url()
+    .optional()
+    .describe('URL of the TDM policy (tdm:policy). Requires tdmReservation.'),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;
@@ -561,9 +572,16 @@ export const SetMetadataSchema = SetMetadataInputSchema.refine(
     a.author !== undefined ||
     a.subject !== undefined ||
     a.keywords !== undefined ||
-    a.creator !== undefined,
-  { message: 'set_metadata requires at least one of: title, author, subject, keywords, creator' },
-);
+    a.creator !== undefined ||
+    a.tdmReservation !== undefined,
+  {
+    message:
+      'set_metadata requires at least one of: title, author, subject, keywords, creator, tdmReservation',
+  },
+).refine((a) => a.tdmPolicy === undefined || a.tdmReservation !== undefined, {
+  message:
+    'tdmPolicy requires tdmReservation (W3C TDMRep: a policy without a reservation statement has no meaning)',
+});
 export const MergePdfsSchema = z.object(mergePdfsShape).strict();
 export const SplitPdfSchema = z.object(splitPdfShape).strict();
 export const ExtractPagesSchema = z.object(extractPagesShape).strict();

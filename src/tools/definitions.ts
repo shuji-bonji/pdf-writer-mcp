@@ -108,8 +108,9 @@ export const tools: ToolDefinition[] = [
     title: 'Set PDF Metadata',
     description:
       "Update an existing PDF's metadata (the Info dictionary). Only the given fields change; the rest are preserved. " +
-      'At least one of title / author / subject / keywords / creator is required. ' +
+      'At least one of title / author / subject / keywords / creator / tdmReservation is required. ' +
       'In documents with XMP (/Metadata), dc:title etc. are synchronized to prevent divergence. ' +
+      'tdmReservation (0 | 1) and tdmPolicy (URL) write the W3C TDM Reservation Protocol statement to XMP (tdm:reservation / tdm:policy, namespace http://www.w3.org/ns/tdmrep/); a document without XMP gets one. When the document declares PDF/A, the tdmrep schema is also described in pdfaExtension:schemas, so veraPDF does not fail ISO 19005-2 6.6.2.3 on it. ' +
       'For signed PDFs, preserveSignatures: true updates while keeping the signatures intact.',
     inputSchema: SetMetadataInputSchema,
     annotations: base,

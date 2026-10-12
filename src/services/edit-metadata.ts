@@ -23,7 +23,7 @@ import { openForEdit } from './edit-open.js';
 import { appendOpened } from './incremental-append.js';
 import { setInfoEntries } from './info-dict.js';
 import { saveOpened } from './output-edited.js';
-import { syncXmpWithInfo } from './xmp-cos.js';
+import { createXmpFromInfo, syncXmpWithInfo } from './xmp-cos.js';
 
 export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
   const opened = await openForEdit(args.inputPath, args);
@@ -43,13 +43,29 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
     ['Creator', args.creator === undefined ? undefined : textString(args.creator)],
   ]);
 
-  // B-9: XMP を持つ文書では Info と `/Metadata` を同期させる（§14.3.3）
-  const sync = await syncXmpWithInfo(opened.editor);
+  // B-9: XMP を持つ文書では Info と `/Metadata` を同期させる（§14.3.3）。
+  // #4: TDMRep は XMP にしか書けない。既存 XMP があれば上書き指定として渡し、
+  // 無ければ Info の値と一緒に新設する（XMP を持たない文書で黙って落とさない）。
+  const tdm =
+    args.tdmReservation !== undefined
+      ? {
+          tdmReservation: args.tdmReservation,
+          ...(args.tdmPolicy !== undefined ? { tdmPolicy: args.tdmPolicy } : {}),
+        }
+      : undefined;
+  const sync = await syncXmpWithInfo(opened.editor, tdm);
   const warnings = [...sync.warnings];
   if (sync.updated) {
     warnings.push(
       'The document carries XMP metadata (/Metadata); it was regenerated to stay ' +
         'consistent with the updated Info dictionary (dc:title etc.).',
+    );
+  } else if (tdm !== undefined && sync.warnings.length === 0) {
+    // Info は上で更新済みなので、ここから引き継げば args と既存の値の両方が XMP に載る
+    await createXmpFromInfo(opened.editor, tdm);
+    warnings.push(
+      'The document had no XMP metadata (/Metadata); one was created to carry the TDMRep ' +
+        'statement (tdm:reservation), which has no place in the Info dictionary.',
     );
   }
 
