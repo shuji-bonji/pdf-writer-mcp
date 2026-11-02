@@ -172,7 +172,7 @@ describe.skipIf(!fontPath)('tagged PDF (PDF/UA-1)', () => {
     expect(opens).toBe(closes);
   });
 
-  it('normalizes heading levels so none are skipped (7.4.2)', async () => {
+  it('SPEC-WRITER-CREATE-TITLE-003 normalizes heading levels so none are skipped (7.4.2)', async () => {
     // Markdown が H1 -> H3 と飛んでも、構造タグはレベルを飛ばさないようクランプされる。
     // タイトルが H1、`#` が H1、`###` は H2 になる（H3 に飛ばない）。
     const result = (await handleCreateMarkdownPdf({
@@ -242,7 +242,7 @@ describe.skipIf(!fontPath)('tagged PDF (PDF/UA-1)', () => {
     expect(hasNotdefReference(pageContent(pdf))).toBe(false);
   });
 
-  it('requires a title, since PDF/UA mandates one', async () => {
+  it('SPEC-WRITER-CREATE-TITLE-001 requires a title, since PDF/UA mandates one', async () => {
     await expect(handleCreateTextPdf({ text: '本文', tagged: true, fontPath })).rejects.toThrow(
       /requires "title"/,
     );

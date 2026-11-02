@@ -67,7 +67,7 @@ describe.skipIf(!fontPath)('onMissingGlyph policy (embedded font)', () => {
     expect(result.warnings?.[0]).toMatch(/〓/);
   });
 
-  it('applies the policy to the title as well', async () => {
+  it('SPEC-WRITER-CREATE-TITLE-002 applies the policy to the title as well', async () => {
     await expect(
       handleCreateTextPdf({ text: '本文', title: `結果 ${MISSING}`, fontPath }),
     ).rejects.toThrow(/U\+2714/);
