@@ -18,6 +18,7 @@ PDF family の OpenSpec + spec-ids 導入（pdf-agent-stack `docs/specs/31`）�
 | tools/list の比較 | 変更前と変更後の `dist` を stdio で起動して比べた。20 ツールのうち差は生成 3 ツールの `drawTitle`（追加）と `title` の説明だけ |
 | 既定の出力 | `SOURCE_DATE_EPOCH` を固定し、`drawTitle` を渡さない 9 通り（3 ツール・タグ有無・フォント有無・PDF 2.0・`onMissingGlyph: replace`）で、変更前と変更後の出力の sha256 が一致 |
 | 適合 | `drawTitle: false`・`tagged: true` の 2 検体（題名と同じ `#` で始まる Markdown／`##` で始まる Markdown）を、お手元の Mac の veraPDF 1.30.0（pdf-verify-mcp の `validate_conformance`、`pdfua-1`）にかけ、2 件とも COMPLIANT・106/106 |
+| 承認と archive | 初版起こしは PR #6（`approved: 2026-11-02`）でマージ。実装 PR #7 は main（`1603dba`）に rebase し、proposal.md に `approved: 2026-11-02`・`pr: 7` を書いて push（22:08 に連絡）。エージェントが PR #7 の head を取り込み、渡した commit からの差が承認欄 2 か所だけであることを確かめてから `openspec archive draw-title-option --yes`（+3 / ~2）。`create-title` は既存の capability なので、正本の front matter（`pr: 6`）はそのまま残った |
 | 維持の手間 | 仕様だけを変えた変更: 0 件 |
 
 ## 分かったこと
@@ -27,3 +28,4 @@ PDF family の OpenSpec + spec-ids 導入（pdf-agent-stack `docs/specs/31`）�
 3. **MODIFIED は見出しの文字列で正本と突き合わせる。** 002・003 の題を書き換えた差分は、strict の validate が `Archive would refuse this delta … not found` と INFO で知らせた（エラーにはならない）。題は正本のまま、本文だけを変えて通した。題を変えたいときは、同じ変更の中で RENAMED を使う。
 4. **導入と初版起こしを最初から分けた。** verify の #26（導入を初版起こしの PR に載せて pr-scope に止められた）の教訓どおり。導入のブランチは手元の `spec-ids pr-scope` で実装 PR として 21 ファイル範囲内、初版起こしは承認の空欄だけが残ることを確かめた。
 5. **CLAUDE.md のツール数が古い。** 「ツール一覧（19）」「registry.test.ts … 19 ツール」と書いてあるが、`tools/list` は 20 ツール（registry.test.ts も「exactly the 20 expected tools」）。この変更では直していない。
+6. **正本の Purpose は初版のときの説明のまま残る。** Purpose の「本文の先頭に題名を描くこととタグ無しの `/Title` を固定しているテストは無い」は、この変更の 004・005 で解消したが、archive は要求だけを書き換え、Purpose には触れない。「この初版は」で始まる初版の記録として読めるので、今回は直していない。直すなら新しい変更で行う（実装の係は正本の本文を直接書き換えない決まり）。
