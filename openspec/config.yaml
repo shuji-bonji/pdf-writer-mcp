@@ -1,0 +1,54 @@
+schema: spec-driven
+
+# PDF family 共通の前提（pdf-agent-stack/docs/specs/31 付録 A）と、pdf-writer-mcp 固有の境界ルール。
+# すべての成果物（proposal / specs / design / tasks）のプロンプトに <context> として注入される。
+# 🔴 rules の項目は必ず引用符で囲む。文中の「approved: 」のような「コロン + 空白」を YAML が入れ子と読み、
+#    openspec が「could not parse config.yaml」と警告して context と rules を丸ごと捨てる（pdf-reader-mcp で実際に起きた）。
+context: |
+  このリポジトリは PDF family の 1 つ（pdf-writer-mcp。「書く」担当: PDF を生成し、既存の PDF を編集する）。
+  適合（PDF/UA・PDF/A）を判定するのは pdf-verify-mcp で、このサーバは判定しない。ensure_tagged・ensure_pdfa などの
+  宣言を書くツールは、宣言を書いたことと「適合は確かめていない」ことを warnings（CLAIMS … NOT checked）で返す。
+  書いた結果の観測（何が入っているか）は pdf-reader-mcp の仕事。
+  実装仕様を決める前に、必ず pdf-spec-mcp で ISO 32000-2 / ISO 14289-1 の原文を確かめ、ライブラリ（normativepdf・
+  pdf-lib・fontkit・subset-font）の制約と仕様の制約を分けて書く。
+  宣言（ファイルが自分で書いたラベル）・適合（規格どおりであること）・検証（veraPDF が自分の検査項目で見た結果）を混ぜない。
+  編集は既定で署名を壊さない（/ByteRange があれば既定でエラー、preserveSignatures: true なら増分更新で追記）。
+  フォントに無い文字は既定で onMissingGlyph: error。どちらの既定も仕様の変更なしに緩めない。
+  仕様は openspec/specs/<capability>/spec.md が正本で、日本語で書く。capability はツール名の _ を - にした
+  kebab-case（例: create-markdown-pdf）。横断の振る舞い（署名の保持・パス引数の検査・エラーの形など）は
+  common-errors などの共通 capability に置く。
+  要求の見出しは「### Requirement: SPEC-WRITER-<機能>-<3 桁> 題」で、ID は `npx spec-ids next <capability>` で採る
+  （一度使った番号は再利用しない）。文末に（SHALL）を付ける。
+  テストは tests/**/*.test.ts（vitest）で、CI で全件が回る。CI には veraPDF が無く、日本語フォントは
+  TEST_FONT_PATH で渡したときだけある。受入テストは veraPDF に頼らず、フォントが要るものは skipIf にして、
+  TEST_FONT_PATH が無くても npm test が通るようにする。受入テストの it / describe の名前に仕様 ID を書く。
+  `npx spec-ids check` が仕様 ID とテスト名を突き合わせ、CI（spec-gate）で止める。
+
+rules:
+  proposal:
+    - "先頭に front matter を置く（approved: と pr: は空のキー、implementation: required か none、targets: [capability, ...]）。approved と pr は人がマージの前に書く"
+    - "Capabilities には openspec/specs/ にある既存の capability 名をそのまま使う。無いツールの capability を新しく作るときは、そのツールの既存のテストを読んで、起こす範囲（このツールのどの振る舞いか）を書く"
+    - "本文に「変わる振る舞い / 変わらない振る舞い / 対象外 / 人が判断すること」を書く"
+  specs:
+    - "各 Requirement の見出しは「### Requirement: SPEC-WRITER-<機能>-<3 桁> 題」。ID は `npx spec-ids next <capability>` で採り、再利用しない"
+    - "各 Requirement に「#### Scenario:」を 1 つ以上書く。Scenario 名はそのままテスト名の後半になるので、WHEN / THEN が読める名前にする"
+    - "文末に（SHALL）を付ける。Purpose は 50 文字以上"
+    - "根拠は規格の節番号（例: ISO 32000-2 §14.8.2、ISO 14289-1 §7.1、ISO 19005-3 §6.2.11.4）で書く。ライブラリ名や veraPDF の規則 ID だけを根拠にしない"
+    - "宣言を書く要求では、何を書くかに加えて、適合を確かめていないことを応答でどう示すかも書く"
+  design:
+    - "ライブラリの制約と仕様の制約を分けて書く"
+    - "タグ付き（tagged: true・構造木あり）とタグ無しで振る舞いが変わるなら、両方を書く"
+    - "署名のある文書（preserveSignatures の有無）で振る舞いが変わるなら、両方を書く"
+  tasks:
+    - "テストの describe / it の名前に仕様 ID と Scenario 名を書くタスクを含める"
+    - "期待値を仕様 ID のために変えない"
+    - "TEST_FONT_PATH 無しでも npm test が通ることを確かめるタスクを置く"
+    - "最後に「npx openspec validate --all && npx spec-ids check が通る」を確かめるタスクを置く"
+    - "新しい capability を作る変更は、archive の後に正本の先頭へ front matter（spec_id / kind / introduced_by）を書き足すタスクを置く（OpenSpec 1.14.1 は差分の front matter を写さない）"
+
+operations:
+  archive:
+    guidance:
+      - "archive の前に proposal.md の front matter の approved と pr が埋まっていることを確かめ、空なら止まって人に求める"
+      - "archive はマージの前に、同じ PR の中で行う（実装 PR は openspec/changes/<slug>/ の追加を pr-scope が通さない）"
+      - "archive の後に npx spec-ids check を実行し、OK を確かめる"

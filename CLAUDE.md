@@ -1,5 +1,7 @@
 # pdf-writer-mcp - 開発ガイド
 
+> 仕様の正本は `openspec/specs/`（OpenSpec）。仕様 ID・PR の種類・承認の記録の規則は [AGENTS.md](./AGENTS.md)。
+
 ## プロジェクト概要
 
 テキスト / Markdown / 表データから **PDF を生成**し、既存 PDF を**編集**する MCP サーバ。
