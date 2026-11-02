@@ -76,8 +76,10 @@ export async function handleCreateTextPdf(args: unknown): Promise<CreateResult> 
 
 export async function handleCreateMarkdownPdf(args: unknown): Promise<CreateResult> {
   const a = parseArgs(CreateMarkdownSchema, args);
+  // 題名の H1 を描くなら本文の見出しはその次から、描かないなら本文の最初の見出しを H1 にする
+  const titleDrawn = a.title !== undefined && a.drawTitle !== false;
   return buildPdf(a, [a.markdown], (engine, loaded, [markdown]) =>
-    renderMarkdown(engine, markdown, loaded),
+    renderMarkdown(engine, markdown, loaded, titleDrawn ? 1 : 0),
   );
 }
 

@@ -76,7 +76,18 @@ export const commonCreateShape = {
   title: z
     .string()
     .optional()
-    .describe('PDF title. Set in the metadata and also drawn as a heading at the top of the body.'),
+    .describe(
+      'PDF title. Always set in the metadata, and drawn as a heading at the top of the body unless drawTitle is false.',
+    ),
+  drawTitle: z
+    .boolean()
+    .optional()
+    .describe(
+      'Whether to draw title as a heading at the top of the body. Default true. ' +
+        'Pass false when the body already starts with its own heading (e.g. a Markdown "# ..." line): ' +
+        'the title then goes into the metadata only (Info /Title, and XMP dc:title when tagged), ' +
+        'so tagged output keeps the dc:title PDF/UA-1 (ISO 14289-1, 7.1) requires without a duplicated H1.',
+    ),
   author: z.string().optional().describe('PDF author (metadata).'),
   onMissingGlyph: z
     .enum(['error', 'replace', 'ignore'])

@@ -56,18 +56,22 @@ export async function buildPdf(
   const doc = WriterDocument.create(opts.pdfVersion ?? DEFAULT_PDF_VERSION);
   const source = await openFont(opts.fontPath);
 
+  // 題名を本文に描くか（SPEC-WRITER-CREATE-TITLE-004 / 005）。描かない題名はメタデータにだけ入り、
+  // メタデータはテキスト文字列（ISO 32000-2 §7.9.2.2）でグリフを要さないので、フォントの検査も当てない（002）
+  const drawTitle = opts.title !== undefined && opts.drawTitle !== false;
+
   // 標準フォント × 非 Latin-1 は、この時点で分かりやすく弾く
   for (const t of inputTexts) assertRenderable(t, source);
-  if (opts.title) assertRenderable(opts.title, source);
+  if (drawTitle) assertRenderable(opts.title as string, source);
 
   // フォント未収録文字の検査・置換（埋め込みフォントのみ）
-  // title もサブセット対象に含める必要があるため、先頭に連結して一括処理する
+  // 描く title もサブセット対象に含める必要があるため、先頭に連結して一括処理する
   const policy = opts.onMissingGlyph ?? 'error';
-  const withTitle = opts.title ? [opts.title, ...inputTexts] : inputTexts;
+  const withTitle = drawTitle ? [opts.title as string, ...inputTexts] : inputTexts;
   const applied = applyMissingGlyphPolicy(withTitle, source, policy);
   const warnings = [...applied.warnings];
-  const title = opts.title ? applied.texts[0] : undefined;
-  const texts = opts.title ? applied.texts.slice(1) : applied.texts;
+  const title = drawTitle ? applied.texts[0] : undefined;
+  const texts = drawTitle ? applied.texts.slice(1) : applied.texts;
 
   // 描画確定後のテキストでサブセットして埋め込む。
   // レンダラが入力に無い文字（箇条書きの '•' 等）を足すため、それらも必ず含める
@@ -81,7 +85,8 @@ export async function buildPdf(
   let struct: StructTreeBuilder | undefined;
   let lang: string | undefined;
   if (opts.tagged) {
-    if (!title) {
+    // PDF/UA-1 §7.1 が求めるのは dc:title で、本文の題名ではない。描くかどうかに関わらず必須（006）
+    if (!opts.title) {
       throw invalidArg(
         'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
       );
@@ -117,7 +122,7 @@ export async function buildPdf(
     struct,
   });
 
-  // タイトルが指定されていれば本文冒頭に見出しとして描画（メタデータにも finalizePdf で設定）
+  // 描く題名は本文冒頭に見出しとして描画（メタデータには描くかどうかに関わらず finalizeCreated が opts.title を書く）
   if (title) {
     struct?.begin('H1');
     engine.drawParagraph(title, {

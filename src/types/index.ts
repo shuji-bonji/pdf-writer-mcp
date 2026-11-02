@@ -31,6 +31,8 @@ export interface CommonCreateOptions {
   margin?: number;
   /** PDF メタデータ: タイトル */
   title?: string;
+  /** title を本文の先頭に描くか（既定 true）。false ならメタデータにだけ書く */
+  drawTitle?: boolean;
   /** PDF メタデータ: 作成者 */
   author?: string;
   /** フォント未収録文字の扱い。既定 'error' */

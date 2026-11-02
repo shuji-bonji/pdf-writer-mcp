@@ -23,7 +23,7 @@ Part of the PDF family alongside [pdf-reader-mcp](https://github.com/shuji-bonji
 | `create_markdown_pdf` | Markdown — headings, paragraphs, bullet/ordered lists, code blocks, quotes, rules, tables |
 | `create_table_pdf` | Ruled tables — automatic column widths, cell wrapping, headers repeated across page breaks |
 
-Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `author`, `onMissingGlyph`, `tagged`, `lang`, `pdfVersion`.
+Shared options: `outputPath`, `returnBase64`, `fontPath`, `fontSize`, `pageSize` (A4/A3/A5/LETTER/LEGAL), `margin`, `title`, `drawTitle`, `author`, `onMissingGlyph`, `tagged`, `lang`, `pdfVersion`.
 
 ### PDF 2.0 output (v0.16.0)
 
@@ -50,7 +50,7 @@ Pass `tagged: true` to produce an accessible, tagged PDF conforming to **PDF/UA-
 
 Markdown maps onto the structure tree: headings → `H1`–`H6`, lists → `L`/`LI`/`LBody`, tables → `Table`/`TR`/`TH`/`TD` (headers get `/Scope`), quotes → `BlockQuote`, code → `Code`. Rules, borders and code backgrounds become artifacts. Heading levels are normalised so they start at H1 and never skip — a Markdown `# → ###` jump becomes `H1 → H2` in the structure, while visual sizes stay as authored.
 
-PDF/UA mandates a document title, so `tagged: true` requires `title`. `lang` (BCP 47) is inferred from the text when omitted and reported via `warnings` — pass it explicitly when you know it, since a wrong `/Lang` makes screen readers mispronounce the text.
+PDF/UA mandates a document title, so `tagged: true` requires `title`. The title is always written to the metadata (`dc:title`) and, by default, also drawn as the first `H1`. When the Markdown already starts with its own `# …` heading, pass `drawTitle: false`: the title then stays in the metadata only, and the first body heading becomes `H1` (`## → ###` becomes `H1 → H2`). Output stays PDF/UA-1 compliant (veraPDF 106/106). `lang` (BCP 47) is inferred from the text when omitted and reported via `warnings` — pass it explicitly when you know it, since a wrong `/Lang` makes screen readers mispronounce the text.
 
 > [!NOTE]
 > Tagging is opt-in — default output is unchanged.
@@ -243,7 +243,7 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 
 - **Inline styling**: bold/italic affect size and glyph text only, not typeface — a single font is embedded per document.
 - **`.ttc` fonts** require extracting a single face (see above).
-- **`title` and the first body heading both become H1** (B-19). This satisfies PDF/UA 7.4.2 (start at H1, skip no levels) and passes veraPDF, but headings duplicate if you read the structure tree back and regenerate.
+- **By default, `title` and the first body heading both become H1** (B-19). This satisfies PDF/UA 7.4.2 (start at H1, skip no levels) and passes veraPDF, but the heading is duplicated when the body repeats the title. Pass `drawTitle: false` to keep the title in the metadata only.
 - **List `/Lbl` is not emitted** (B-18). Bullets and numbers are baked into the body text. ISO 32000-2 §14.8.4.8.2 makes `Lbl` a NOTE (`often include`), not a requirement, so this conforms — but regenerating from a read-back duplicates the markers.
 
 > **Resolved**:

@@ -23,7 +23,7 @@
 | `create_markdown_pdf` | Markdown — 見出し / 段落 / 箇条書き・番号リスト / コードブロック / 引用 / 水平線 / 表 |
 | `create_table_pdf` | 罫線付き表 — 列幅の自動算出、セル内折り返し、改ページ時のヘッダ再描画 |
 
-共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `author` / `onMissingGlyph` / `tagged` / `lang` / `pdfVersion`。
+共通オプション: `outputPath` / `returnBase64` / `fontPath` / `fontSize` / `pageSize`（A4/A3/A5/LETTER/LEGAL）/ `margin` / `title` / `drawTitle` / `author` / `onMissingGlyph` / `tagged` / `lang` / `pdfVersion`。
 
 ### PDF 2.0 出力（v0.16.0）
 
@@ -50,7 +50,7 @@
 
 Markdown は構造木に対応付けられます。見出し → `H1`〜`H6`、リスト → `L`/`LI`/`LBody`、表 → `Table`/`TR`/`TH`/`TD`（ヘッダには `/Scope`）、引用 → `BlockQuote`、コード → `Code`。水平線・罫線・コード背景は Artifact になります。見出しレベルは「H1 始まり・飛ばさない」よう正規化されるため、Markdown の `# → ###` は構造上 `H1 → H2` になります（見た目のサイズは元のままです）。
 
-PDF/UA はタイトルを要求するため、`tagged: true` では `title` が必須です。`lang`（BCP 47）は省略すると本文から推定し、`warnings` で報告します。**誤った `/Lang` はスクリーンリーダの誤読を招く**ため、分かっている場合は明示してください。
+PDF/UA はタイトルを要求するため、`tagged: true` では `title` が必須です。`title` は必ずメタデータ（`dc:title`）に書き、既定では本文の最初の `H1` としても描きます。Markdown が自前の `# …` で始まるときは `drawTitle: false` を渡してください。題名はメタデータにだけ入り、本文の最初の見出しが `H1` になります（`## → ###` は `H1 → H2`）。この形でも PDF/UA-1 に適合します（veraPDF 106/106）。`lang`（BCP 47）は省略すると本文から推定し、`warnings` で報告します。**誤った `/Lang` はスクリーンリーダの誤読を招く**ため、分かっている場合は明示してください。
 
 > [!NOTE]
 > タグ付けは opt-in です — 既定の出力は変わりません。
@@ -243,7 +243,7 @@ TEST_FONT_PATH=/path/to/NotoSansJP-Regular.otf npm test
 
 - **インライン装飾**: 太字・斜体はサイズ / 字面のみで、書体としては反映されません（1 文書につき単一フォントを埋め込むため）。
 - **`.ttc` フォント**: 単一フェイスへの抽出が必要です（上記参照）。
-- **`title` と本文の先頭見出しが両方 H1 になります**（B-19）。PDF/UA 7.4.2（H1 始まり・レベル飛ばし禁止）を満たすための設計です。veraPDF は通りますが、構造木を読み戻して再生成する用途では見出しが重複します。
+- **既定では `title` と本文の先頭見出しが両方 H1 になります**（B-19）。PDF/UA 7.4.2（H1 始まり・レベル飛ばし禁止）を満たすための設計で、veraPDF は通りますが、本文が題名を繰り返すと見出しが重複します。`drawTitle: false` を渡すと、題名はメタデータにだけ入ります。
 - **リストの `/Lbl` を出力しません**（B-18）。`•` や `1.` は本文に含めています。ISO 32000-2 §14.8.4.8.2 では `Lbl` は NOTE（`often include`）であり必須ではないため適合しますが、読み戻して再生成すると記号が二重化します。
 
 > **解決済み**:

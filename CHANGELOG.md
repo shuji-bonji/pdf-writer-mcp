@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`drawTitle` on the three create tools** (`create_text_pdf` / `create_markdown_pdf` /
+  `create_table_pdf`; B-19, OpenSpec change `draw-title-option`, `SPEC-WRITER-CREATE-TITLE-002`–`006`).
+  Until now `title` was always drawn as a heading at the top of the body. With `tagged: true`
+  `title` is required, so a Markdown body that starts with `# Report` and `title: "Report"`
+  produced the same heading twice — two H1 elements in the structure tree — and the only way out
+  was to drop the heading from the Markdown. PDF/UA-1 (ISO 14289-1, 7.1) asks for `dc:title` in
+  the metadata, not for a drawn heading. `drawTitle: false` now writes the title to the metadata
+  only (Info `/Title`, plus XMP `dc:title` when tagged); a tagged Markdown body then starts its
+  headings at H1 (7.4.2), so `## → ###` becomes `H1 → H2`. A title that is not drawn is not
+  checked against the font either (the metadata holds a text string, not glyphs), so a Japanese
+  title no longer needs `fontPath` when the body is ASCII. `tagged: true` still requires `title`.
+  The default is `true`: output without `drawTitle` is byte-identical to 0.22.0 (nine cases
+  compared under `SOURCE_DATE_EPOCH`), and in `tools/list` only the `drawTitle` entry and the
+  `title` description changed. Both `drawTitle: false` samples pass veraPDF 1.30.0 PDF/UA-1 (106/106).
+
 ### Changed
 
 - `scripts/sync-plugin-version.mjs` (run by the `npm version` hook) now also keeps

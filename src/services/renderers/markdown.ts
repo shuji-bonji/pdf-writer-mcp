@@ -168,7 +168,8 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
  * 「直前のレベル + 1」を上限にクランプする。見た目のフォントサイズは元の depth の
  * ままなので、視覚表現は変えずに構造だけを正す。
  *
- * builder がタイトルを H1 として描画済みのため、開始レベルは 1 とみなす。
+ * builder がタイトルを H1 として描画済みなら開始レベルは 1、描いていなければ 0
+ * （本文の最初の見出しを H1 にする。SPEC-WRITER-CREATE-TITLE-003）。
  */
 function createHeadingNormalizer(startLevel = 1) {
   let last = startLevel;
@@ -182,10 +183,15 @@ function createHeadingNormalizer(startLevel = 1) {
   };
 }
 
-export function renderMarkdown(engine: LayoutEngine, markdown: string, loaded: LoadedFont): void {
+export function renderMarkdown(
+  engine: LayoutEngine,
+  markdown: string,
+  loaded: LoadedFont,
+  headingStartLevel: 0 | 1 = 1,
+): void {
   assertRenderable(markdown, loaded);
 
-  const headings = createHeadingNormalizer();
+  const headings = createHeadingNormalizer(headingStartLevel);
   const tokens = marked.lexer(markdown);
 
   for (const token of tokens) {
