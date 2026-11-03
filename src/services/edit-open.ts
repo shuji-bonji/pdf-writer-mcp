@@ -9,9 +9,12 @@
  * **旧入口には無く、ここにあるもの:**
  *
  * 1. **暗号化の拒否。** 旧入口は pdf-lib が投げる例外の文言を `/encrypt/i` で見ていた
- *    （`editor.ts`）。normativepdf は `/Encrypt` があっても**オブジェクトストリームを
- *    読むときにしか**断らないので、古典 xref の暗号化文書は素通りする（実測: コーパスの
- *    暗号化 4 本のうち 2 本が `open` も `save` も通った）。ここで trailer を見て断る。
+ *    （`editor.ts`）。normativepdf 0.6.1 は `/Encrypt` があっても**オブジェクトストリームを
+ *    読むときにしか**断らず、古典 xref の暗号化文書は素通りした（実測: コーパスの
+ *    暗号化 4 本のうち 2 本が `open` も `save` も通った）。0.8.0 からは、鍵を導ける文書
+ *    （利用者パスワードが空）は開いて復号し、導けない文書は `EncryptionError` で断る。
+ *    だから断る経路は 2 つある —— 開けた文書は trailer の `/Encrypt` を見て断り、
+ *    開けなかった文書は例外の**型**で暗号化と判定する（文面は "encrypt" を含まない）。
  * 2. **回復読み。** `/Prev` の鎖が切れている文書は、最新の節しか xref に載らない
  *    （§7.5.6:「増分更新の相互参照節は変更・置換・削除されたオブジェクトの項目だけを含む」）。
  *    その結果ページツリーに届かず、`pages()` が**例外を投げずに 0 件を返す**。
@@ -36,6 +39,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   dictGet,
+  EncryptionError,
   PdfDocument,
   PdfDocumentEditor,
   readXrefSectionAt,
@@ -216,8 +220,12 @@ export async function openForEdit(
     editor = await PdfDocumentEditor.open(bytes);
   } catch (e) {
     const cause = e instanceof Error ? e.message : String(e);
-    // normativepdf はオブジェクトストリームを読む段でだけ暗号化を名指しする
-    const encrypted = /encrypt/i.test(cause);
+    // 🔴 文面ではなく型で見る。normativepdf 0.8.0 から、鍵を導けない文書（利用者
+    // パスワード付き）は open が EncryptionError で断る。その文面は
+    // "password does not match /U or /O …" で "encrypt" を含まない。文面だけを見ていた
+    // ころは、これを INVALID_PDF（壊れたファイル）と報告していた。文面の照合は、
+    // 型を持たない経路（オブジェクトストリームを読む段の名指し）のために残す
+    const encrypted = e instanceof EncryptionError || /encrypt/i.test(cause);
     throw new PdfWriterError(
       `Failed to parse PDF "${absPath}" (${encrypted ? 'encrypted' : 'corrupted?'}): ${cause}`,
       encrypted ? 'ENCRYPTED_PDF' : 'INVALID_PDF',
