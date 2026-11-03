@@ -62,7 +62,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "@pdf-lib/standard-fonts": "^1.0.0",
     "marked": "^18.0.6",
-    "normativepdf": "0.6.1",
+    "normativepdf": "0.9.1",
     "subset-font": "^2.4.0",
     "zod": "^4.2.0"
   },
