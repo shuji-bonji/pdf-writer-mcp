@@ -3,9 +3,10 @@
  *
  * 検証の主眼:
  *   - 鎖が歩き切れる文書は `xref.kind === 'chain'` で開き、保存して読み戻せる
- *   - **trailer に `/Encrypt` があれば断る**。normativepdf はオブジェクトストリームを
- *     読む段でしか暗号化を名指さないので、古典 xref の暗号化文書は素通りする。
- *     ここが writer 側のガードで、旧入口（pdf-lib の例外文言を見ていた）の代わり
+ *   - **暗号化された文書は ENCRYPTED_PDF で断る**。経路は 2 つ: 鍵を導ける文書は
+ *     normativepdf が開いて復号するので trailer の `/Encrypt` を見て断り、鍵を導けない
+ *     文書は normativepdf の EncryptionError を型で見て断る（0.8.0 以降）。
+ *     旧入口（pdf-lib の例外文言を見ていた）の代わり
  *   - **`/Prev 0` で鎖が切れた文書を回復する**。回復しないと `pages()` が
  *     例外を投げずに 0 件を返す（ページ添字から始まる編集ツールが黙って何もしない形）
  *   - **回復した文書の全書き直しは断る**。重ねる順は推量なので、出力に焼き付けない
@@ -17,7 +18,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type CosObject, writeFile as writeCos } from 'normativepdf';
+import { type CosObject, encryptPdf, writeFile as writeCos } from 'normativepdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PdfWriterError } from '../src/errors.js';
 import { openForEdit } from '../src/services/edit-open.js';
@@ -37,9 +38,9 @@ const ref = (objectNumber: number) => ({ kind: 'ref', objectNumber, generationNu
 const dict = (entries: Record<string, unknown>) =>
   ({ kind: 'dict', entries: new Map(Object.entries(entries)) }) as never;
 
-/** 1 ページの最小文書。`extraTrailer` はトレーラに足す項目 */
-function minimalPdf(extraTrailer: Record<string, unknown> = {}): Uint8Array {
-  const objects = [
+/** 1 ページの最小文書の本体（オブジェクト 3 つ） */
+function minimalObjects() {
+  return [
     {
       objectNumber: 1,
       generationNumber: 0,
@@ -67,8 +68,34 @@ function minimalPdf(extraTrailer: Record<string, unknown> = {}): Uint8Array {
       }),
     },
   ];
-  return writeCos(objects, dict({ Size: int(4), Root: ref(1), ...extraTrailer }), {
+}
+
+/** 1 ページの最小文書。`extraTrailer` はトレーラに足す項目 */
+function minimalPdf(extraTrailer: Record<string, unknown> = {}): Uint8Array {
+  return writeCos(minimalObjects(), dict({ Size: int(4), Root: ref(1), ...extraTrailer }), {
     version: '1.7',
+  });
+}
+
+/**
+ * 標準セキュリティハンドラで暗号化した最小文書（§7.6.4）。乱数は固定して再現できるようにする。
+ *
+ * 🔴 `/Encrypt` を足しただけの平文は作れない。normativepdf 0.8.0 から `writeFile` は
+ * trailer に `/Encrypt` を持つ文書を書くのを断る（暗号化の辞書の下に平文を書くことになる。
+ * §7.6.2・normativepdf ADR-0008）。0.6.1 まではその形でこのテストを組んでいた。
+ */
+function encryptedPdf(method: 'AESV3' | 'AESV4', userPassword = ''): Uint8Array {
+  let seed = 1;
+  const random = (length: number) =>
+    Uint8Array.from({ length }, () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed & 0xff;
+    });
+  return encryptPdf(minimalObjects() as never, dict({ Size: int(4), Root: ref(1) }), {
+    method,
+    userPassword: new TextEncoder().encode(userPassword),
+    ownerPassword: new TextEncoder().encode('owner'),
+    random,
   });
 }
 
@@ -126,10 +153,23 @@ describe('openForEdit — 鎖が歩き切れる文書', () => {
 });
 
 describe('openForEdit — 暗号化', () => {
-  it('trailer に /Encrypt があれば ENCRYPTED_PDF で断る', async () => {
-    // 🔴 この形（古典 xref・オブジェクトストリーム無し）は normativepdf が
-    // 開けてしまう。断るのは writer の仕事である
-    const path = await tmpPdf('encrypted.pdf', minimalPdf({ Encrypt: ref(9) }));
+  // 🔴 断る経路は 2 つある。normativepdf は鍵を導ける文書（利用者パスワードが空）は開いて
+  // 復号するので、trailer の /Encrypt を見て writer が断る。鍵を導けない文書（利用者
+  // パスワード付き）は normativepdf が EncryptionError で開くのを断る。どちらも
+  // ENCRYPTED_PDF でなければならない —— 後者を INVALID_PDF（壊れたファイル）と言うと、
+  // 利用者のすることが変わる（直すのではなく、復号する）
+  it('利用者パスワードの無い AESV3 の文書は ENCRYPTED_PDF で断る', async () => {
+    const path = await tmpPdf('aesv3.pdf', encryptedPdf('AESV3'));
+    await expect(openForEdit(path, {})).rejects.toMatchObject({ code: 'ENCRYPTED_PDF' });
+  });
+
+  it('利用者パスワードの無い AESV4（ISO/TS 32003）の文書も ENCRYPTED_PDF で断る', async () => {
+    const path = await tmpPdf('aesv4.pdf', encryptedPdf('AESV4'));
+    await expect(openForEdit(path, {})).rejects.toMatchObject({ code: 'ENCRYPTED_PDF' });
+  });
+
+  it('利用者パスワード付きの文書（鍵が導けない）も ENCRYPTED_PDF で断り、INVALID_PDF と言わない', async () => {
+    const path = await tmpPdf('aesv3-pw.pdf', encryptedPdf('AESV3', 'secret'));
     await expect(openForEdit(path, {})).rejects.toMatchObject({ code: 'ENCRYPTED_PDF' });
   });
 });
