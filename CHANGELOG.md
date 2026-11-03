@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **normativepdf 0.6.1 → 0.9.1.** Three releases reach the writer: 0.7.0 replaces inflate with
+  its own implementation (`decodeStream`; its differential oracle is byte-identical over 1,395
+  comparisons), 0.8.0 reads and writes the standard security handler (§7.6), and 0.9.0 / 0.9.1
+  add text strings and dates (§7.9.2, §7.9.4), which the writer does not use yet. The UC
+  differential oracle (`scripts/uc-oracle`, with pdf-verify-mcp) reports the same result before
+  and after, line for line.
+
+### Fixed
+
+- **An encrypted PDF with a user password was reported as a broken file.** Every editing tool
+  answered `INVALID_PDF` ("corrupted?") instead of `ENCRYPTED_PDF` ("Decrypt the PDF first"),
+  so the user was led to repair a file that only needed decrypting.
+  - *Cause*: from normativepdf 0.8.0, `PdfDocumentEditor.open` refuses a document whose key
+    cannot be derived with an `EncryptionError`, and its message ("password does not match /U
+    or /O …") does not contain "encrypt". `openForEdit` recognised encryption by matching the
+    message against `/encrypt/i`. It now checks the error's type first.
+  - *Why it was not caught*: raising the dependency made one test fail, and it failed while
+    building its specimen — `writeFile` now refuses a trailer with `/Encrypt` over plaintext
+    (§7.6.2) — not in the code under test. The specimens are now really encrypted
+    (`encryptPdf`), and both refusal paths are fixed by tests: a document whose key can be
+    derived (empty user password; AESV3, AESV4) is opened and refused on its `/Encrypt`, and
+    one whose key cannot (a user password) is refused on the `EncryptionError`. Across ten
+    specimens (qpdf 11.9 and `encryptPdf`; RC4, AESV2, AESV3, AESV4; classic and stream
+    cross-reference; with and without a user password) the result now matches 0.6.1.
+
 ## [0.23.0] - 2026-11-02
 
 ### Added
