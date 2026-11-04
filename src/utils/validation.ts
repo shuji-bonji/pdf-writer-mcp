@@ -520,7 +520,7 @@ export const ensurePdfaShape = {
         '(-4 forbids Info unless PieceInfo is present). ' +
         '**-4 has no conformance level**, so pdfaid:rev is written instead of pdfaid:conformance. ' +
         '**Documents with attachments must use "pdfa-4f"** — plain "pdfa-4" requires every attachment to be ' +
-        'PDF/A itself, so bundling JSON or CSV (the Japanese e-bookkeeping-law pattern) would not conform. ' +
+        'PDF/A itself, so bundling JSON or CSV (e.g. an invoice PDF that carries its data) would not conform. ' +
         'Combination with preserveSignatures is refused unless the input is already PDF 2.0 ' +
         '(an incremental update cannot rewrite the header, and rewriting it would break the signatures).',
     ),

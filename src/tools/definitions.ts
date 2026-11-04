@@ -260,14 +260,14 @@ export const tools: ToolDefinition[] = [
       '(-4 forbids Info unless the catalog has /PieceInfo — stricter than ISO 32000-2 14.3.3). ' +
       '**Content, structure tree and fonts are never touched.** ' +
       '**Documents with attachments must use "pdfa-4f"** — plain "pdfa-4" requires every attachment to be ' +
-      'PDF/A itself, so bundling CSV or JSON (the Japanese e-bookkeeping-law pattern) would not conform. ' +
+      'PDF/A itself, so bundling CSV or JSON (e.g. an invoice PDF that carries its data) would not conform. ' +
       '**IMPORTANT**: this is preparation for claiming PDF/A, not a guarantee of conformance. ' +
       'Violations such as unembedded fonts, encryption, JavaScript or LZW are not repaired. ' +
       '**Writing pdfaid into XMP is the document claiming "I am PDF/A"** — applied to a non-conforming ' +
       'document it produces **a PDF that lies about itself** (which is why a warning is always returned). ' +
       "Always confirm with pdf-verify-mcp's validate_conformance (flavour: the same value) — the verdict is " +
       'veraPDF\'s, and since ISO 19005 clauses cannot be quoted, the strongest statement is "veraPDF judged it so". ' +
-      'In the e-bookkeeping-law context, apply it **after** attaching machine-readable data with attach_file. ' +
+      'When the document carries machine-readable attachments, apply it **after** attach_file. ' +
       'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
       'However, **the -4 flavours combined with preserveSignatures are refused unless the input is already PDF 2.0** ' +
       '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures).',
@@ -279,8 +279,11 @@ export const tools: ToolDefinition[] = [
     title: 'Attach File (Embedded File)',
     description:
       'Embed (attach) a file into a PDF. Registers it under /Names /EmbeddedFiles and the catalog /AF, ' +
-      'with an AFRelationship. For PDF/A-3 (ISO 19005-3) and Japanese e-bookkeeping-law (電子帳簿保存法) workflows ' +
-      'that bundle "a human-readable invoice PDF + machine-readable data (CSV/XML)" into one file.',
+      'with an AFRelationship. For workflows that bundle "a human-readable invoice PDF + machine-readable ' +
+      'data (CSV/XML)" into one file; PDF/A-3 (ISO 19005-3) and PDF/A-4f permit such attachments. ' +
+      "Neither PDF/A nor attachments is a requirement of Japan's Electronic Bookkeeping Act (電子帳簿保存法): " +
+      'its rule for electronic transactions (Enforcement Regulation Art. 4(1)) asks for a timestamp, ' +
+      'a system that records or prevents corrections, or internal rules against unjustified changes.',
     inputSchema: AttachFileSchema,
     annotations: base,
   },
