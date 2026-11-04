@@ -99,8 +99,8 @@ const FEATURES: FeatureSpec[] = [
     clause: 'ISO 32000-2 §7.11.4',
     impact:
       'the attached files are gone. For PDF/A-3 (ISO 19005-3 §6.8) that includes the ' +
-      'machine-readable payload of the document (e.g. the invoice XML/CSV kept for statutory ' +
-      'e-bookkeeping) — the human-readable pages remain but the data does not.',
+      'machine-readable payload of the document (e.g. the invoice XML/CSV attached to the ' +
+      'pages) — the human-readable pages remain but the data does not.',
     detect: (view) => view.embeddedFiles,
   },
   {

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.2] - 2026-11-04
+
+### Changed
+
+- **Tool descriptions no longer tie PDF/A and attachments to the Electronic Bookkeeping Act.**
+  `ensure_pdfa` called bundling CSV / JSON "the Japanese e-bookkeeping-law pattern", and
+  `attach_file` spoke of "PDF/A-3 and 電子帳簿保存法 workflows". The Act asks for neither: its rule
+  for electronic transactions (Enforcement Regulation Art. 4(1)) asks for a timestamp, a system
+  that records or prevents corrections, or internal rules. The descriptions now name the
+  invoice-plus-data pattern without the Act, and `attach_file` says what the Act does require.
+  Found in the 2026-11 trial (pdf-agent-stack#47, F-33)
+
 ## [0.23.1] - 2026-11-03
 
 ### Changed
