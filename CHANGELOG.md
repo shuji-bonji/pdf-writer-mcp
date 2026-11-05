@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Proposed version: 0.25.1 (the maintainer decides). OpenSpec change `standard-font-winansi`
+(SPEC-WRITER-STANDARD-FONT-ENCODING-001..003, new capability).
+
+### Fixed
+
+These apply when no `fontPath` is given and the standard font (Helvetica) is used. Both
+have been present since 0.20.1, when the standard font moved off pdf-lib (commit 2eb87ea).
+
+- **Bullets were drawn as `"`** (#19). The font is declared `/Encoding /WinAnsiEncoding`, but
+  `encode` wrote the low byte of each UTF-16 code unit — Latin-1, not WinAnsiEncoding. The
+  bullet U+2022 became `0x22`, which is `quotedbl` in WinAnsiEncoding, so both the page and
+  the extracted text showed `"`. Text is now encoded with a table taken from the
+  WinAnsiEncoding column of ISO 32000-1 Annex D.2 Table D.2; the bullet is `0x95`.
+- **Text ran past the right margin and off the page.** `widthOfTextAtSize` looked up AFM
+  widths by the character itself, but AFM is keyed by glyph name (`space`, `period`, `one`,
+  `bullet`). Every character whose name differs from the character — spaces, digits,
+  punctuation, accented letters, the bullet — measured 0, so `Invoice 2026-11-06: total
+  1,234.56 USD (paid).` measured 44% of its width and lines were wrapped far too late.
+  Widths are now looked up by the glyph name of the code that is written.
+- **Characters with no WinAnsiEncoding code follow `onMissingGlyph`.** U+0000–U+0008,
+  U+000E–U+001F and U+007F–U+009F reached `encode` and were drawn as unrelated characters
+  (U+0085 as `…`, U+007F as `•`). They are now treated like a missing glyph in an embedded
+  font: `error` (the default) fails with `MISSING_GLYPH` naming the character, `replace`
+  draws `?`, `ignore` draws a space; the low byte is never written. The edit tools
+  (`add_watermark`, `stamp_page_numbers`, `fill_form`) always use `error`. Line breaks and
+  tabs (U+0009–U+000D) are unaffected. Characters from U+0100 up are still refused with
+  `FONT_REQUIRED`, as before.
+
+Why the tests did not catch it: the list tests added in 0.25.0 checked the structure tree
+and positions, not the bullet character; no test measured a line against the margin with the
+standard font; and the comment on `encode` assumed `assertRenderable` had already limited the
+text to Latin-1, which it never checks for characters the renderer adds itself.
+
 ## [0.25.0] - 2026-11-06
 
 Proposed version: 0.25.0 (the maintainer decides). OpenSpec changes
