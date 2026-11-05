@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-06
+pr: 18
 implementation: required
 targets: [create-markdown-pdf]
 ---

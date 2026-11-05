@@ -6,7 +6,7 @@ introduced_by: ensure-reports-what-changed
 # ensure-tagged Specification
 
 ## Purpose
-`ensure_tagged` ツールが、既存の PDF を PDF/UA-1 の器に載せるときの規則を定めます。この初版には、文書レベルの要件（`Lang`・`ViewerPreferences/DisplayDocTitle`・XMP の `pdfuaid:part` と `dc:title`）について、足したもの・書き直したもの・変わらなかったものを応答で分けて返す振る舞いだけを書きます。構造木の作り方と warnings は既存のテスト（`tests/ensure-tagged.test.ts`）が固定しています。
+`ensure_tagged` ツールが、既存の PDF を PDF/UA-1 の器に載せるときの規則を定めます。扱うのは 2 つです。1 つは、文書レベルの要件（`Lang`・`ViewerPreferences/DisplayDocTitle`・XMP の `pdfuaid:part` と `dc:title`）について、足したもの・書き直したもの・変わらなかったものを応答で分けて返すことです。もう 1 つは、PDF/UA-1 が許さない版（PDF 2.0 以上。ISO 14289-1 §6.1）の入力を、何も書く前に断ることです。構造木の作り方と warnings は既存のテスト（`tests/ensure-tagged.test.ts`）が固定しています。
 
 ## Requirements
 
@@ -42,3 +42,17 @@ introduced_by: ensure-reports-what-changed
 
 - **WHEN** タグ無しの文書に `ensure_tagged` を呼ぶ
 - **THEN** `requirementsChanged` は `true`
+
+### Requirement: SPEC-WRITER-ENSURE-TAGGED-003 PDF 2.0 の入力に PDF/UA-1 の宣言を書かない
+
+入力の版が 2.0 以上のとき（ヘッダーが `%PDF-2.n`、または catalog の `/Version` が 2.0 以上。ISO 32000-2 §7.5.2）、`ensure_tagged` はファイルを書かずに `INVALID_ARGUMENT` を返す（SHALL）。writer が書けるアクセシビリティの宣言は PDF/UA-1 だけで、ISO 14289-1 §6.1 は PDF/UA-1 のファイルの版を 1.0〜1.7 とするためである。作成系の B-16 と `ensure_pdfa` の SPEC-WRITER-ENSURE-PDFA-001 と同じ扱いにする。
+
+#### Scenario: PDF 2.0 で作った文書
+
+- **WHEN** `create_text_pdf` を `pdfVersion: "2.0"` で作った文書に `ensure_tagged` を呼ぶ
+- **THEN** `code` は `INVALID_ARGUMENT` で、`outputPath` にファイルが無い
+
+#### Scenario: PDF 1.7 の文書は今までどおり
+
+- **WHEN** `create_text_pdf` を既定の版で作った文書に `ensure_tagged` を呼ぶ
+- **THEN** 成功し、出力の XMP に `pdfuaid:part` がある

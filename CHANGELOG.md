@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.25.0] - 2026-11-06
 
 Proposed version: 0.25.0 (the maintainer decides). OpenSpec changes
 `list-labels-and-nesting` (SPEC-WRITER-CREATE-MARKDOWN-PDF-001..004, new capability) and
