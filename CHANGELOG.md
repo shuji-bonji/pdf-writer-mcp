@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Proposed version: 0.25.0 (the maintainer decides). OpenSpec changes
+`list-labels-and-nesting` (SPEC-WRITER-CREATE-MARKDOWN-PDF-001..004, new capability) and
+`ensure-tagged-refuses-pdf20` (SPEC-WRITER-ENSURE-TAGGED-003).
+
+### Changed (breaking)
+
+- **`ensure_tagged` refuses a PDF 2.0 input** (#17). It declares PDF/UA-1
+  (`pdfuaid:part=1`), and PDF/UA-1 allows versions 1.0 to 1.7 (ISO 14289-1 §6.1); 0.24.0
+  wrote the declaration into a `%PDF-2.0` file, which then claimed a conformance it could not
+  meet. The version read is the effective one (the catalog `/Version` when it is later than
+  the header, ISO 32000-1 §7.7.2 Table 28). The error is `INVALID_ARGUMENT` with a hint and
+  no `next_actions`, raised before any file is written. The version is not lowered. This is
+  the same rule as the create tools' B-16 and `ensure_pdfa`'s #9.
+
+### Fixed
+
+- **`create_markdown_pdf` lists: the bullet or number is a `Lbl`, the text a `LBody`** (#12,
+  F-14). 0.24.0 drew the marker as part of the body text inside `LBody`. With `tagged: true`
+  each item is now `LI > (Lbl, LBody)` (ISO 14289-1 §7.6, ISO 32000-1 Table 336); the number
+  is written as text in `Lbl` (Table 347 NOTE).
+- **Each `L` states `ListNumbering`**: `Decimal` for numbered lists and `Disc` for bullets,
+  as `/A << /O /List /ListNumbering … >>`. ISO 14289-1 §7.6 requires it on ordered lists.
+- **Nested lists keep their nesting.** 0.24.0 folded them into the parent item's text
+  (`• Alpha - Beta - Gamma`). A nested list is now drawn as its own list inside the parent
+  item's `LBody`, with its bullets lined up under the parent's text.
+- **Wrapped list text lines up after the bullet or number** (hanging indent), tagged or not.
+  The bullet column is as wide as the widest label of that list, so `9.` and `10.` start
+  their text at the same place.
+
 ## [0.24.0] - 2026-11-06
 
 Proposed version: 0.24.0 (the maintainer decides). OpenSpec changes

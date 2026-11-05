@@ -26,7 +26,7 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
 
   // SPEC-WRITER-ENSURE-TAGGED-003（#17）: ensure_tagged が書く宣言は PDF/UA-1（pdfuaid:part=1）で、
   // ISO 14289-1 §6.1 は版を 1.0〜1.7 とする。版は catalog の /Version を含めて見る
-  // （§7.7.2 Table 29。ヘッダーより後の版を指せる）。作成系の B-16・ensure_pdfa の #9 と同じく、
+  // （ISO 32000-1 §7.7.2 Table 28・ISO 32000-2 Table 29。ヘッダーより後の版を指せる）。作成系の B-16・ensure_pdfa の #9 と同じく、
   // 何も書く前に断る。版は下げない（2.0 の機能を使っているかを判定しないため）
   const version = opened.editor.base.version;
   if (Number.parseFloat(version) >= 2) {

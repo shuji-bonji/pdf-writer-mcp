@@ -6,17 +6,17 @@
 
 ## 1. 受入テスト（先に落ちることを確かめる）
 
-- [ ] 1.1 受入テストを足す。名前を「SPEC-WRITER-<機能>-<3 桁> <Scenario 名>」で、文字列のまま書く（テンプレートで組み立てない）
-- [ ] 1.2 変更前の `src/` で落ちることを確かめる
+- [x] 1.1 受入テストを足す。名前を「SPEC-WRITER-<機能>-<3 桁> <Scenario 名>」で、文字列のまま書く（テンプレートで組み立てない）
+- [x] 1.2 変更前の `src/` で落ちることを確かめる
 
 ## 2. 実装
 
-- [ ] 2.1 実装する
-- [ ] 2.2 CI の一覧（check:engines・check・typecheck・test（Node 22・20、`TEST_FONT_PATH` あり）・build・check:public-types）が終了コード 0
+- [x] 2.1 実装する
+- [x] 2.2 CI の一覧（check:engines・check・typecheck・test（Node 22・20、`TEST_FONT_PATH` あり）・build・check:public-types）が終了コード 0
 
 ## 3. 確認
 
-- [ ] 3.1 `tools/list` の差を確かめる
+- [x] 3.1 `tools/list` の差を確かめる
 
 ## 4. 承認と取り込み（人が判断する）
 
