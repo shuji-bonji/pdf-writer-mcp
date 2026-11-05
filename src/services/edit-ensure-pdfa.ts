@@ -50,7 +50,6 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
       'SIGNED_PDF',
       {
         hint: 'Start from a document that is already PDF 2.0, or drop preserveSignatures and re-sign afterwards.',
-        retryable: true,
       },
     );
   }

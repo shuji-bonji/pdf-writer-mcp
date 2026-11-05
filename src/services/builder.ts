@@ -48,7 +48,6 @@ export async function buildPdf(
       'INVALID_ARGUMENT',
       {
         hint: 'Drop pdfVersion (PDF/UA-1 on PDF 1.7), or drop tagged (untagged PDF 2.0).',
-        retryable: true,
       },
     );
   }

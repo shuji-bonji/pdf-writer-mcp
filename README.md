@@ -213,6 +213,8 @@ Errors are structured, following the same contract as `pdf-reader-mcp`: a stable
 
 Codes: `INVALID_ARGUMENT`, `DOC_NOT_FOUND`, `FONT_NOT_FOUND`, `INVALID_PDF`, `ENCRYPTED_PDF`, `UNSUPPORTED_PDF_FEATURE` (XFA), `FILE_TOO_LARGE`, `INTERNAL_ERROR`, and the writer guards `SIGNED_PDF` (`allowBreakingSignatures`), `TAGGED_PDF` (`allowBreakingTags`), `FONT_REQUIRED` (`fontPath`), `MISSING_GLYPH` (`onMissingGlyph`).
 
+Since v0.23.3 every error carries `retryable`, fixed per code (PDF family contract, pdf-agent-stack `docs/specs/06` §2.3): `true` for `INVALID_ARGUMENT`, `FONT_REQUIRED`, `FONT_NOT_FOUND`, `MISSING_GLYPH`, `SIGNED_PDF` and `TAGGED_PDF` — changing an argument or a flag can make the same edit succeed — and `false` for the rest. `error`, `hint` and `next_actions[].reason` are English; the values of `next_actions[].action` and `example` do not change.
+
 ## Deterministic output (v0.7.0)
 
 Set the `SOURCE_DATE_EPOCH` environment variable (UNIX seconds, per the [reproducible-builds.org](https://reproducible-builds.org/docs/source-date-epoch/) convention) to pin `CreationDate`, `ModificationDate` and XMP timestamps. The same input then yields byte-identical output — useful for diffing, caching, and reproducible tests. Invalid values raise an error rather than being ignored.

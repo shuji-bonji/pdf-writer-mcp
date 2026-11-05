@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Target version: 0.23.3. Every error now follows the PDF family contract (pdf-agent-stack
+`docs/specs/06` §2.3, pdf-agent-stack#48), pinned by the new common capability
+`openspec/specs/common-errors` (SPEC-WRITER-COMMON-ERRORS-001..003). No `code`, no
+`next_actions[].action` and no `example` changes.
+
+### Fixed
+
+- **Some errors did not carry `retryable`** (#14). Whether it was written was decided at each
+  place that threw: the guards (`SIGNED_PDF`, `TAGGED_PDF`, `FONT_REQUIRED`, `MISSING_GLYPH`) and
+  one `INVALID_ARGUMENT` wrote `true`; everything else, including `DOC_NOT_FOUND` and
+  `INVALID_PDF`, wrote nothing, so a receiver could not tell whether to retry. The value is now
+  fixed per `code` (`RETRYABLE` in `src/errors.ts`) and always written: `true` for
+  `INVALID_ARGUMENT`, `FONT_REQUIRED`, `FONT_NOT_FOUND`, `MISSING_GLYPH`, `SIGNED_PDF` and
+  `TAGGED_PDF`; `false` for `DOC_NOT_FOUND`, `INVALID_PDF`, `ENCRYPTED_PDF`,
+  `UNSUPPORTED_PDF_FEATURE`, `FILE_TOO_LARGE` and `INTERNAL_ERROR`. `DOC_NOT_FOUND` is `false` to
+  match pdf-verify-mcp 0.33.0. The values the guards already wrote are unchanged. The
+  `retryable` option is removed from `PdfWriterError`, so a place that throws cannot choose it.
+- **`next_actions[].reason` was Japanese while `error` and `hint` were English** (#13, F-10). The
+  six presets in `NEXT_ACTIONS` are now English, with the same content (which tools support
+  incremental updates, `PDF_WRITER_FONT`, what `replace` / `ignore` do).
+
 ## [0.23.2] - 2026-11-04
 
 ### Changed

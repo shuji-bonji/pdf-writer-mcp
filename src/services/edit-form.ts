@@ -145,7 +145,7 @@ async function assertFlattenAllowed(
         'the page as untagged content (violating PDF/UA-1 7.1 and 7.18.4). ' +
         'Omit flatten to keep the form interactive.',
       'TAGGED_PDF',
-      { retryable: true, next_actions: [NEXT_ACTIONS.allowBreakingTags()] },
+      { next_actions: [NEXT_ACTIONS.allowBreakingTags()] },
     );
   }
   // 文言は旧実装のまま。移行で利用者向けの文字列を変えない

@@ -35,7 +35,7 @@ export function assertRenderable(
     throw new PdfWriterError(
       'The text contains non-Latin characters (e.g. Japanese) but no embeddable font was provided.',
       'FONT_REQUIRED',
-      { retryable: true, next_actions: [NEXT_ACTIONS.provideFontPath()] },
+      { next_actions: [NEXT_ACTIONS.provideFontPath()] },
     );
   }
 }

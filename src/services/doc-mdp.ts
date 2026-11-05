@@ -128,7 +128,6 @@ export async function assertDocMdpAllows(
       ' Even a signature-preserving incremental update would be flagged as a disallowed change.',
     'SIGNED_PDF',
     {
-      retryable: true,
       hint: 'ISO 32000-2 §12.8.2.2: P=2 permits form fill-in; P=3 additionally permits annotations.',
       next_actions: [NEXT_ACTIONS.allowBreakingSignatures()],
     },

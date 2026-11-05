@@ -210,7 +210,7 @@ export function applyMissingGlyphPolicy(
       `The font "${source.name}" has no glyph for: ${list}${suffix}. ` +
         'These characters would render as blank boxes.',
       'MISSING_GLYPH',
-      { retryable: true, next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()] },
+      { next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()] },
     );
   }
 

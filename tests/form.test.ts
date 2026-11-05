@@ -342,7 +342,6 @@ describe('タグ付き PDF', () => {
       code: 'TAGGED_PDF',
       message: expect.stringMatching(/tagged PDF.*PDF\/UA-1 7\.1/s),
       options: {
-        retryable: true,
         next_actions: [expect.objectContaining({ example: { allowBreakingTags: true } })],
       },
     });

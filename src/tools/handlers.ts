@@ -93,7 +93,7 @@ export async function handleCreateTablePdf(args: unknown): Promise<CreateResult>
       throw new PdfWriterError(
         'The table contains non-Latin characters (e.g. Japanese) but no embeddable font was provided.',
         'FONT_REQUIRED',
-        { retryable: true, next_actions: [NEXT_ACTIONS.provideFontPath()] },
+        { next_actions: [NEXT_ACTIONS.provideFontPath()] },
       );
     }
     const headers = texts.slice(0, a.headers.length);

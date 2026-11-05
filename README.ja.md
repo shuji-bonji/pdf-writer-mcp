@@ -213,6 +213,8 @@ veraPDF 1.30.0 で実測: `pdfa-4` **109/109 COMPLIANT**。CSV を添付した�
 
 コード一覧: `INVALID_ARGUMENT` / `DOC_NOT_FOUND` / `FONT_NOT_FOUND` / `INVALID_PDF` / `ENCRYPTED_PDF` / `UNSUPPORTED_PDF_FEATURE`（XFA）/ `FILE_TOO_LARGE` / `INTERNAL_ERROR`、および writer 固有ガードの `SIGNED_PDF`（`allowBreakingSignatures`）/ `TAGGED_PDF`（`allowBreakingTags`）/ `FONT_REQUIRED`（`fontPath`）/ `MISSING_GLYPH`（`onMissingGlyph`）。
 
+v0.23.3 から、どのエラーも `retryable` を持ちます。値は code ごとに 1 つです（PDF family の規約 pdf-agent-stack `docs/specs/06` §2.3）。`INVALID_ARGUMENT`・`FONT_REQUIRED`・`FONT_NOT_FOUND`・`MISSING_GLYPH`・`SIGNED_PDF`・`TAGGED_PDF` は `true`（引数やフラグを変えれば同じ編集が通る）、ほかは `false` です。`error`・`hint`・`next_actions[].reason` は英語で、`next_actions[].action` と `example` の値は変えません。
+
 ## 決定論的出力（v0.7.0）
 
 環境変数 `SOURCE_DATE_EPOCH`（UNIX 秒。[reproducible-builds.org](https://reproducible-builds.org/docs/source-date-epoch/) の慣習）を設定すると、CreationDate / ModificationDate / XMP の日時が固定され、**同一入力から同一バイト列**が得られます。差分検証・キャッシュ・再現テストに有用です。不正な値は黙殺せずエラーになります。

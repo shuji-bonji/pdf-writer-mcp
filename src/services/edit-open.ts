@@ -209,7 +209,6 @@ export async function openForEdit(
         'Rewriting the whole file will invalidate existing signatures.',
       'SIGNED_PDF',
       {
-        retryable: true,
         next_actions: [NEXT_ACTIONS.preserveSignatures(), NEXT_ACTIONS.allowBreakingSignatures()],
       },
     );

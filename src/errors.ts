@@ -53,9 +53,38 @@ export interface WriterServiceError {
   hint?: string;
   /** LLM が次に取るべき手段の候補 */
   next_actions?: NextAction[];
-  /** フラグや引数を変えれば再試行できるか */
-  retryable?: boolean;
+  /**
+   * 引数・フラグ・環境を変えれば、同じ文書についての同じ処理が成功しうるか。
+   * 値は `code` ごとに 1 つ（`RETRYABLE`）。SPEC-WRITER-COMMON-ERRORS-002
+   */
+  retryable: boolean;
 }
+
+/**
+ * `retryable` の値。**code ごとに 1 つ**で、エラーを作る箇所では選ばせない
+ * （0.23.2 までは作る箇所ごとに書くか決めていて、書かないエラーがあった。#14）。
+ *
+ * 決め方は verify 0.33.0 と同じ「同じ文書についての同じ処理が成功しうるか」。
+ * - `DOC_NOT_FOUND` は false（verify と §2.3 の例に合わせた。2026-11-05 決定）
+ * - `FONT_NOT_FOUND` は true（別のフォントのパスを渡せば同じ文書を処理できる）
+ * - `ENCRYPTED_PDF` は false（writer には password 引数が無い）
+ *
+ * `Record` なので、code を足して値を書き忘れると型検査で落ちる。
+ */
+export const RETRYABLE: Readonly<Record<WriterErrorCode, boolean>> = {
+  INVALID_ARGUMENT: true,
+  FONT_REQUIRED: true,
+  FONT_NOT_FOUND: true,
+  MISSING_GLYPH: true,
+  SIGNED_PDF: true,
+  TAGGED_PDF: true,
+  DOC_NOT_FOUND: false,
+  INVALID_PDF: false,
+  ENCRYPTED_PDF: false,
+  UNSUPPORTED_PDF_FEATURE: false,
+  FILE_TOO_LARGE: false,
+  INTERNAL_ERROR: false,
+};
 
 /** コード・ヒント・next_actions を運ぶ writer 固有の Error */
 export class PdfWriterError extends Error {
@@ -65,7 +94,6 @@ export class PdfWriterError extends Error {
     public readonly options: {
       hint?: string;
       next_actions?: NextAction[];
-      retryable?: boolean;
     } = {},
   ) {
     super(message);
@@ -81,56 +109,71 @@ export function invalidArg(message: string): PdfWriterError {
 /** 投げられた値を family 形式のエラー応答へ変換する */
 export function toStructuredError(error: unknown): WriterServiceError {
   if (error instanceof PdfWriterError) {
-    const out: WriterServiceError = { error: error.message, code: error.code };
+    const out: WriterServiceError = {
+      error: error.message,
+      code: error.code,
+      retryable: RETRYABLE[error.code],
+    };
     if (error.options.hint) out.hint = error.options.hint;
     if (error.options.next_actions && error.options.next_actions.length > 0) {
       out.next_actions = error.options.next_actions;
     }
-    if (error.options.retryable !== undefined) out.retryable = error.options.retryable;
     return out;
   }
   if (error instanceof Error) {
-    return { error: error.message, code: 'INTERNAL_ERROR' };
+    return { error: error.message, code: 'INTERNAL_ERROR', retryable: RETRYABLE.INTERNAL_ERROR };
   }
-  return { error: String(error), code: 'INTERNAL_ERROR' };
+  return { error: String(error), code: 'INTERNAL_ERROR', retryable: RETRYABLE.INTERNAL_ERROR };
 }
 
-/** よく使う next_actions のプリセット（writer のガード解除フラグ群） */
+/**
+ * よく使う next_actions のプリセット（writer のガード解除フラグ群）
+ *
+ * 🔴 `action` と `example` は pdf-publish Skill（references/error-codes.md）が分岐と
+ * 再試行に使う。値を変えない。`reason` は英語で書く（§2.3・F-10。
+ * SPEC-WRITER-COMMON-ERRORS-003）。
+ */
 export const NEXT_ACTIONS = {
   preserveSignatures: (): NextAction => ({
     action: 'retry_with_preserveSignatures',
     reason:
-      '署名を保持したまま、増分更新（元バイト列に触れない末尾追記）で編集できます。' +
-      '対応: add_annotation / set_metadata / add_bookmarks / tag_form_fields（タグ付き文書可）。' +
-      '"preserveSignatures": true を足して再試行してください',
+      'The edit can keep the signatures by an incremental update, which appends to the file ' +
+      'without touching the original bytes. Supported by add_annotation / set_metadata / ' +
+      'add_bookmarks / tag_form_fields (tagged documents included). Add ' +
+      '"preserveSignatures": true and call again.',
     example: { preserveSignatures: true },
   }),
   allowBreakingSignatures: (): NextAction => ({
     action: 'retry_with_allowBreakingSignatures',
     reason:
-      '署名を無効化してよい場合のみ、同じ引数に "allowBreakingSignatures": true を足して再試行してください',
+      'Only if invalidating the signatures is acceptable: call again with the same arguments ' +
+      'plus "allowBreakingSignatures": true.',
     example: { allowBreakingSignatures: true },
   }),
   allowBreakingTags: (): NextAction => ({
     action: 'retry_with_allowBreakingTags',
-    reason: 'PDF/UA 適合を壊してよい場合のみ、"allowBreakingTags": true を足して再試行してください',
+    reason:
+      'Only if breaking PDF/UA conformance is acceptable: call again with ' +
+      '"allowBreakingTags": true.',
     example: { allowBreakingTags: true },
   }),
   provideFontPath: (): NextAction => ({
     action: 'retry_with_fontPath',
     reason:
-      '非 Latin 文字（日本語等）には埋め込みフォントが必要です。"fontPath" に .ttf/.otf を指定するか、環境変数 PDF_WRITER_FONT を設定してください',
+      'Non-Latin text (Japanese, for example) needs an embedded font. Pass a .ttf/.otf file ' +
+      'as "fontPath", or set the PDF_WRITER_FONT environment variable.',
     example: { fontPath: '/path/to/NotoSansJP-Regular.otf' },
   }),
   changeMissingGlyphPolicy: (): NextAction => ({
     action: 'retry_with_onMissingGlyph',
     reason:
-      'フォントに無い文字が本文に含まれます。別のフォントを指定するか、"onMissingGlyph": "replace"（豆腐で置換）/ "ignore"（黙って除去）を指定してください',
+      'The text has characters the font does not contain. Pass a different font, or set ' +
+      '"onMissingGlyph" to "replace" (draw a replacement box) or "ignore" (drop them silently).',
     example: { onMissingGlyph: 'replace' },
   }),
   checkFilePath: (path?: string): NextAction => ({
     action: 'verify_file_path',
-    reason: 'ファイルパスが正しいか、絶対パスで指定されているか確認してください',
+    reason: 'Check that the file path is correct and absolute, and that the file exists.',
     example: path ? { inputPath: path } : undefined,
   }),
 } as const;

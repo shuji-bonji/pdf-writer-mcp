@@ -9,8 +9,8 @@ import { handleCreateTextPdf, handleSetMetadata } from '../src/tools/handlers.js
 
 describe('toStructuredError (E-2)', () => {
   it('carries code / hint / retryable / next_actions from PdfWriterError', () => {
+    // retryable は code から決まる（SPEC-WRITER-COMMON-ERRORS-002）
     const e = new PdfWriterError('signed', 'SIGNED_PDF', {
-      retryable: true,
       hint: 'h',
       next_actions: [{ action: 'a', reason: 'r' }],
     });
@@ -24,13 +24,18 @@ describe('toStructuredError (E-2)', () => {
   });
 
   it('maps plain Error to INTERNAL_ERROR', () => {
-    expect(toStructuredError(new Error('boom'))).toEqual({ error: 'boom', code: 'INTERNAL_ERROR' });
+    expect(toStructuredError(new Error('boom'))).toEqual({
+      error: 'boom',
+      code: 'INTERNAL_ERROR',
+      retryable: false,
+    });
   });
 
   it('invalidArg produces INVALID_ARGUMENT', () => {
     expect(toStructuredError(invalidArg('bad'))).toEqual({
       error: 'bad',
       code: 'INVALID_ARGUMENT',
+      retryable: true,
     });
   });
 });
@@ -49,9 +54,8 @@ describe('handlers throw family-coded errors', () => {
   });
 
   it('non-Latin text without font carries FONT_REQUIRED (retryable)', async () => {
-    await expect(handleCreateTextPdf({ text: '日本語テキスト' })).rejects.toMatchObject({
-      code: 'FONT_REQUIRED',
-      options: { retryable: true },
-    });
+    const error = await handleCreateTextPdf({ text: '日本語テキスト' }).catch((e) => e);
+    expect(error).toMatchObject({ code: 'FONT_REQUIRED' });
+    expect(toStructuredError(error).retryable).toBe(true);
   });
 });
