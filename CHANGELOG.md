@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.23.3] - 2026-11-05
 
 Target version: 0.23.3. Every error now follows the PDF family contract (pdf-agent-stack
 `docs/specs/06` §2.3, pdf-agent-stack#48), pinned by the new common capability
