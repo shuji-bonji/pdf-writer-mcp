@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.24.0] - 2026-11-06
 
 Proposed version: 0.24.0 (the maintainer decides). OpenSpec changes
 `edit-refusal-order-and-paths` (SPEC-WRITER-COMMON-ERRORS-004..006),

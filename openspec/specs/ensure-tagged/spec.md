@@ -1,7 +1,12 @@
+---
+spec_id: WRITER
+kind: tool
+introduced_by: ensure-reports-what-changed
+---
 # ensure-tagged Specification
 
 ## Purpose
-TBD - created by archiving change ensure-reports-what-changed. Update Purpose after archive.
+`ensure_tagged` ツールが、既存の PDF を PDF/UA-1 の器に載せるときの規則を定めます。この初版には、文書レベルの要件（`Lang`・`ViewerPreferences/DisplayDocTitle`・XMP の `pdfuaid:part` と `dc:title`）について、足したもの・書き直したもの・変わらなかったものを応答で分けて返す振る舞いだけを書きます。構造木の作り方と warnings は既存のテスト（`tests/ensure-tagged.test.ts`）が固定しています。
 
 ## Requirements
 

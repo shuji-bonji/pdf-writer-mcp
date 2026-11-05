@@ -23,5 +23,5 @@
 
 - [x] 4.1 人が `proposal.md` の front matter に `approved: YYYY-MM-DD` と `pr: N` を書く
 - [x] 4.2 マージの前に、同じ PR の中で `npx openspec archive ensure-pdfa4-refuses-pdfua1 --yes` を実行する
-- [ ] 4.3 archive の後、正本 `openspec/specs/ensure-pdfa/spec.md` の先頭に front matter（`spec_id: WRITER`・`kind: tool`・`introduced_by: ensure-pdfa4-refuses-pdfua1`）と Purpose（50 文字以上）を書き足す
+- [x] 4.3 archive の後、正本 `openspec/specs/ensure-pdfa/spec.md` の先頭に front matter（`spec_id: WRITER`・`kind: tool`・`introduced_by: ensure-pdfa4-refuses-pdfua1`）と Purpose（50 文字以上）を書き足す
 - [ ] 4.4 `npx openspec validate --all && npx spec-ids check` が通る

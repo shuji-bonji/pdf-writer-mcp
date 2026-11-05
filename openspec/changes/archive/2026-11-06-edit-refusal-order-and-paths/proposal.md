@@ -1,6 +1,6 @@
 ---
 approved: 2026-11-06
-pr:
+pr: 16
 implementation: required
 targets: [common-errors]
 ---

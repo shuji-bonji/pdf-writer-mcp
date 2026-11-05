@@ -1,7 +1,12 @@
+---
+spec_id: WRITER
+kind: tool
+introduced_by: ensure-pdfa4-refuses-pdfua1
+---
 # ensure-pdfa Specification
 
 ## Purpose
-TBD - created by archiving change ensure-pdfa4-refuses-pdfua1. Update Purpose after archive.
+`ensure_pdfa` ツールが、既存の PDF に PDF/A の文書レベルの要件と宣言を書くときの規則を定めます。このツールは宣言を書くだけで適合は確かめない（判定は pdf-verify-mcp と veraPDF の仕事）ことを前提に、宣言が両立しない入力（PDF/UA-1 を宣言した入力への PDF/A-4）を断ることと、入力がもともと名乗っていた宣言を返すことを扱います。補う要件の一覧と、PDF/A-4 のヘッダー・Info 辞書の始末は、既存のテスト（`tests/pdfa-conformance.test.ts`）が固定しています。
 
 ## Requirements
 
