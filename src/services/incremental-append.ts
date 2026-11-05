@@ -28,8 +28,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import {
   ByteWriter,
   type CosObject,
@@ -43,6 +42,7 @@ import type { CommonEditOptions, EditResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import type { OpenedForEdit } from './edit-open.js';
 import { touchModDate } from './output-edited.js';
+import { writeOutputFile } from './output-write.js';
 
 /**
  * `/ID` の第 2 要素を更新する（§14.4）。
@@ -122,8 +122,7 @@ export async function appendOpened(
 
   if (opts.outputPath) {
     const abs = resolve(opts.outputPath);
-    await mkdir(dirname(abs), { recursive: true });
-    await writeFile(abs, bytes);
+    await writeOutputFile(abs, bytes);
     result.path = abs;
     logger.info(
       'Output',

@@ -16,13 +16,13 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import type { CosObject } from 'normativepdf';
 import { documentDate, PACKAGE_INFO } from '../config.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { arr, dict, hex, name, stream, textString } from './cos.js';
+import { writeOutputFile } from './output-write.js';
 import { pdfDate } from './pdf-date.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
 import type { WriterDocument } from './writer-doc.js';
@@ -138,8 +138,7 @@ export async function finalizeCreated(
 
   if (opts.outputPath) {
     const abs = resolve(opts.outputPath);
-    await mkdir(dirname(abs), { recursive: true });
-    await writeFile(abs, bytes);
+    await writeOutputFile(abs, bytes);
     result.path = abs;
     logger.info('Output', `Saved PDF: ${abs} (${bytes.length} bytes, ${result.pageCount} pages)`);
   }

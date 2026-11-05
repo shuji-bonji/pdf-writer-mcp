@@ -17,8 +17,7 @@
  * ここでの拒否は writer の言葉で理由を返すためのものである。
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { PageTreeError, type PdfDocumentEditor, type WriteFileOptions } from 'normativepdf';
 import { documentDate } from '../config.js';
 import { PdfWriterError } from '../errors.js';
@@ -27,6 +26,7 @@ import { logger } from '../utils/logger.js';
 import { textString } from './cos.js';
 import type { OpenedForEdit } from './edit-open.js';
 import { setInfoEntries } from './info-dict.js';
+import { writeOutputFile } from './output-write.js';
 import { pdfDate } from './pdf-date.js';
 
 export interface SaveOpenedExtras {
@@ -96,11 +96,19 @@ export async function saveOpened(
     //   ページツリーが §7.7.3 に反する → 直せる（欠けている項目を足す）
     //   オブジェクトが読めない       → 直せない（元のファイルが壊れている）
     const brokenTree = e instanceof PageTreeError;
-    throw new PdfWriterError(`Failed to write "${opened.absPath}": ${cause}`, 'INVALID_PDF', {
-      hint: brokenTree
-        ? 'The page tree does not satisfy ISO 32000-2 §7.7.3; the missing entries have to be supplied before writing.'
-        : 'An object in the source file could not be read back, so the file cannot be rewritten.',
-    });
+    // SPEC-WRITER-COMMON-ERRORS-006（#10・F-23）: 0.23.x は「Failed to write "<入力>"」と
+    // 書いていたが、入力は書いていない。組み直せなかったのは入力で、書くはずだったのは出力
+    const outputPath = opts.outputPath ? resolve(opts.outputPath) : undefined;
+    throw new PdfWriterError(
+      `Cannot rewrite "${opened.absPath}"${outputPath ? ` into "${outputPath}"` : ''}: ${cause}`,
+      'INVALID_PDF',
+      {
+        hint: brokenTree
+          ? 'The page tree does not satisfy ISO 32000-2 §7.7.3; the missing entries have to be supplied before writing.'
+          : 'An object in the source file could not be read back, so the file cannot be rewritten.',
+        detail: { inputPath: opened.absPath, ...(outputPath ? { outputPath } : {}) },
+      },
+    );
   }
   return saveRawBytes(bytes, (await editor.pages()).length, opts);
 }
@@ -120,8 +128,7 @@ export async function saveRawBytes(
 
   if (opts.outputPath) {
     const abs = resolve(opts.outputPath);
-    await mkdir(dirname(abs), { recursive: true });
-    await writeFile(abs, bytes);
+    await writeOutputFile(abs, bytes);
     result.path = abs;
     logger.info('Output', `Saved PDF: ${abs} (${bytes.length} bytes, ${pageCount} pages)`);
   }

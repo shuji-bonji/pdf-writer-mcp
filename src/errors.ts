@@ -58,6 +58,35 @@ export interface WriterServiceError {
    * 値は `code` ごとに 1 つ（`RETRYABLE`）。SPEC-WRITER-COMMON-ERRORS-002
    */
   retryable: boolean;
+  /** 書くことがあるときだけ置く（SPEC-WRITER-COMMON-ERRORS-005・006） */
+  detail?: ErrorDetail;
+}
+
+/**
+ * ファイルシステムのエラーの細かい理由（SPEC-WRITER-COMMON-ERRORS-006）。
+ * 🔴 pdf-reader-mcp の入力側（#49）と同じ値を使う。family で値をそろえる。
+ */
+export type FileSystemReason =
+  | 'PERMISSION_DENIED'
+  | 'NOT_A_DIRECTORY'
+  | 'IS_A_DIRECTORY'
+  | 'READ_ONLY_FILESYSTEM'
+  | 'NO_SPACE'
+  | 'FILESYSTEM_ERROR';
+
+/** `detail` に置く項目 */
+export interface ErrorDetail {
+  /** ファイルシステムのエラーの理由 */
+  reason?: FileSystemReason;
+  /** 書けなかった（読めなかった）パス */
+  path?: string;
+  /** 元の例外の文（`EACCES: permission denied, open '…'` など） */
+  cause?: string;
+  /** 全書き直しで組み直せなかった入力と、書くはずだった出力 */
+  inputPath?: string;
+  outputPath?: string;
+  /** `ENCRYPTED_PDF`: 空の利用者パスワードで鍵を導けたか（ISO 32000-2 §7.6.4.3.2） */
+  keyDerived?: boolean;
 }
 
 /**
@@ -94,11 +123,55 @@ export class PdfWriterError extends Error {
     public readonly options: {
       hint?: string;
       next_actions?: NextAction[];
+      detail?: ErrorDetail;
     } = {},
   ) {
     super(message);
     this.name = 'PdfWriterError';
   }
+}
+
+const ERRNO_REASON: Readonly<Record<string, FileSystemReason>> = {
+  EACCES: 'PERMISSION_DENIED',
+  EPERM: 'PERMISSION_DENIED',
+  ENOTDIR: 'NOT_A_DIRECTORY',
+  // `mkdir(…, { recursive: true })` は、作るはずのフォルダーの位置にファイルがあると
+  // ENOTDIR ではなく EEXIST を返す（Node 22 で実測）。書き出しで EEXIST が出るのはこの場合だけ
+  EEXIST: 'NOT_A_DIRECTORY',
+  EISDIR: 'IS_A_DIRECTORY',
+  EROFS: 'READ_ONLY_FILESYSTEM',
+  ENOSPC: 'NO_SPACE',
+};
+
+const REASON_TEXT: Readonly<Record<FileSystemReason, string>> = {
+  PERMISSION_DENIED: 'permission denied',
+  NOT_A_DIRECTORY: 'a part of the path is a file, not a folder',
+  IS_A_DIRECTORY: 'the path is a folder',
+  READ_ONLY_FILESYSTEM: 'the file system is read-only',
+  NO_SPACE: 'no space left on the device',
+  FILESYSTEM_ERROR: 'the file system refused the write',
+};
+
+/**
+ * 出力のファイルを書けなかったときのエラー（SPEC-WRITER-COMMON-ERRORS-006）。
+ *
+ * 0.23.x は `writeFile` の例外を素通しして `INTERNAL_ERROR` にしていた。書けないのは
+ * サーバーの故障ではなく、出力先を変えるか権限を直せば同じ処理が通る状況なので、
+ * family の決定（2026-11-06）どおり `INVALID_ARGUMENT`（`retryable: true`）にする。
+ * 名指すのは**出力のパス**（入力のパスではない）。
+ */
+export function outputWriteError(path: string, error: unknown): PdfWriterError {
+  const errno = (error as { code?: unknown } | null)?.code;
+  const reason = (typeof errno === 'string' && ERRNO_REASON[errno]) || 'FILESYSTEM_ERROR';
+  const cause = error instanceof Error ? error.message : String(error);
+  return new PdfWriterError(
+    `Cannot write the output file "${path}": ${REASON_TEXT[reason]}${typeof errno === 'string' ? ` (${errno})` : ''}`,
+    'INVALID_ARGUMENT',
+    {
+      hint: 'Pass an outputPath in a folder this server can write to, or fix the permissions of the folder.',
+      detail: { reason, path, cause },
+    },
+  );
 }
 
 /** 引数エラーの短縮形（validation.ts / page-spec.ts の大量の検査で使う） */
@@ -117,6 +190,9 @@ export function toStructuredError(error: unknown): WriterServiceError {
     if (error.options.hint) out.hint = error.options.hint;
     if (error.options.next_actions && error.options.next_actions.length > 0) {
       out.next_actions = error.options.next_actions;
+    }
+    if (error.options.detail && Object.keys(error.options.detail).length > 0) {
+      out.detail = error.options.detail;
     }
     return out;
   }

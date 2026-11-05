@@ -178,6 +178,29 @@ async function recoverXref(
 }
 
 /**
+ * 暗号化された文書の拒否（SPEC-WRITER-COMMON-ERRORS-005。#10・F-08）。
+ *
+ * 0.23.x は鍵を導ける文書にも導けない文書にも「先に復号せよ」だけを返し、family の
+ * 中に復号する手段は無かった。`detail.keyDerived` で 2 つを分け、次の手を書き分ける。
+ */
+function encryptedError(absPath: string, keyDerived: boolean, cause?: string): PdfWriterError {
+  return new PdfWriterError(
+    keyDerived
+      ? `"${absPath}" is encrypted (trailer /Encrypt is present; ISO 32000-2 §7.5.5 Table 15). ` +
+          'It opens with the empty user password, but its streams would have to be re-encrypted on write, which pdf-writer-mcp does not do.'
+      : `"${absPath}" is encrypted and the key cannot be derived from the empty user password ` +
+          `(ISO 32000-2 §7.6.4.3.2)${cause ? `: ${cause}` : ''}`,
+    'ENCRYPTED_PDF',
+    {
+      hint: keyDerived
+        ? 'pdf-writer-mcp cannot edit encrypted files. This one opens with the empty user password, so it can be decrypted outside this server (for example: qpdf --decrypt in.pdf out.pdf) and the decrypted copy edited. To only read it, pdf-reader-mcp and pdf-verify-mcp read it as it is.'
+        : 'pdf-writer-mcp cannot edit encrypted files and takes no password. Decrypt it with the user password outside this server (for example: qpdf --password=<user password> --decrypt in.pdf out.pdf), then pass the decrypted copy. pdf-verify-mcp can read it when given the password.',
+      detail: { keyDerived },
+    },
+  );
+}
+
+/**
  * 編集のために PDF を開く。署名ガード・サイズ上限・暗号化ガードを通し、
  * 鎖が切れていれば回復読みをしてから返す。
  */
@@ -203,17 +226,10 @@ export async function openForEdit(
     );
   }
 
-  if (containsSignature(bytes) && !opts.allowBreakingSignatures && !opts.preserveSignatures) {
-    throw new PdfWriterError(
-      `"${absPath}" appears to be digitally signed (/ByteRange found). ` +
-        'Rewriting the whole file will invalidate existing signatures.',
-      'SIGNED_PDF',
-      {
-        next_actions: [NEXT_ACTIONS.preserveSignatures(), NEXT_ACTIONS.allowBreakingSignatures()],
-      },
-    );
-  }
-
+  // 🔴 SPEC-WRITER-COMMON-ERRORS-004（#10・F-21）: 暗号化を署名より先に確かめる。
+  // 0.23.x は署名を先に見て SIGNED_PDF と preserveSignatures の再試行を案内し、
+  // 案内どおりの再試行を ENCRYPTED_PDF で断っていた。暗号化された文書は
+  // どのフラグでも編集できないので、実行できない再試行を案内しない。
   let editor: PdfDocumentEditor;
   try {
     editor = await PdfDocumentEditor.open(bytes);
@@ -225,23 +241,27 @@ export async function openForEdit(
     // ころは、これを INVALID_PDF（壊れたファイル）と報告していた。文面の照合は、
     // 型を持たない経路（オブジェクトストリームを読む段の名指し）のために残す
     const encrypted = e instanceof EncryptionError || /encrypt/i.test(cause);
+    if (encrypted) throw encryptedError(absPath, false, cause);
     throw new PdfWriterError(
-      `Failed to parse PDF "${absPath}" (${encrypted ? 'encrypted' : 'corrupted?'}): ${cause}`,
-      encrypted ? 'ENCRYPTED_PDF' : 'INVALID_PDF',
-      encrypted
-        ? { hint: 'Decrypt the PDF first — pdf-writer-mcp cannot edit encrypted files.' }
-        : {},
+      `Failed to parse PDF "${absPath}" (corrupted?): ${cause}`,
+      'INVALID_PDF',
     );
   }
 
   // 🔴 暗号化は「読めたかどうか」では決まらない。§7.5.5 Table 15 の /Encrypt が
   // あれば、ストリームは暗号文のままなので、書き戻すと中身が壊れる
   if (dictGet(editor.base.trailer, 'Encrypt') !== undefined) {
+    throw encryptedError(absPath, true);
+  }
+
+  if (containsSignature(bytes) && !opts.allowBreakingSignatures && !opts.preserveSignatures) {
     throw new PdfWriterError(
-      `"${absPath}" is encrypted (trailer /Encrypt is present; ISO 32000-2 §7.5.5 Table 15). ` +
-        'Its streams are ciphertext and cannot be edited.',
-      'ENCRYPTED_PDF',
-      { hint: 'Decrypt the PDF first — pdf-writer-mcp cannot edit encrypted files.' },
+      `"${absPath}" appears to be digitally signed (/ByteRange found). ` +
+        'Rewriting the whole file will invalidate existing signatures.',
+      'SIGNED_PDF',
+      {
+        next_actions: [NEXT_ACTIONS.preserveSignatures(), NEXT_ACTIONS.allowBreakingSignatures()],
+      },
     );
   }
 
