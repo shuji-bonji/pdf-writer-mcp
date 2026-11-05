@@ -29,6 +29,7 @@ import {
   type FontHost,
   type WriterFont,
 } from './font-embed.js';
+import { standardFontHasGlyph } from './win-ansi.js';
 
 /** 埋め込み前のフォント情報（グリフ照会に使う） */
 export interface FontSource {
@@ -36,7 +37,10 @@ export interface FontSource {
   bytes?: Uint8Array;
   name: string;
   isStandard: boolean;
-  /** コードポイントのグリフ有無（埋め込みフォントのみ） */
+  /**
+   * コードポイントのグリフ有無。埋め込みフォントは cmap、標準フォントは
+   * WinAnsiEncoding に符号があるか（`standardFontHasGlyph`）で答える
+   */
   hasGlyph?: (codePoint: number) => boolean;
 }
 
@@ -78,7 +82,10 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
 
   if (!resolvedPath) {
     logger.info(CTX, `No fontPath given; using ${STANDARD_14_FALLBACK} (ASCII only)`);
-    return { name: 'Helvetica', isStandard: true };
+    // U+0100 以上は assertRenderable が FONT_REQUIRED で先に断る。ここで答えるのは
+    // その手前で WinAnsiEncoding に符号の無い文字（制御文字・U+007F–U+009F）で、
+    // onMissingGlyph に乗せる（SPEC-WRITER-STANDARD-FONT-ENCODING-002）
+    return { name: 'Helvetica', isStandard: true, hasGlyph: standardFontHasGlyph };
   }
 
   let bytes: Uint8Array;
@@ -184,7 +191,8 @@ export function applyMissingGlyphPolicy(
   policy: MissingGlyphPolicy = 'error',
 ): { texts: string[]; warnings: string[] } {
   const hasGlyph = source.hasGlyph;
-  // 標準フォントは assertRenderable（Latin-1 検査）側で扱うため対象外
+  // 標準フォントも hasGlyph を持つ（WinAnsiEncoding に符号があるか）。U+0100 以上は
+  // assertRenderable が先に FONT_REQUIRED で断っているので、ここに来るのはその手前の文字
   if (!hasGlyph) return { texts, warnings: [] };
 
   const missing = new Set<string>();

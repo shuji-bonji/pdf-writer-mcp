@@ -19,13 +19,14 @@
  */
 
 import fontkit from '@pdf-lib/fontkit';
-import { Font as AfmFont, type FontNames } from '@pdf-lib/standard-fonts';
+import { Font as AfmFont, Encodings, type FontNames } from '@pdf-lib/standard-fonts';
 import { buildType0Font, type CosObject, type CosRef, sniffFontProgram } from 'normativepdf';
 import { PdfWriterError } from '../errors.js';
 import { logger } from '../utils/logger.js';
 import { arr, dict, hex, int, name, num, stream } from './cos.js';
 import type { TextMetrics } from './metrics.js';
 import { makeSubsetCharsetIdentity } from './sfnt-cff.js';
+import { encodeWinAnsi, winAnsiCode } from './win-ansi.js';
 /**
  * このモジュールが文書に求めるのは「**同期に番号を配れること**」だけである。
  *
@@ -67,6 +68,13 @@ export interface WriterFont extends TextMetrics {
 
 // ---------------------------------------------------------------- 標準 14 書体
 
+/** 標準フォントで描く文字の AFM のグリフ名。WinAnsiEncoding に符号の無い文字は `space` */
+function glyphNameOf(ch: string): string {
+  const codePoint = ch.codePointAt(0) as number;
+  if (winAnsiCode(codePoint) === undefined) return 'space';
+  return Encodings.WinAnsi.encodeUnicodeCodePoint(codePoint).name;
+}
+
 /**
  * §9.6.2.2 の標準 14 書体。**埋め込まない**ので PDF/A では必ず落ちる（writer は
  * それを警告として返している = B-21）。
@@ -93,15 +101,16 @@ export function embedStandardFont(doc: FontHost, postScriptName: string): Writer
     ascent: typeof afm.Ascender === 'number' ? afm.Ascender : 750,
     descent: typeof afm.Descender === 'number' ? afm.Descender : -250,
     encode(text: string): CosObject {
-      // WinAnsi は 1 文字 1 バイト。範囲外は `assertRenderable`（renderers/text.ts）が
-      // 先に弾いているので、ここに来る文字列は Latin-1 に収まっている。
-      const bytes = new Uint8Array(text.length);
-      for (let i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i) & 0xff;
-      return hex(bytes);
+      // 符号は ISO 32000-1 Annex D.2 Table D.2 の WinAnsiEncoding 欄（win-ansi.ts）。
+      // 0.25.0 までは下位 1 バイト（= Latin-1）を書いていて、「•」U+2022 が 0x22（"）になった（#19）
+      return hex(encodeWinAnsi(text));
     },
     widthOfTextAtSize(text: string, size: number): number {
+      // AFM はグリフ名で引く（`space`・`period`・`one`・`bullet`）。文字そのものを渡すと、
+      // 名前が文字と同じ英字以外は undefined で幅 0 になる（0.25.0 まで。#19）。
+      // 符号の無い文字は encode が空白で書くので、空白の幅で測る
       let total = 0;
-      for (const ch of text) total += afm.getWidthOfGlyph(ch) ?? 0;
+      for (const ch of text) total += afm.getWidthOfGlyph(glyphNameOf(ch)) ?? 0;
       // AFM は 1000 単位のグリフ空間（§9.2.4）。pt へ戻す
       return (total * size) / 1000;
     },
