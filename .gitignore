@@ -44,3 +44,6 @@ Thumbs.db
 # === Misc ===
 *.pdf
 !docs/**/*.pdf
+
+
+_to_delete/
