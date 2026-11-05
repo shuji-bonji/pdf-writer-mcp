@@ -37,3 +37,17 @@
 
 - **WHEN** `add_watermark` に `DRAFT\u007f` を `fontPath` なしで渡す
 - **THEN** `MISSING_GLYPH` で失敗し、メッセージに `U+007F` が入る
+
+### Requirement: SPEC-WRITER-STANDARD-FONT-ENCODING-003 標準フォントの文字幅は、書いた符号が指すグリフの幅で測る
+
+標準フォントで描く文字の幅は、001 で書く符号が WinAnsiEncoding で指すグリフの、AFM（Adobe Font Metrics）の幅で測る（SHALL）。空白・数字・句読点・アクセント付きの字・記号も同じく測り、幅を 0 にしない（SHALL）。002 で空白の符号として描く文字は、空白の幅で測る（SHALL）。折り返しはこの幅で決め、本文を右余白の内側に収める（SHALL）。根拠は ISO 32000-1 §9.6.2.2（標準 14 書体は、フォントまたはその font metrics を処理系が持つ。NOTE が font metrics files として AFM を示す）と Annex D.2 Table D.2（符号と字の対応）。
+
+#### Scenario: 数字・句読点・空白・記号を AFM の幅で測る
+
+- **WHEN** 標準フォント（Helvetica）で `1. •` の幅を 1000 pt で測る
+- **THEN** `one`（556）・`period`（278）・`space`（278）・`bullet`（350）の和の 1462 pt になる
+
+#### Scenario: 長い段落を右余白の内側で折り返す
+
+- **WHEN** `create_text_pdf` に `Invoice 2026-11-06: total 1,234.56 USD (paid). ` を 6 回つないだ段落を `fontPath` なしで渡す（A4・余白 56 pt・11 pt）
+- **THEN** どの行も、AFM の幅で測った右端が 595.28 − 56 pt を越えない
