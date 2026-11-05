@@ -194,21 +194,54 @@ export async function normalizePdfaConformance(
  * XMP に PDF/A 宣言（`pdfaid:part`）があるか。
  * **自称を見るだけで、適合しているかは分からない**（判定は veraPDF = `pdf-verify-mcp` の仕事）。
  */
-export async function hasPdfaDeclaration(editor: PdfDocumentEditor): Promise<boolean> {
+/** catalog の `/Metadata` の XMP を文字列で返す。無い・読めないなら `null` */
+export async function readXmpPacket(editor: PdfDocumentEditor): Promise<string | null> {
   const catalog = await readCatalog(editor);
   const raw = dictGetRaw(catalog, 'Metadata');
-  if (raw === undefined) return false;
+  if (raw === undefined) return null;
   const metadata = await editor.resolve(raw);
-  if (metadata.kind !== 'stream') return false;
+  if (metadata.kind !== 'stream') return null;
   try {
     const bytes =
       dictGet(metadata.dict, 'Filter') === undefined
         ? metadata.raw
         : await decodeStream(metadata, { resolve: (v: CosObject) => v });
-    return /<pdfaid:part>/.test(new TextDecoder().decode(bytes));
+    return new TextDecoder().decode(bytes);
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** XMP の `prefix:prop` を、要素（`<p:x>v</p:x>`）と属性（`p:x="v"`）のどちらの書き方でも読む */
+function xmpProperty(xmp: string, qname: string): string | null {
+  const q = qname;
+  const m =
+    new RegExp(`<${q}>\\s*([^<]*?)\\s*</${q}>`).exec(xmp) ??
+    new RegExp(`${q}\\s*=\\s*["']([^"']*)["']`).exec(xmp);
+  return m ? m[1] : null;
+}
+
+/** 入力の XMP が名乗っている PDF/A（`pdfaid`）。無ければ `null`（SPEC-WRITER-ENSURE-PDFA-002） */
+export interface PdfaDeclaration {
+  part: number;
+  conformance: string | null;
+}
+
+/** 入力の XMP が名乗っている PDF/A と PDF/UA の宣言を読む */
+export async function readXmpDeclarations(
+  editor: PdfDocumentEditor,
+): Promise<{ pdfa: PdfaDeclaration | null; pdfuaPart: number | null; xmp: string | null }> {
+  const xmp = await readXmpPacket(editor);
+  if (xmp === null) return { pdfa: null, pdfuaPart: null, xmp };
+  const part = Number.parseInt(xmpProperty(xmp, 'pdfaid:part') ?? '', 10);
+  const uaPart = Number.parseInt(xmpProperty(xmp, 'pdfuaid:part') ?? '', 10);
+  return {
+    pdfa: Number.isNaN(part)
+      ? null
+      : { part, conformance: xmpProperty(xmp, 'pdfaid:conformance') || null },
+    pdfuaPart: Number.isNaN(uaPart) ? null : uaPart,
+    xmp,
+  };
 }
 
 /**

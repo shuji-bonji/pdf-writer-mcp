@@ -245,7 +245,8 @@ describe('ensure_pdfa', () => {
     const result = await ensurePdfa({ inputPath: input, outputPath: output });
 
     expect(result.flavour).toBe('3b');
-    expect(result.wasDeclared).toBe(false);
+    // 0.24.0（#11）: wasDeclared は previousDeclaration に置き換えた
+    expect(result.previousDeclaration).toBeNull();
     expect(result.addedRequirements).toContain('trailer /ID (file identifier)');
     expect(result.addedRequirements).toContain('sRGB output intent (GTS_PDFA1)');
     expect(result.addedRequirements).toContain('XMP pdfaid (part 3, conformance B)');
@@ -346,7 +347,7 @@ describe('ensure_pdfa', () => {
     expect(xmp).toContain('Invoice');
   });
 
-  it('reports wasDeclared for a document that already claims PDF/A', async () => {
+  it('reports previousDeclaration for a document that already claims PDF/A', async () => {
     const input = join(dir, 'twice.pdf');
     const once = join(dir, 'twice-1.pdf');
     const twice = join(dir, 'twice-2.pdf');
@@ -355,7 +356,7 @@ describe('ensure_pdfa', () => {
     await ensurePdfa({ inputPath: input, outputPath: once });
     const second = await ensurePdfa({ inputPath: once, outputPath: twice });
 
-    expect(second.wasDeclared).toBe(true);
+    expect(second.previousDeclaration).toEqual({ part: 3, conformance: 'B' });
     // 2 回目は /ID と OutputIntent を作り直さない
     expect(second.addedRequirements).not.toContain('trailer /ID (file identifier)');
     expect(second.addedRequirements).not.toContain('sRGB output intent (GTS_PDFA1)');
@@ -520,7 +521,9 @@ describe('ensure_pdfa (PDF/A-4)', () => {
     // 増分更新は先頭のヘッダを書き換えられない。書き換えれば署名が壊れる。
     // フィクスチャの署名 PDF は 1.7 なので、-4 を求められたら断るのが正しい
     const input = join(dir, 'a4-signed-in.pdf');
-    await makeTagged(input); // 1.7 の文書
+    // タグ無しの 1.7 の文書。タグ付き（PDF/UA-1 を宣言）だと、-4 は先に
+    // SPEC-WRITER-ENSURE-PDFA-001 で断られる（0.24.0・#9）
+    await handleCreateTextPdf({ text: 'signed body', outputPath: input });
     await expect(
       ensurePdfa({
         inputPath: input,

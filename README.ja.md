@@ -124,6 +124,10 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 
 **v0.17.0 から、書いた宣言が「測ると落ちる」と既に分かっている場合は `declarationRisks` に構造化して返します。** 現在報告するのは `FONT_NOT_EMBEDDED` の 1 種で、PDF/A は全フォントの埋め込みを要求する一方 `ensure_pdfa` はフォントを埋め込まないため、標準 14 書体で描かれた文書は文書レベルの構造がどれだけ正しくても検証で落ちます。**宣言そのものは書きます**（判定を下すのは veraPDF の役目）が、呼び出し側は警告文を読まずに分岐できます。
 
+**v0.24.0 から、応答の `wasDeclared` を `previousDeclaration` に置き換えました（破壊的変更）。** 入力がすでに名乗っていた PDF/A を `{ part, conformance }` で、無ければ `null` で返します。`wasDeclared`（真偽値）は、前の宣言が求めた flavour と同じだったかを分けていませんでした。
+
+**v0.24.0 から、PDF/UA を宣言した入力への `pdfa-4`・`pdfa-4f` は断ります。** PDF/A-4 はヘッダーを PDF 2.0 にし、PDF/UA-1 は版を 1.0〜1.7 とする（ISO 14289-1 §6.1）ので、出力は 2 つの宣言の片方で必ず落ちます。エラーは `INVALID_ARGUMENT` で、`next_actions` が `flavour: "pdfa-3b"`（ヘッダーを 1.7 のままにする）を案内します。作成系が `tagged: true` と `pdfVersion: "2.0"` の組み合わせを断るのと同じ扱いです。
+
 #### PDF/A-4（v0.16.0）
 
 `flavour: "pdfa-4"` は ISO 19005-4 を狙います。PDF 2.0 基盤なので、上の 3 項目に加えて**ヘッダを 2.0 にし、Info 辞書を削除**します — PDF/A-4 は catalog に `/PieceInfo` が無い限り Info を許さず、これは ISO 32000-2 §14.3.3 より厳しい要求です。`pdfaid:rev` を書き、`pdfaid:conformance` は書きません（PDF/A-4 は conformance level を持たないため）。

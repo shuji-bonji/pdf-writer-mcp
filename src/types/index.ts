@@ -351,8 +351,15 @@ export interface EnsureTaggedResult extends EditResult {
   createdStructure: boolean;
   /** P 要素で包んだページ数 */
   wrappedPages: number;
-  /** 補った文書レベル要件 */
+  /** 補った文書レベル要件（入力に無かったもの） */
   addedRequirements: string[];
+  /** 入力にあったが値が違うので書き直した要件（SPEC-WRITER-ENSURE-TAGGED-001） */
+  replacedRequirements: string[];
+  /**
+   * 構造木を作ったか、要件を 1 つでも足したか書き直したか（SPEC-WRITER-ENSURE-TAGGED-002）。
+   * `false` でも出力は書き出す（全書き直しなので `/ModDate` は更新される）
+   */
+  requirementsChanged: boolean;
 }
 
 /** `ensure_pdfa` が名乗らせられる PDF/A のフレーバー */
@@ -399,10 +406,11 @@ export interface EnsurePdfaResult extends EditResult {
   /** 補った項目（`"trailer /ID"` / `"sRGB output intent"` / `"XMP pdfaid"`） */
   addedRequirements: string[];
   /**
-   * 入力が既に PDF/A を自称していたか（XMP の pdfaid）。
+   * 入力の XMP が名乗っていた PDF/A（`pdfaid:part` と `pdfaid:conformance`）。無ければ `null`。
+   * 0.23.x の `wasDeclared`（真偽値）を置き換えた（SPEC-WRITER-ENSURE-PDFA-002）。
    * **自称と実体は別物** — 適合しているかは `pdf-verify-mcp` の `validate_conformance` で確かめる。
    */
-  wasDeclared: boolean;
+  previousDeclaration: { part: number; conformance: string | null } | null;
   /**
    * **この宣言は測ると落ちる**と分かっている理由。空でないなら、
    * 書いたのは「まだ真ではない主張」である（B-21）。

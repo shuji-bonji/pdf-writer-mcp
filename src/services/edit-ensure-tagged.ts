@@ -58,6 +58,11 @@ export async function ensureTagged(args: EnsureTaggedArgs): Promise<EnsureTagged
     createdStructure: outcome.createdStructure,
     wrappedPages: outcome.wrappedPages,
     addedRequirements: outcome.addedRequirements,
+    replacedRequirements: outcome.replacedRequirements,
+    requirementsChanged:
+      outcome.createdStructure ||
+      outcome.addedRequirements.length > 0 ||
+      outcome.replacedRequirements.length > 0,
     warnings,
   };
 }

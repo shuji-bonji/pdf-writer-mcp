@@ -42,6 +42,7 @@ import { PdfWriterError } from '../errors.js';
 import { arr, bool, dict, int, name, stream, textString } from './cos.js';
 import { textOf } from './cos-read.js';
 import { setInfoEntries } from './info-dict.js';
+import { readXmpDeclarations } from './pdfa-cos.js';
 import { infoCreationDateIso, writeXmpMetadata } from './xmp-cos.js';
 
 export interface EnsureTaggedOptions {
@@ -58,9 +59,21 @@ export interface EnsureTaggedOutcome {
   createdStructure: boolean;
   /** P 要素で包んだページ数（新設時） */
   wrappedPages: number;
-  /** 補った文書レベル要件 */
+  /** 補った文書レベル要件（入力に無かったもの） */
   addedRequirements: string[];
+  /** 入力にあったが値が違うので書き直した要件（SPEC-WRITER-ENSURE-TAGGED-001） */
+  replacedRequirements: string[];
   warnings: string[];
+}
+
+/** XMP の文字列の中で比べるための、xmp-build と同じ実体参照 */
+function xmlEscaped(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 const enc = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -245,14 +258,26 @@ async function applyDocumentRequirements(
     outcome.addedRequirements.push('MarkInfo/Marked');
   }
 
+  // 🔴 SPEC-WRITER-ENSURE-TAGGED-001（#11・F-20）: 0.23.x は下の 3 つを、入力の値に
+  // 関係なく書き、`addedRequirements` に積んでいた。同じ値なら書かない・積まない。
+  // 値が違えば書き直して `replacedRequirements` に積む。
+
   // `/Lang`（7.2）
   const catalog = await readCatalog(editor);
+  const existingLang =
+    catalog === undefined
+      ? undefined
+      : textOf(await editor.resolve(dictGet(catalog, 'Lang') ?? COS_NULL));
   if (opts.lang !== undefined && opts.lang !== '') {
     const lang = opts.lang;
-    await updateCatalog(editor, (entries) => {
-      entries.set('Lang', textString(lang));
-    });
-    outcome.addedRequirements.push('Lang');
+    if (existingLang !== lang) {
+      await updateCatalog(editor, (entries) => {
+        entries.set('Lang', textString(lang));
+      });
+      (existingLang === undefined ? outcome.addedRequirements : outcome.replacedRequirements).push(
+        'Lang',
+      );
+    }
   } else if (catalog === undefined || dictGet(catalog, 'Lang') === undefined) {
     outcome.warnings.push(
       'No "lang" given and the document declares no /Lang; PDF/UA-1 7.2 requires one. ' +
@@ -263,7 +288,14 @@ async function applyDocumentRequirements(
   // `/ViewerPreferences <</DisplayDocTitle true>>`（7.1）
   const vpRaw = catalog === undefined ? undefined : dictGetRaw(catalog, 'ViewerPreferences');
   const vp = vpRaw === undefined ? COS_NULL : await editor.resolve(vpRaw);
-  if (vp.kind === 'dict' && vpRaw !== undefined) {
+  const ddt =
+    vp.kind === 'dict'
+      ? await editor.resolve(dictGet(vp, 'DisplayDocTitle') ?? COS_NULL)
+      : COS_NULL;
+  const ddtAlready = ddt.kind === 'boolean' && ddt.value === true;
+  if (ddtAlready) {
+    // すでに true。書かない
+  } else if (vp.kind === 'dict' && vpRaw !== undefined) {
     const entries = new Map<string, CosObject>(vp.entries);
     entries.set('DisplayDocTitle', bool(true));
     if (vpRaw.kind === 'ref') {
@@ -278,7 +310,11 @@ async function applyDocumentRequirements(
       entries.set('ViewerPreferences', dict([['DisplayDocTitle', bool(true)]]));
     });
   }
-  outcome.addedRequirements.push('ViewerPreferences/DisplayDocTitle');
+  if (!ddtAlready) {
+    (ddt.kind === 'boolean' ? outcome.replacedRequirements : outcome.addedRequirements).push(
+      'ViewerPreferences/DisplayDocTitle',
+    );
+  }
 
   // タイトル（7.1）: 引数 → 既存 Info の順
   const infoRaw = dictGetRaw(editor.trailer(), 'Info');
@@ -291,7 +327,35 @@ async function applyDocumentRequirements(
     await setInfoEntries(editor, [['Title', textString(title)]]);
   }
 
-  // XMP（pdfuaid:part 1 + dc:title）
+  // XMP（pdfuaid:part 1 + dc:title）。pdfuaid:part が 1 で、title があるときは dc:title に
+  // それが入っていれば同じ値と見なす（XMP の全体の一致は見ない）
+  const declared = await readXmpDeclarations(editor);
+  const xmpSame =
+    declared.xmp !== null &&
+    declared.pdfuaPart === 1 &&
+    (title === undefined || title === '' || declared.xmp.includes(xmlEscaped(title)));
+  if (!xmpSame) {
+    await writeXmpRequirements(editor, opts, title, infoText);
+    (declared.xmp === null ? outcome.addedRequirements : outcome.replacedRequirements).push(
+      'XMP(pdfuaid:part, dc:title)',
+    );
+  }
+
+  if (title === undefined || title === '') {
+    outcome.warnings.push(
+      'No title: PDF/UA-1 7.1 requires a document title (dc:title + DisplayDocTitle). ' +
+        'Pass "title" — validation will fail without it.',
+    );
+  }
+}
+
+/** XMP に pdfuaid:part 1 と dc:title などを書く */
+async function writeXmpRequirements(
+  editor: PdfDocumentEditor,
+  opts: EnsureTaggedOptions,
+  title: string | undefined,
+  infoText: (key: string) => Promise<string | undefined>,
+): Promise<void> {
   await writeXmpMetadata(editor, {
     ...(title !== undefined ? { title } : {}),
     ...((await infoText('Author')) !== undefined ? { author: await infoText('Author') } : {}),
@@ -304,14 +368,6 @@ async function applyDocumentRequirements(
       ? { createDate: await infoCreationDateIso(editor) }
       : {}),
   });
-  outcome.addedRequirements.push('XMP(pdfuaid:part, dc:title)');
-
-  if (title === undefined || title === '') {
-    outcome.warnings.push(
-      'No title: PDF/UA-1 7.1 requires a document title (dc:title + DisplayDocTitle). ' +
-        'Pass "title" — validation will fail without it.',
-    );
-  }
 }
 
 /** PDF/UA-1 の器に載せる。既にタグ付きなら構造木は温存し、欠落した文書要件のみ補う。 */
@@ -324,6 +380,7 @@ export async function ensureTaggedStructure(
     createdStructure: false,
     wrappedPages: 0,
     addedRequirements: [],
+    replacedRequirements: [],
     warnings: [],
   };
 

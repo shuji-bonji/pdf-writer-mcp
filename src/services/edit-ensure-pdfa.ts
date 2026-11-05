@@ -10,7 +10,7 @@
  * 「在るか」を見る側には見える。
  */
 
-import { PdfWriterError } from '../errors.js';
+import { invalidArg, PdfWriterError } from '../errors.js';
 import type {
   EditResult,
   EnsurePdfaArgs,
@@ -24,9 +24,9 @@ import { findNonEmbeddedFonts } from './font-read.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
 import {
-  hasPdfaDeclaration,
   normalizePdfaConformance,
   PDFA4_REV,
+  readXmpDeclarations,
   stripInfoForPdfa4,
 } from './pdfa-cos.js';
 import { declarePdfa } from './xmp-cos.js';
@@ -39,6 +39,27 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
 
   const opened = await openForEdit(args.inputPath, args);
   const preserve = args.preserveSignatures === true;
+  const declared = await readXmpDeclarations(opened.editor);
+
+  // SPEC-WRITER-ENSURE-PDFA-001（#9・F-19）: PDF/A-4 はヘッダーを %PDF-2.0 にし、
+  // PDF/UA-1 は ISO 14289-1 §6.1 で版を 1.0〜1.7 とする。両方を名乗るファイルは片方の
+  // 検査で必ず落ちる（veraPDF ISO 14289-1:2014 6.1-1）。作成系の B-16 と同じく断る
+  if (isPdfa4 && declared.pdfuaPart !== null) {
+    const err = invalidArg(
+      `The input declares PDF/UA-${declared.pdfuaPart} (pdfuaid:part in XMP), and ${flavour} would set the header to PDF 2.0, which PDF/UA-1 does not allow (ISO 14289-1 §6.1: version 1.0 to 1.7). The file would then fail one of its two declarations.`,
+    );
+    throw new PdfWriterError(err.message, 'INVALID_ARGUMENT', {
+      hint: 'Use flavour "pdfa-3b": it keeps the PDF 1.7 header, so PDF/A-3b and PDF/UA-1 can both hold. PDF/UA-2 output (the PDF 2.0 counterpart) is not implemented.',
+      next_actions: [
+        {
+          action: 'retry_with_flavour',
+          reason:
+            'PDF/A-3b keeps the PDF 1.7 header and can stand together with the PDF/UA-1 declaration. Call again with flavour "pdfa-3b".',
+          example: { flavour: 'pdfa-3b' },
+        },
+      ],
+    });
+  }
 
   // PDF/A-4 は PDF 2.0 基盤で、ヘッダが `%PDF-2.n` であることを要求する
   // （veraPDF `ISO 19005-4:2020 6.1.2-1`）。増分更新は**元ファイルの先頭を書き換えられない** —
@@ -59,7 +80,9 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
     await assertDocMdpAllows(opened.editor, 'structure');
   }
 
-  const wasDeclared = await hasPdfaDeclaration(opened.editor);
+  // SPEC-WRITER-ENSURE-PDFA-002（#11・F-31）: 0.23.x の wasDeclared（真偽値）は、
+  // 求めた flavour と同じ宣言だったのかを分けていなかった。宣言そのものを返す
+  const previousDeclaration = declared.pdfa;
   const addedRequirements: string[] = [];
   const warnings: string[] = [];
 
@@ -145,7 +168,7 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
     ...saved,
     flavour: isPdfa4 ? (pdfa4Variant ? '4f' : '4') : '3b',
     addedRequirements,
-    wasDeclared,
+    previousDeclaration,
     ...(declarationRisks.length > 0 ? { declarationRisks } : {}),
     ...(all.length > 0 ? { warnings: all } : {}),
   };

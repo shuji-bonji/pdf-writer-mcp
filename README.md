@@ -124,6 +124,10 @@ Shared options: `outputPath`, `returnBase64`, `allowBreakingSignatures`.
 
 Since v0.17.0 the result also carries `declarationRisks` when the claim is **already known to be false**. The only risk reported today is `FONT_NOT_EMBEDDED`: PDF/A requires every font to be embedded and `ensure_pdfa` does not embed fonts, so a document drawn with the standard 14 faces fails validation regardless of how correct its document-level structure is. The declaration is still written — the verdict belongs to veraPDF — but the caller can now branch on the risk instead of parsing the warning text.
 
+Since v0.24.0 the result carries `previousDeclaration` — the PDF/A the input already claimed, as `{ part, conformance }`, or `null` — **in place of `wasDeclared`** (a boolean that did not say whether the earlier claim matched the requested flavour). This is a breaking change.
+
+**`ensure_pdfa` refuses `pdfa-4` / `pdfa-4f` for an input that declares PDF/UA** (v0.24.0). PDF/A-4 sets the header to PDF 2.0, while PDF/UA-1 allows versions 1.0 to 1.7 (ISO 14289-1 §6.1), so the file would fail one of its two claims. The error is `INVALID_ARGUMENT` with `next_actions` pointing at `flavour: "pdfa-3b"`, which keeps the 1.7 header — the same rule the create tools apply to `tagged: true` with `pdfVersion: "2.0"`.
+
 #### PDF/A-4 (v0.16.0)
 
 `flavour: "pdfa-4"` targets ISO 19005-4 instead. It is built on PDF 2.0, so on top of the three items above it rewrites the header to 2.0 and **removes the Info dictionary** — PDF/A-4 does not allow one unless the catalog has `/PieceInfo`, which is stricter than ISO 32000-2 §14.3.3. `pdfaid:rev` is written and `pdfaid:conformance` is not, because PDF/A-4 has no conformance level.

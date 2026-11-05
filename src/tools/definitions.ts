@@ -244,7 +244,10 @@ export const tools: ToolDefinition[] = [
       '**IMPORTANT**: machines cannot infer meaning — headings, tables, lists, reading order and figure alt text are ' +
       'NOT created. The new tree is a scaffold, not an accessible document; it needs human review. ' +
       "If you can build the structure right from the start, use the create tools' tagged: true. " +
-      'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused).',
+      'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
+      'The result separates addedRequirements (absent from the input) from replacedRequirements (present with a different value, rewritten); ' +
+      'a requirement already present with the same value is neither rewritten nor listed. requirementsChanged is false when nothing was ' +
+      'added, replaced or created — the output file is still written (v0.24.0).',
     inputSchema: EnsureTaggedSchema,
     annotations: base,
   },
@@ -270,7 +273,10 @@ export const tools: ToolDefinition[] = [
       'When the document carries machine-readable attachments, apply it **after** attach_file. ' +
       'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
       'However, **the -4 flavours combined with preserveSignatures are refused unless the input is already PDF 2.0** ' +
-      '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures).',
+      '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures). ' +
+      '**The -4 flavours are refused (INVALID_ARGUMENT, next_actions: flavour "pdfa-3b") when the input declares PDF/UA**: ' +
+      'PDF/A-4 needs a PDF 2.0 header and PDF/UA-1 allows only 1.0 to 1.7 (ISO 14289-1 §6.1). ' +
+      'The result reports previousDeclaration — the PDF/A the input already claimed, { part, conformance } or null (it replaced wasDeclared in v0.24.0).',
     inputSchema: EnsurePdfaSchema,
     annotations: base,
   },
