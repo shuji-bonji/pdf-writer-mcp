@@ -8,12 +8,12 @@
     "url": "https://github.com/shuji-bonji/pdf-writer-mcp",
     "source": "github"
   },
-  "version": "0.23.2",
+  "version": "0.23.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@shuji-bonji/pdf-writer-mcp",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "transport": {
         "type": "stdio"
       }
