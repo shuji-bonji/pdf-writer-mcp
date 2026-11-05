@@ -271,6 +271,25 @@ export class LayoutEngine {
     if (options.spaceAfter) this._top -= options.spaceAfter;
   }
 
+  /**
+   * 1 行だけの文字を、いまの行に描く。**cursorTop は下げない。**
+   * リストの記号（Lbl）を描いたあと、同じ行から本文（LBody）を drawParagraph で続けるために使う。
+   * 本文の 1 行目と同じ高さに描くため、先に ensureSpace で行の高さを確保する。
+   */
+  drawInline(text: string, options: Omit<DrawTextOptions, 'spaceAfter'> = {}): void {
+    const font = options.font ?? this.opts.font;
+    const size = options.size ?? this.opts.fontSize;
+    const lineHeight = options.lineHeight ?? this.opts.lineHeight;
+    const color = options.color ?? COLORS.bodyText;
+    const leftIndent = options.leftIndent ?? 0;
+    this.ensureSpace(size * lineHeight);
+    if (text === '') return;
+    const y = this._top - size * ASCENT_RATIO;
+    this.drawTaggedContent(() => {
+      this._page.drawText(text, { x: this.leftX + leftIndent, y, size, font, color });
+    });
+  }
+
   /** 水平線 */
   drawRule(
     options: { color?: Rgb; thickness?: number; spaceBefore?: number; spaceAfter?: number } = {},

@@ -183,6 +183,64 @@ function createHeadingNormalizer(startLevel = 1) {
   };
 }
 
+/** 1 段の字下げ（pt）。入れ子のリストの記号は、親の本文の始まりにそろえる */
+const LIST_INDENT = 14;
+/** 記号と本文のあいだ（pt） */
+const LABEL_GAP = 4;
+
+/**
+ * リストを描く（#12）。
+ *
+ * - 構造は `L > LI > (Lbl, LBody)`。記号・番号は Lbl、本文は LBody（ISO 14289-1 §7.6 R-7.6-3、
+ *   ISO 32000-1 Table 336）。番号は Lbl に字として書く（Table 347 の NOTE）
+ * - L に `/A << /O /List /ListNumbering /Decimal | /Disc >>` を書く（R-7.6-4）
+ * - 入れ子のリストは親の項目の LBody の中に置く（Table 336 は LBody の中にリストを許す）
+ * - 本文は記号の欄の右から始め、折り返した行も同じ位置から始める（ぶら下げの字下げ）
+ *
+ * タグ無しのときも同じ位置に描く（struct が無ければ begin/end は何もしない）。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: marked のトークン型は緩いため境界で any を許容
+function drawList(engine: LayoutEngine, list: any, indent: number): void {
+  const metrics = engine.defaultMetrics;
+  const size = engine.defaultSize;
+  const start = typeof list.start === 'number' && list.start > 0 ? list.start : 1;
+  // biome-ignore lint/suspicious/noExplicitAny: 同上
+  const items: any[] = list.items;
+  const labels = items.map((_, i) => (list.ordered ? `${start + i}.` : '\u2022'));
+  // 記号の欄の幅は、そのリストでいちばん広い記号に合わせる（番号の桁が増えても本文がそろう）
+  const labelColumn = Math.max(
+    LIST_INDENT,
+    ...labels.map((l) => metrics.widthOfTextAtSize(l, size) + LABEL_GAP),
+  );
+  const bodyIndent = indent + labelColumn;
+
+  engine.struct?.begin('L', { listNumbering: list.ordered ? 'Decimal' : 'Disc' });
+  items.forEach((item, i) => {
+    // biome-ignore lint/suspicious/noExplicitAny: 同上
+    const tokens: any[] = item.tokens ?? [];
+    const nested = tokens.filter((k) => k.type === 'list');
+    const text = tokens
+      .filter((k) => k.type !== 'list' && k.type !== 'space' && k.type !== 'checkbox')
+      .map((k) => String(k.text ?? ''))
+      .join(' ');
+    const body = stripInline(tokens.length > 0 ? text : String(item.text ?? '')).replace(
+      /\s*\n\s*/g,
+      ' ',
+    );
+
+    engine.struct?.begin('LI');
+    engine.struct?.begin('Lbl');
+    engine.drawInline(labels[i], { leftIndent: indent });
+    engine.struct?.end();
+    engine.struct?.begin('LBody');
+    engine.drawParagraph(body, { leftIndent: bodyIndent, spaceAfter: 2 });
+    for (const child of nested) drawList(engine, child, bodyIndent);
+    engine.struct?.end();
+    engine.struct?.end();
+  });
+  engine.struct?.end();
+}
+
 export function renderMarkdown(
   engine: LayoutEngine,
   markdown: string,
@@ -220,20 +278,7 @@ export function renderMarkdown(
         break;
       }
       case 'list': {
-        let idx = typeof t.start === 'number' && t.start > 0 ? t.start : 1;
-        engine.struct?.begin('L');
-        for (const item of t.items) {
-          const marker = t.ordered ? `${idx}. ` : '\u2022 ';
-          const body = stripInline(String(item.text)).replace(/\s*\n\s*/g, ' ');
-          // L > LI > LBody\uff08Lbl \u306f marker \u3092\u672c\u6587\u306b\u542b\u3081\u3066\u3044\u308b\u305f\u3081\u4f5c\u3089\u306a\u3044\uff09
-          engine.struct?.begin('LI');
-          engine.struct?.begin('LBody');
-          engine.drawParagraph(marker + body, { leftIndent: 14, spaceAfter: 2 });
-          engine.struct?.end();
-          engine.struct?.end();
-          idx++;
-        }
-        engine.struct?.end();
+        drawList(engine, t, LIST_INDENT);
         engine.moveDown(BLOCK_GAP);
         break;
       }

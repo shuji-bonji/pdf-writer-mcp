@@ -67,7 +67,24 @@ export interface StructElemOptions {
    * Headers/IDs で構造を示さない表では TH に `/Scope` が必須。
    */
   scope?: 'Row' | 'Column' | 'Both';
+  /**
+   * L の番号の振り方（ISO 32000-1 Table 347 の ListNumbering）。
+   * PDF/UA-1 §7.6 は番号付きリストでこの属性を明示することを求める（R-7.6-4）。
+   */
+  listNumbering?: ListNumbering;
 }
+
+/** ISO 32000-1 Table 347 の ListNumbering の値 */
+export type ListNumbering =
+  | 'None'
+  | 'Disc'
+  | 'Circle'
+  | 'Square'
+  | 'Decimal'
+  | 'UpperRoman'
+  | 'LowerRoman'
+  | 'UpperAlpha'
+  | 'LowerAlpha';
 
 /** 開いている要素 1 つ。`end()` が戻る先を持つ */
 interface OpenElement {
@@ -98,20 +115,20 @@ export class StructTreeBuilder {
   /** 構造要素を開始する */
   begin(tag: StructTag, options: StructElemOptions = {}): void {
     const parent = this.#innermost.element;
-    const extra = new Map(
-      options.scope === undefined
-        ? []
-        : // /A << /O /Table /Scope /Column >>（属性辞書は /O で所属を示す）
-          [
-            [
-              'A',
-              dict([
-                ['O', name('Table')],
-                ['Scope', name(options.scope)],
-              ]),
-            ] as const,
-          ],
-    );
+    // 属性辞書は /O で所属を示す（/A << /O /Table /Scope /Column >>・/A << /O /List /ListNumbering /Decimal >>）
+    const attrs =
+      options.scope !== undefined
+        ? dict([
+            ['O', name('Table')],
+            ['Scope', name(options.scope)],
+          ])
+        : options.listNumbering !== undefined
+          ? dict([
+              ['O', name('List')],
+              ['ListNumbering', name(options.listNumbering)],
+            ])
+          : undefined;
+    const extra = new Map(attrs === undefined ? [] : [['A', attrs] as const]);
     const element = this.#core.element(tag, {
       parent,
       ...(options.alt !== undefined ? { alt: options.alt } : {}),
