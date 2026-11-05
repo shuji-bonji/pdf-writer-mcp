@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Proposed version: 0.24.0 (the maintainer decides). OpenSpec changes
+`edit-refusal-order-and-paths` (SPEC-WRITER-COMMON-ERRORS-004..006),
+`ensure-pdfa4-refuses-pdfua1` (SPEC-WRITER-ENSURE-PDFA-001, new capability) and
+`ensure-reports-what-changed` (SPEC-WRITER-ENSURE-TAGGED-001..002, new capability;
+SPEC-WRITER-ENSURE-PDFA-002).
+
+### Changed (breaking)
+
+- **`ensure_pdfa` returns `previousDeclaration` instead of `wasDeclared`** (#11, F-31). The
+  boolean said that some `pdfaid` was there, not whether it matched the requested flavour: a
+  PDF/A-3b file asked for `pdfa-4f` reported `wasDeclared: true`. The result now carries the
+  claim itself, `{ part, conformance }` (`conformance` is `null` when absent), or `null`.
+  There is no transition release (0.x).
+- **`ensure_pdfa` refuses `pdfa-4` / `pdfa-4f` for an input that declares PDF/UA** (#9, F-19).
+  PDF/A-4 sets the header to `%PDF-2.0`, and PDF/UA-1 allows versions 1.0 to 1.7
+  (ISO 14289-1 §6.1); the output passed veraPDF PDF/A-4f and failed PDF/UA-1 6.1-1. The error
+  is `INVALID_ARGUMENT` with `next_actions: [{ action: "retry_with_flavour", example:
+  { flavour: "pdfa-3b" } }]` — the same rule as the create tools' B-16.
+- **Writing the output file can no longer fail as `INTERNAL_ERROR`** (#10, F-23). A folder
+  that cannot be created or a file that cannot be written is `INVALID_ARGUMENT`
+  (`retryable: true`), naming the **output** path: `Cannot write the output file "<path>": …`,
+  with `detail: { reason, path, cause }`. `reason` is `PERMISSION_DENIED`, `NOT_A_DIRECTORY`,
+  `IS_A_DIRECTORY`, `READ_ONLY_FILESYSTEM`, `NO_SPACE` or `FILESYSTEM_ERROR` (the same values
+  as pdf-reader-mcp's input side).
+- **An encrypted, signed input is refused as `ENCRYPTED_PDF`, not `SIGNED_PDF`** (#10, F-21).
+  The edit entry point now checks `/Encrypt` before `/ByteRange`; 0.23.x answered
+  `SIGNED_PDF` with a `preserveSignatures` retry that then always failed as `ENCRYPTED_PDF`.
+
+### Added
+
+- `ensure_tagged` reports `replacedRequirements` (present with a different value, rewritten)
+  apart from `addedRequirements` (absent from the input), and `requirementsChanged` (#11,
+  F-20). `Lang`, `ViewerPreferences/DisplayDocTitle` and `XMP(pdfuaid:part, dc:title)` that
+  are already present with the same value are no longer rewritten nor listed. The output file
+  is written either way.
+- `ENCRYPTED_PDF` carries `detail.keyDerived` (whether the empty user password opens the file)
+  and a hint for each case (#10, F-08): decrypt outside the server and edit the copy, or read
+  it as it is with pdf-reader-mcp / pdf-verify-mcp; or decrypt it with the user password.
+- Error bodies may carry `detail` (allowed by SPEC-WRITER-COMMON-ERRORS-001 since 0.23.3).
+
+### Fixed
+
+- A full rewrite that cannot rebuild its input (for example a page without `/Resources`,
+  ISO 32000-2 Table 31) says `Cannot rewrite "<input>" into "<output>": …` with both paths in
+  `detail`, instead of `Failed to write "<input>"` — the input was never written (#10, F-23).
+
 ## [0.23.3] - 2026-11-05
 
 Target version: 0.23.3. Every error now follows the PDF family contract (pdf-agent-stack

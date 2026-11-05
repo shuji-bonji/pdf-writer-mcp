@@ -6,18 +6,18 @@
 
 ## 1. 受入テスト（先に落ちることを確かめる）
 
-- [ ] 1.1 `tests/ensure-pdfa-pdfua.test.ts` を足す。名前を「SPEC-WRITER-ENSURE-PDFA-001 <Scenario 名>」で始める
-- [ ] 1.2 変更前の `src/` で落ちることを確かめる
+- [x] 1.1 `tests/ensure-pdfa-pdfua.test.ts` を足す。名前を「SPEC-WRITER-ENSURE-PDFA-001 <Scenario 名>」で始める
+- [x] 1.2 変更前の `src/` で落ちることを確かめる
 
 ## 2. 実装
 
-- [ ] 2.1 `src/services/pdfa-cos.ts`: XMP の宣言を読む関数（`readXmpDeclarations`）を置く
-- [ ] 2.2 `src/services/edit-ensure-pdfa.ts`: -4 系で `pdfuaid` があれば断る
-- [ ] 2.3 ツールの説明に書く。CI の一覧が終了コード 0
+- [x] 2.1 `src/services/pdfa-cos.ts`: XMP の宣言を読む関数（`readXmpDeclarations`）を置く
+- [x] 2.2 `src/services/edit-ensure-pdfa.ts`: -4 系で `pdfuaid` があれば断る
+- [x] 2.3 ツールの説明に書く。CI の一覧が終了コード 0
 
 ## 3. 確認
 
-- [ ] 3.1 `tools/list` の差がツールの説明の文だけであることを確かめる
+- [x] 3.1 `tools/list` の差がツールの説明の文だけであることを確かめる
 
 ## 4. 承認と取り込み（人が判断する）
 
