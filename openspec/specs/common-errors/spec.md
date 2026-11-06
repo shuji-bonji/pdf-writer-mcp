@@ -57,7 +57,7 @@ writer 固有のガード（`SIGNED_PDF`・`TAGGED_PDF`・`FONT_REQUIRED`・`FON
 
 ### Requirement: SPEC-WRITER-COMMON-ERRORS-003 文の項目は英語で書き、分岐に使う値は変えない
 
-エラーの本文の `error`・`hint`・`next_actions[].reason` は英語で書く（SHALL）。受け側が分岐と再試行に使う `next_actions[].action` の値（`retry_with_preserveSignatures`・`retry_with_allowBreakingSignatures`・`retry_with_allowBreakingTags`・`retry_with_fontPath`・`retry_with_onMissingGlyph`・`verify_file_path`）と `example` は変えない（SHALL）。
+エラーの本文の `error`・`hint`・`next_actions[].reason` は英語で書く（SHALL）。ただし `error` が原因として名指す入力の字（`"<字>" (U+XXXX)` の `<字>`。`FONT_REQUIRED`・`MISSING_GLYPH`）は入力をそのまま引いたもので、英語で書く対象に含めない。受け側が分岐と再試行に使う `next_actions[].action` の値（`retry_with_preserveSignatures`・`retry_with_allowBreakingSignatures`・`retry_with_allowBreakingTags`・`retry_with_fontPath`・`retry_with_onMissingGlyph`・`verify_file_path`）と `example` は変えない（SHALL）。
 
 #### Scenario: next_actions の reason は英語
 
@@ -72,7 +72,7 @@ writer 固有のガード（`SIGNED_PDF`・`TAGGED_PDF`・`FONT_REQUIRED`・`FON
 #### Scenario: フォントが要るときの本文はすべて英語
 
 - **WHEN** 日本語の本文を、フォントを渡さずに `create_text_pdf` に渡す
-- **THEN** 本文の `error`・`hint`・`next_actions[].reason` にかな・漢字が無く、`next_actions[0].action` は `retry_with_fontPath`
+- **THEN** 本文の `error`（名指した入力の字を除く）・`hint`・`next_actions[].reason` にかな・漢字が無く、`next_actions[0].action` は `retry_with_fontPath`
 
 ### Requirement: SPEC-WRITER-COMMON-ERRORS-004 編集の入口は、暗号化を署名より先に確かめる
 
@@ -120,3 +120,32 @@ writer 固有のガード（`SIGNED_PDF`・`TAGGED_PDF`・`FONT_REQUIRED`・`FON
 
 - **WHEN** `/Resources` の無いページを持つ文書を、別の `outputPath` にして `set_metadata` に渡す
 - **THEN** `code` は `INVALID_PDF`、`error` は `Cannot rewrite` で始まって入力と出力の両方のパスを含み、`detail.outputPath` は渡した `outputPath`
+
+### Requirement: SPEC-WRITER-COMMON-ERRORS-007 字が原因の失敗は、原因の字を detail に機械が読める形で書く
+
+`FONT_REQUIRED` と `MISSING_GLYPH` の本文の `detail` に、`characters`（原因の字の `U+XXXX` の文字列の配列。16 進は大文字で 4 桁以上。重複なしで、入力に出てきた順）と `count`（原因の字の重複なしの数）を書く（SHALL）。`characters` には最初の 1,000 字までを入れ、`count` は常に全体の数にする（SHALL）。`error` の文が最初の 10 字で切れる場合も、`characters` は 11 字目以降を含む（SHALL）。`error`・`code`・`retryable`・`next_actions` はこの要求で変えない（SHALL）。根拠は pdf-agent-stack `docs/specs/06` §2.3（`detail` はサーバ固有の補足。文の項目は版で変わる）。
+
+#### Scenario: MISSING_GLYPH の原因の字を detail に書く
+
+- **WHEN** `create_text_pdf` に `A\u0085B\u0001` を `fontPath` なしで渡す
+- **THEN** `code` は `MISSING_GLYPH`、`detail` は `{ "characters": ["U+0085", "U+0001"], "count": 2 }`
+
+#### Scenario: FONT_REQUIRED の原因の字を detail に書く
+
+- **WHEN** `create_text_pdf` に `日本日語` を `fontPath` なしで渡す
+- **THEN** `code` は `FONT_REQUIRED`、`detail` は `{ "characters": ["U+65E5", "U+672C", "U+8A9E"], "count": 3 }`
+
+#### Scenario: 文が 10 字で切れても detail には全部入る
+
+- **WHEN** `create_text_pdf` に異なる漢字 12 字を `fontPath` なしで渡す
+- **THEN** `error` は `and 2 more` で終わり、`detail.characters` は 12 個、`detail.count` は 12
+
+#### Scenario: 1,000 字を超えると characters を切り、count は全体の数
+
+- **WHEN** `create_text_pdf` に異なる漢字 1,200 字を `fontPath` なしで渡す
+- **THEN** `detail.characters` は 1,000 個、`detail.count` は 1,200
+
+#### Scenario: サーバーの応答の本文にも detail が載る
+
+- **WHEN** MCP の `tools/call` で `create_text_pdf` に `日本語の本文` をフォントなしで渡す
+- **THEN** 本文の `detail.characters` の先頭は `U+65E5`、`detail.count` は 5

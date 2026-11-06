@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.26.0] - 2026-11-06
 
 Proposed version: 0.26.0 (decided in #22). OpenSpec changes `standard-font-winansi-input`
 (SPEC-WRITER-STANDARD-FONT-ENCODING-002 modified, 004 added; SPEC-WRITER-COMMON-ERRORS-003

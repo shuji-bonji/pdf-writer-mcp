@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-06
+pr: 24
 implementation: required
 targets: [standard-font-encoding, common-errors]
 ---

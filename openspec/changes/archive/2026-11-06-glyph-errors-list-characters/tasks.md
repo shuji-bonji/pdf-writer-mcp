@@ -20,7 +20,6 @@
 
 ## 4. 承認と取り込み（人が判断する）
 
-- [ ] 4.1 人が `proposal.md` の front matter に `approved: YYYY-MM-DD` と `pr: N` を書く
-- [ ] 4.2 マージの前に、同じ PR の中で `npx openspec archive <slug> --yes` を実行する（`standard-font-winansi-input` を先に）
-- [ ] 4.3 archive の後、正本 `standard-font-encoding` の Purpose の「U+0100 以上の文字を `FONT_REQUIRED` で断る判定は、この capability の対象外」を、004 を含む形に直す
-- [ ] 4.4 `npx openspec validate --all && npx spec-ids check` が通る
+- [x] 4.1 人が `proposal.md` の front matter に `approved: YYYY-MM-DD` と `pr: N` を書く
+- [x] 4.2 マージの前に、同じ PR の中で `npx openspec archive <slug> --yes` を実行する（`standard-font-winansi-input` を先に。このファイルの slug は glyph-errors-list-characters）
+- [x] 4.3 `npx openspec validate --all && npx spec-ids check` が通る
