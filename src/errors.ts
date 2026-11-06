@@ -87,6 +87,13 @@ export interface ErrorDetail {
   outputPath?: string;
   /** `ENCRYPTED_PDF`: 空の利用者パスワードで鍵を導けたか（ISO 32000-2 §7.6.4.3.2） */
   keyDerived?: boolean;
+  /**
+   * `FONT_REQUIRED`・`MISSING_GLYPH`: 原因の字の `U+XXXX`（重複なし・出てきた順・
+   * 最初の `LIMITS.ERROR_DETAIL_MAX_CHARACTERS` 字まで）。SPEC-WRITER-COMMON-ERRORS-007
+   */
+  characters?: string[];
+  /** `FONT_REQUIRED`・`MISSING_GLYPH`: 原因の字の数（重複なし。`characters` を切っても全体の数） */
+  count?: number;
 }
 
 /**
@@ -236,8 +243,8 @@ export const NEXT_ACTIONS = {
   provideFontPath: (): NextAction => ({
     action: 'retry_with_fontPath',
     reason:
-      'Non-Latin text (Japanese, for example) needs an embedded font. Pass a .ttf/.otf file ' +
-      'as "fontPath", or set the PDF_WRITER_FONT environment variable.',
+      'Characters outside WinAnsiEncoding (Japanese, for example) need an embedded font. Pass a ' +
+      '.ttf/.otf file as "fontPath", or set the PDF_WRITER_FONT environment variable.',
     example: { fontPath: '/path/to/NotoSansJP-Regular.otf' },
   }),
   changeMissingGlyphPolicy: (): NextAction => ({

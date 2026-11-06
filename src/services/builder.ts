@@ -59,9 +59,8 @@ export async function buildPdf(
   // メタデータはテキスト文字列（ISO 32000-2 §7.9.2.2）でグリフを要さないので、フォントの検査も当てない（002）
   const drawTitle = opts.title !== undefined && opts.drawTitle !== false;
 
-  // 標準フォント × 非 Latin-1 は、この時点で分かりやすく弾く
-  for (const t of inputTexts) assertRenderable(t, source);
-  if (drawTitle) assertRenderable(opts.title as string, source);
+  // 標準フォントで描けない字（WinAnsiEncoding に符号の無い U+0100 以上の字）は、この時点で断る
+  assertRenderable(drawTitle ? [opts.title as string, ...inputTexts] : inputTexts, source);
 
   // フォント未収録文字の検査・置換（埋め込みフォントのみ）
   // 描く title もサブセット対象に含める必要があるため、先頭に連結して一括処理する

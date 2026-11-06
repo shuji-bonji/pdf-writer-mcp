@@ -81,7 +81,7 @@ async function refreshAppearances(
   }
 
   const source = await openFont(fontPath);
-  for (const text of texts) assertRenderable(text, source);
+  assertRenderable(texts, source);
   const applied = applyMissingGlyphPolicy(texts, source, 'error');
   const host = await fontHostFor(
     opened.editor,

@@ -46,6 +46,12 @@ export const LIMITS = {
    * verify（MAX_FILE_SIZE = 100MB）と同水準の上限を設ける。
    */
   INPUT_PDF_MAX_BYTES: 100 * 1024 * 1024,
+  /**
+   * `FONT_REQUIRED`・`MISSING_GLYPH` の `detail.characters` に入れる字の最大数
+   * （SPEC-WRITER-COMMON-ERRORS-007）。日本語の長文を標準フォントに渡すと原因の字は数千になり、
+   * 全部を載せるとエラーの本文が数十 KB になる。`detail.count` は常に全体の数。
+   */
+  ERROR_DETAIL_MAX_CHARACTERS: 1_000,
 } as const;
 
 /** stamp_page_numbers の配置 */

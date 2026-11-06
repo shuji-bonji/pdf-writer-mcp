@@ -10,7 +10,6 @@
  * オブジェクト横断の refine はフルスキーマ側にしか無いため parseArgs を必ず通す。
  */
 
-import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import { buildPdf } from '../services/builder.js';
 import { addAnnotation } from '../services/edit-annotation.js';
 import { attachFileToPdf } from '../services/edit-attach.js';
@@ -21,7 +20,6 @@ import { fillForm, flattenFormTool as flattenForm } from '../services/edit-form.
 import { setMetadata } from '../services/edit-metadata.js';
 import { addWatermark, stampPageNumbers } from '../services/edit-stamp.js';
 import { tagFormFields } from '../services/edit-tag-form.js';
-import { hasNonLatin1 } from '../services/layout.js';
 import {
   deletePages,
   extractPages,
@@ -87,15 +85,10 @@ export async function handleCreateTablePdf(args: unknown): Promise<CreateResult>
   const a = parseArgs(CreateTableSchema, args);
   // ポリシー適用のためセルを平坦化して渡し、render 内で元の形に戻す
   const cells = [...a.headers, ...a.rows.flat()];
-  return buildPdf(a, cells, (engine, loaded, texts) => {
-    // 表は標準フォントで日本語不可のため、描画前に検査（判定は layout の hasNonLatin1 に統一）
-    if (loaded.isStandard && hasNonLatin1(texts.join('\n'))) {
-      throw new PdfWriterError(
-        'The table contains non-Latin characters (e.g. Japanese) but no embeddable font was provided.',
-        'FONT_REQUIRED',
-        { next_actions: [NEXT_ACTIONS.provideFontPath()] },
-      );
-    }
+  return buildPdf(a, cells, (engine, _loaded, texts) => {
+    // 標準フォントで描けない字は、buildPdf がセルを含む全入力に assertRenderable を当てて
+    // 先に断っている（SPEC-WRITER-STANDARD-FONT-ENCODING-004）。0.25.1 まではここにも
+    // 同じ判定を書いていたが、一度も届いていなかった
     const headers = texts.slice(0, a.headers.length);
     const rows: string[][] = [];
     let i = a.headers.length;

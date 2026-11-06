@@ -23,6 +23,7 @@ import { FONT_MAGIC } from '../constants.js';
 import { NEXT_ACTIONS, PdfWriterError } from '../errors.js';
 import type { MissingGlyphPolicy } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { characterDetail, describeCharacters } from './char-report.js';
 import {
   embedFontProgram,
   embedStandardFont,
@@ -81,9 +82,9 @@ export async function openFont(fontPath?: string): Promise<FontSource> {
   const resolvedPath = fontPath ?? process.env[ENV_KEYS.DEFAULT_FONT];
 
   if (!resolvedPath) {
-    logger.info(CTX, `No fontPath given; using ${STANDARD_14_FALLBACK} (ASCII only)`);
-    // U+0100 以上は assertRenderable が FONT_REQUIRED で先に断る。ここで答えるのは
-    // その手前で WinAnsiEncoding に符号の無い文字（制御文字・U+007F–U+009F）で、
+    logger.info(CTX, `No fontPath given; using ${STANDARD_14_FALLBACK} (WinAnsiEncoding only)`);
+    // WinAnsiEncoding に符号の無い U+0100 以上の字は assertRenderable が FONT_REQUIRED で
+    // 先に断る（004）。ここで答えるのは符号の無い U+0100 未満の字（制御文字・U+007F–U+009F）で、
     // onMissingGlyph に乗せる（SPEC-WRITER-STANDARD-FONT-ENCODING-002）
     return { name: 'Helvetica', isStandard: true, hasGlyph: standardFontHasGlyph };
   }
@@ -191,8 +192,8 @@ export function applyMissingGlyphPolicy(
   policy: MissingGlyphPolicy = 'error',
 ): { texts: string[]; warnings: string[] } {
   const hasGlyph = source.hasGlyph;
-  // 標準フォントも hasGlyph を持つ（WinAnsiEncoding に符号があるか）。U+0100 以上は
-  // assertRenderable が先に FONT_REQUIRED で断っているので、ここに来るのはその手前の文字
+  // 標準フォントも hasGlyph を持つ（WinAnsiEncoding に符号があるか）。符号の無い U+0100 以上の字は
+  // assertRenderable が先に FONT_REQUIRED で断っているので、ここに来るのは U+0100 未満の字
   if (!hasGlyph) return { texts, warnings: [] };
 
   const missing = new Set<string>();
@@ -204,21 +205,15 @@ export function applyMissingGlyphPolicy(
   }
   if (missing.size === 0) return { texts, warnings: [] };
 
-  const list = [...missing]
-    .slice(0, 10)
-    .map(
-      (ch) =>
-        `"${ch}" (U+${(ch.codePointAt(0) as number).toString(16).toUpperCase().padStart(4, '0')})`,
-    )
-    .join(', ');
-  const suffix = missing.size > 10 ? ` and ${missing.size - 10} more` : '';
+  const chars = [...missing];
+  const list = describeCharacters(chars);
 
   if (policy === 'error') {
     throw new PdfWriterError(
-      `The font "${source.name}" has no glyph for: ${list}${suffix}. ` +
+      `The font "${source.name}" has no glyph for: ${list}. ` +
         'These characters would render as blank boxes.',
       'MISSING_GLYPH',
-      { next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()] },
+      { next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()], detail: characterDetail(chars) },
     );
   }
 
@@ -226,7 +221,7 @@ export function applyMissingGlyphPolicy(
     return {
       texts,
       warnings: [
-        `Rendered blank glyphs for unsupported characters (onMissingGlyph=ignore): ${list}${suffix}`,
+        `Rendered blank glyphs for unsupported characters (onMissingGlyph=ignore): ${list}`,
       ],
     };
   }
@@ -238,8 +233,6 @@ export function applyMissingGlyphPolicy(
   );
   return {
     texts: replaced,
-    warnings: [
-      `Replaced ${missing.size} unsupported character(s) with "${replacement}": ${list}${suffix}`,
-    ],
+    warnings: [`Replaced ${missing.size} unsupported character(s) with "${replacement}": ${list}`],
   };
 }

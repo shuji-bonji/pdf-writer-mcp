@@ -161,7 +161,7 @@ Measured with veraPDF 1.30.0: `pdfa-4` **109/109 COMPLIANT**, and the same docum
 
 ## Fonts
 
-The standard PDF font (Helvetica) covers **ASCII only**. To render Japanese or any non-Latin text, point `fontPath` or `PDF_WRITER_FONT` at an embeddable **single-face** font (`.ttf` / `.otf`).
+The standard PDF font (Helvetica) covers the **218 characters of WinAnsiEncoding** (ISO 32000-1 Annex D.2): ASCII, Latin-1 letters and signs, and curly quotes, dashes, `€`, `…`, `™` and a few more. Text with any other character from U+0100 up (Japanese, `ł`, `✔`, …) is refused with `FONT_REQUIRED`, and the error names the characters. To render such text, point `fontPath` or `PDF_WRITER_FONT` at an embeddable **single-face** font (`.ttf` / `.otf`).
 
 - Recommended source: [Noto Sans JP (SubsetOTF/JP)](https://github.com/notofonts/noto-cjk/tree/main/Sans/SubsetOTF/JP) — static, single-face, SIL OFL.
 - **`.ttc` (TrueType Collection) is not supported** — the file is detected and rejected. Extract a single face first:

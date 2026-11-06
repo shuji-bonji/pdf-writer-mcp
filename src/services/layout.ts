@@ -38,18 +38,6 @@ export interface DrawTextOptions {
   spaceAfter?: number;
 }
 
-/**
- * WinAnsi で表現できない文字（コードポイント > 0xFF）が含まれるか。
- * 標準フォントでは日本語などが描画できないため、事前判定に使う。
- */
-export function hasNonLatin1(text: string): boolean {
-  for (const ch of text) {
-    const cp = ch.codePointAt(0);
-    if (cp !== undefined && cp > 0xff) return true;
-  }
-  return false;
-}
-
 const CJK_RE = /[\u2E80-\u9FFF\u3000-\u303F\uFF00-\uFFEF\u3400-\u4DBF]/;
 
 /**

@@ -135,7 +135,7 @@ export async function stampPageNumbers(args: StampPageNumbersArgs): Promise<Stam
   // 番号を振り終えてから埋め込む
   const texts = targets.map((_, i) => formatPageNumber(format, startAt + i, total));
   const source = await openFont(args.fontPath);
-  for (const text of texts) assertRenderable(text, source);
+  assertRenderable(texts, source);
   const applied = applyMissingGlyphPolicy(texts, source, 'error');
   const host = await fontHostFor(
     opened.editor,

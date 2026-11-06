@@ -73,6 +73,19 @@ export function standardFontHasGlyph(codePoint: number): boolean {
 }
 
 /**
+ * 標準フォントでは描けず、フォントの埋め込みが要る文字か（SPEC-WRITER-STANDARD-FONT-ENCODING-004）。
+ *
+ * U+0100 以上で WinAnsiEncoding に符号の無い文字。`“` `”` `–` `—` `€` `…` `™` などの 27 字は
+ * U+0100 以上でも符号を持つので描ける（ISO 32000-2 Annex D.1 は Table D.2 の字をすべて
+ * Helvetica で支えることを求める）。U+0100 未満で符号の無い文字（制御文字・U+007F–U+009F）は
+ * ここでは答えず、`onMissingGlyph` に乗せる（002）。0.25.1 までの判定 `hasNonLatin1` は
+ * U+0100 以上をすべて断っていた（#22）。
+ */
+export function needsEmbeddedFont(codePoint: number): boolean {
+  return codePoint > 0xff && winAnsiCode(codePoint) === undefined;
+}
+
+/**
  * 文字列を WinAnsiEncoding のバイト列にする。符号の無い文字は空白の符号（0x20）にする。
  *
  * 符号の無い文字がここへ届くのは `onMissingGlyph: "ignore"` のときだけ

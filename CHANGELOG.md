@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Proposed version: 0.26.0 (decided in #22). OpenSpec changes `standard-font-winansi-input`
+(SPEC-WRITER-STANDARD-FONT-ENCODING-002 modified, 004 added; SPEC-WRITER-COMMON-ERRORS-003
+modified) and `glyph-errors-list-characters` (SPEC-WRITER-COMMON-ERRORS-007 added).
+
+### Changed
+
+- **The standard font accepts every WinAnsiEncoding character** (#22). Without `fontPath`,
+  text containing curly quotes, dashes, `€`, `…`, `™` and the other 27 characters that
+  WinAnsiEncoding places at 0x80–0x9F (ISO 32000-1 Annex D.2 Table D.2) was refused with
+  `FONT_REQUIRED`, because the input check (`hasNonLatin1`) refused everything from U+0100
+  up. 0.25.1 already encoded and measured these characters correctly; only the check was
+  left. It now refuses only characters from U+0100 up that have no WinAnsiEncoding code.
+  ISO 32000-2 Annex D.1 requires all Table D.2 characters to be supported for Helvetica.
+- **`FONT_REQUIRED` names the characters it refused** (#22), in the same form as
+  `MISSING_GLYPH` (`"日" (U+65E5)`, the first 10 and `and N more`). The old message said
+  "non-Latin characters (e.g. Japanese)" for every input, and would have been wrong for a
+  Latin letter such as `ł`. The `retry_with_fontPath` reason was reworded the same way.
+  `code`, `retryable`, `next_actions[].action` and `example` are unchanged.
+- When several inputs are checked together (table cells, a drawn title, form values),
+  `FONT_REQUIRED` now names the refused characters of all of them, not only of the first
+  input that failed.
+
+### Added
+
+- **`detail.characters` and `detail.count` on `FONT_REQUIRED` and `MISSING_GLYPH`** (#23).
+  `characters` lists the code points (`U+XXXX`) of the characters that caused the failure,
+  without duplicates and in order of appearance, up to 1,000; `count` is the total. The
+  message stops after 10 characters, so until now the 11th and later could not be known,
+  and the family contract says the message text may change between versions.
+
+### Removed
+
+- The separate `FONT_REQUIRED` check in the `create_table_pdf` handler ("The table contains
+  non-Latin characters …"). The cells were already checked by the shared check before it,
+  so it was never reached.
+
 ## [0.25.1] - 2026-11-06
 
 Proposed version: 0.25.1 (the maintainer decides). OpenSpec change `standard-font-winansi`

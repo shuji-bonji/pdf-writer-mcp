@@ -161,7 +161,7 @@ veraPDF 1.30.0 で実測: `pdfa-4` **109/109 COMPLIANT**。CSV を添付した�
 
 ## フォント
 
-標準 PDF フォント（Helvetica）は **ASCII のみ** です。日本語など非ラテン文字を描画するには、`fontPath` または `PDF_WRITER_FONT` で埋め込み可能な**単一フェイス**のフォント（`.ttf` / `.otf`）を指定してください。
+標準 PDF フォント（Helvetica）で描けるのは、**WinAnsiEncoding の 218 字**（ISO 32000-1 Annex D.2）です。ASCII、Latin-1 の文字と記号、曲がった引用符・ダッシュ・`€`・`…`・`™` などが含まれます。それ以外の U+0100 以上の字（日本語・`ł`・`✔` など）を含む文字列は `FONT_REQUIRED` で断り、エラーの本文で原因の字を名指します。こうした字を描くには、`fontPath` または `PDF_WRITER_FONT` で埋め込み可能な**単一フェイス**のフォント（`.ttf` / `.otf`）を指定してください。
 
 - 推奨入手先: [Noto Sans JP (SubsetOTF/JP)](https://github.com/notofonts/noto-cjk/tree/main/Sans/SubsetOTF/JP) — 静的・単一フェイス・SIL OFL。
 - **`.ttc`（TrueTypeCollection）は非対応**です。検知してエラーにするため、単一フェイスを抽出してください:
