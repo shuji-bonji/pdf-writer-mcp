@@ -37,13 +37,17 @@ describe('handlers (standard font, ASCII)', () => {
 
 describe('handlers (guards)', () => {
   it('rejects Japanese text without a font', async () => {
-    await expect(handleCreateTextPdf({ text: '\u65e5\u672c\u8a9e' })).rejects.toThrow(/non-Latin/);
+    await expect(handleCreateTextPdf({ text: '\u65e5\u672c\u8a9e' })).rejects.toThrow(
+      /cannot encode/,
+    );
   });
 
   it('rejects Japanese table without a font', async () => {
     await expect(
       handleCreateTablePdf({ headers: ['\u6c0f\u540d'], rows: [['\u5c71\u7530']] }),
-    ).rejects.toThrow(/non-Latin/);
+    ).rejects.toThrow(
+      /cannot encode: "氏" \(U\+6C0F\), "名" \(U\+540D\), "山" \(U\+5C71\), "田" \(U\+7530\)\./,
+    );
   });
 
   it('rejects invalid fontSize', async () => {

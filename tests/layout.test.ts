@@ -1,6 +1,7 @@
 import { PDFDocument, type PDFFont, StandardFonts } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { hasNonLatin1, wrapText } from '../src/services/layout.js';
+import { wrapText } from '../src/services/layout.js';
+import { needsEmbeddedFont } from '../src/services/win-ansi.js';
 
 let font: PDFFont;
 
@@ -9,20 +10,28 @@ beforeAll(async () => {
   font = await doc.embedFont(StandardFonts.Helvetica);
 });
 
-describe('hasNonLatin1', () => {
-  it.each(['hello', 'caf\u00e9', 'Ma\u00f1ana', '12345 ABC'])(
-    'returns false for Latin-1 text: %s',
+describe('needsEmbeddedFont', () => {
+  it.each([
+    'hello',
+    'caf\u00e9',
+    'Ma\u00f1ana',
+    '12345 ABC',
+    '\u201cq\u201d \u2013\u2014 \u20ac\u2026\u2122',
+  ])('returns false for WinAnsiEncoding text: %s', (s) => {
+    expect([...s].some((ch) => needsEmbeddedFont(ch.codePointAt(0) as number))).toBe(false);
+  });
+
+  it.each(['\u65e5\u672c\u8a9e', 'mixed \u3042', '\u0142', '\u2714'])(
+    'returns true when a character outside WinAnsiEncoding is present: %s',
     (s) => {
-      expect(hasNonLatin1(s)).toBe(false);
+      expect([...s].some((ch) => needsEmbeddedFont(ch.codePointAt(0) as number))).toBe(true);
     },
   );
 
-  it.each(['\u65e5\u672c\u8a9e', 'mixed \u3042'])(
-    'returns true when non-Latin1 present: %s',
-    (s) => {
-      expect(hasNonLatin1(s)).toBe(true);
-    },
-  );
+  it('leaves characters below U+0100 to onMissingGlyph', () => {
+    expect(needsEmbeddedFont(0x85)).toBe(false);
+    expect(needsEmbeddedFont(0x01)).toBe(false);
+  });
 });
 
 describe('wrapText', () => {

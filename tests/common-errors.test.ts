@@ -19,6 +19,7 @@ import {
   type WriterErrorCode,
 } from '../src/errors.js';
 import { buildServer } from '../src/server.js';
+import { handleCreateTextPdf } from '../src/tools/handlers.js';
 
 const TOP_LEVEL = new Set(['error', 'code', 'retryable', 'hint', 'next_actions', 'detail']);
 const JAPANESE = /[぀-ヿ㐀-鿿]/;
@@ -27,10 +28,10 @@ let client: Client;
 let dir: string;
 let savedFontEnv: string | undefined;
 
-// biome-ignore lint/suspicious/noExplicitAny: 応答の形そのものを検査する
 async function call(
   name: string,
   args: Record<string, unknown>,
+  // biome-ignore lint/suspicious/noExplicitAny: 応答の形そのものを検査する
 ): Promise<{ isError: boolean; body: any }> {
   const result = (await client.callTool({ name, arguments: args })) as {
     isError?: boolean;
@@ -183,11 +184,60 @@ describe('common-errors', () => {
   it('SPEC-WRITER-COMMON-ERRORS-003 フォントが要るときの本文はすべて英語', async () => {
     const res = await call('create_text_pdf', { text: '日本語の本文' });
     const prose = [
-      res.body.error,
+      // 名指した入力の字（"日" (U+65E5) の 日）は文の言語ではないので除く（003 の書き足し）
+      String(res.body.error).replace(/"[^"]*" \(U\+[0-9A-F]{4,6}\)/g, ''),
       res.body.hint,
       ...(res.body.next_actions ?? []).map((a: { reason: string }) => a.reason),
     ].filter((s) => typeof s === 'string');
     expect(prose.filter((s: string) => JAPANESE.test(s))).toEqual([]);
     expect(res.body.next_actions[0].action).toBe('retry_with_fontPath');
+  });
+});
+
+describe('SPEC-WRITER-COMMON-ERRORS-007 字が原因の失敗は、原因の字を detail に機械が読める形で書く', () => {
+  async function detailOf(text: string) {
+    try {
+      await handleCreateTextPdf({ text, returnBase64: true });
+    } catch (error) {
+      return toStructuredError(error);
+    }
+    throw new Error('expected the call to fail');
+  }
+  /** U+4E00 から n 字の、互いに異なる漢字 */
+  const kanji = (n: number) =>
+    Array.from({ length: n }, (_, i) => String.fromCodePoint(0x4e00 + i)).join('');
+
+  it('SPEC-WRITER-COMMON-ERRORS-007 MISSING_GLYPH の原因の字を detail に書く', async () => {
+    const body = await detailOf('A\u0085B\u0001');
+    expect(body.code).toBe('MISSING_GLYPH');
+    expect(body.detail).toEqual({ characters: ['U+0085', 'U+0001'], count: 2 });
+  });
+
+  it('SPEC-WRITER-COMMON-ERRORS-007 FONT_REQUIRED の原因の字を detail に書く', async () => {
+    const body = await detailOf('日本日語');
+    expect(body.code).toBe('FONT_REQUIRED');
+    expect(body.detail).toEqual({ characters: ['U+65E5', 'U+672C', 'U+8A9E'], count: 3 });
+  });
+
+  it('SPEC-WRITER-COMMON-ERRORS-007 文が 10 字で切れても detail には全部入る', async () => {
+    const body = await detailOf(kanji(12));
+    expect(body.error).toMatch(/ and 2 more\b/);
+    expect(body.detail?.characters).toHaveLength(12);
+    expect(body.detail?.characters?.[11]).toBe('U+4E0B');
+    expect(body.detail?.count).toBe(12);
+  });
+
+  it('SPEC-WRITER-COMMON-ERRORS-007 1,000 字を超えると characters を切り、count は全体の数', async () => {
+    const body = await detailOf(kanji(1200));
+    expect(body.detail?.characters).toHaveLength(1000);
+    expect(body.detail?.count).toBe(1200);
+  });
+
+  it('SPEC-WRITER-COMMON-ERRORS-007 サーバーの応答の本文にも detail が載る', async () => {
+    const res = await call('create_text_pdf', { text: '日本語の本文' });
+    expect(res.body.code).toBe('FONT_REQUIRED');
+    expect(res.body.detail.characters[0]).toBe('U+65E5');
+    expect(res.body.detail.count).toBe(5);
+    expect(shapeViolations(res.body)).toEqual([]);
   });
 });

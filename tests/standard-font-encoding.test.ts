@@ -21,12 +21,14 @@ import { Font as AfmFont, Encodings } from '@pdf-lib/standard-fonts';
 import { PDFArray, PDFDocument, PDFName, PDFRawStream, StandardFonts } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ENV_KEYS } from '../src/config.js';
+import { toStructuredError } from '../src/errors.js';
 import { ref } from '../src/services/cos.js';
 import { embedStandardFont } from '../src/services/font-embed.js';
 import { winAnsiCode } from '../src/services/win-ansi.js';
 import {
   handleAddWatermark,
   handleCreateMarkdownPdf,
+  handleCreateTablePdf,
   handleCreateTextPdf,
 } from '../src/tools/handlers.js';
 import type { CreateResult } from '../src/types/index.js';
@@ -167,6 +169,80 @@ describe('SPEC-WRITER-STANDARD-FONT-ENCODING-003 標準フォントの文字幅�
       }
       expect(Number(x) + (width * 11) / 1000).toBeLessThanOrEqual(595.28 - 56 + 0.01);
     }
+  });
+});
+
+/** 編集系の検体（標準フォントで 1 ページ） */
+async function plainPdf(name: string): Promise<string> {
+  const input = join(dir, name);
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  doc.addPage([400, 400]).drawText('PAGE', { x: 40, y: 200, size: 18, font });
+  await writeFile(input, await doc.save());
+  return input;
+}
+
+/** 失敗した呼び出しの構造化エラー（throw しなければテストを落とす） */
+async function failure(p: Promise<unknown>) {
+  try {
+    await p;
+  } catch (error) {
+    return toStructuredError(error);
+  }
+  throw new Error('expected the call to fail');
+}
+
+describe('SPEC-WRITER-STANDARD-FONT-ENCODING-004 WinAnsiEncoding にある字は受け付け、無い U+0100 以上の字だけを FONT_REQUIRED で断る', () => {
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 曲がった引用符・ダッシュ・ユーロ・省略記号・商標を描く', async () => {
+    const result = (await handleCreateTextPdf({
+      text: '\u201cQuoted\u201d \u2014 5 \u20ac \u2026 \u2122',
+      returnBase64: true,
+    })) as CreateResult;
+    expect(await created(result)).toContain('<9351756f7465649420972035208020852099> Tj');
+  });
+
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 表のセルでも受け付ける', async () => {
+    const result = (await handleCreateTablePdf({
+      headers: ['It\u2019s'],
+      rows: [['\u2013 dash']],
+      returnBase64: true,
+    })) as CreateResult;
+    const content = await created(result);
+    expect(content).toContain('<49749273> Tj');
+    expect(content).toContain('<962064617368> Tj');
+  });
+
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 編集系でも受け付ける', async () => {
+    const input = await plainPdf('plain-004.pdf');
+    const output = join(dir, 'watermarked-004.pdf');
+    await handleAddWatermark({ inputPath: input, text: 'DRAFT \u2013 v2', outputPath: output });
+    expect((await readFile(output)).length).toBeGreaterThan(0);
+  });
+
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 日本語はいまどおり断る', async () => {
+    const body = await failure(handleCreateTextPdf({ text: '日本語', returnBase64: true }));
+    expect(body.code).toBe('FONT_REQUIRED');
+    expect(body.retryable).toBe(true);
+    expect(body.next_actions?.[0]?.action).toBe('retry_with_fontPath');
+  });
+
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 断った字を U+XXXX で名指す', async () => {
+    const body = await failure(
+      handleCreateTextPdf({ text: 'Price \u0142 日本', returnBase64: true }),
+    );
+    expect(body.code).toBe('FONT_REQUIRED');
+    expect(body.error).toContain('"\u0142" (U+0142), "日" (U+65E5), "本" (U+672C)');
+    expect(body.error).not.toMatch(/non-Latin/);
+  });
+
+  it('SPEC-WRITER-STANDARD-FONT-ENCODING-004 11 字目からは数だけを書く', async () => {
+    const body = await failure(
+      handleCreateTextPdf({ text: '一二三四五六七八九十百千', returnBase64: true }),
+    );
+    expect(body.code).toBe('FONT_REQUIRED');
+    expect(body.error).toContain('"十" (U+5341)');
+    expect(body.error).not.toContain('"百"');
+    expect(body.error).toMatch(/ and 2 more\b/);
   });
 });
 

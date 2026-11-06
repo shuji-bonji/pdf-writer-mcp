@@ -192,7 +192,7 @@ describe.skipIf(!fontPath)('stamp_page_numbers', () => {
           if (saved !== undefined) process.env.PDF_WRITER_FONT = saved;
         }
       })(),
-    ).rejects.toThrow(/non-Latin characters/);
+    ).rejects.toThrow(/cannot encode: "ペ" \(U\+30DA\)/);
   });
 
   it('rejects a format without {n} and unknown positions', async () => {
