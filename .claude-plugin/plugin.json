@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/.claude-plugin/plugin.schema.json",
   "name": "pdf-writer-mcp",
-  "version": "0.26.1",
+  "version": "0.27.0",
   "description": "PDF 生成・編集 MCP server（20 ツール）。テキスト/Markdown/表からの PDF 生成（PDF/UA タグ付き）・PDF 2.0 出力・ページ操作（結合/分割/抽出/削除/並替/回転/ページ番号）・注釈/しおり/透かし・フォーム入力/平坦化・ファイル添付・メタデータ編集・署名を壊さない増分更新・PDF/A-3b / PDF/A-4 / PDF/A-4f の器付け（ensure_pdfa）を提供する。書けるのは宣言であって適合ではない — ensure_pdfa と ensure_tagged は成功時にも適合を測っていないことを warnings で返し、測ると落ちると分かっている宣言は declarationRisks で名指しする。適合の判定は pdf-verify-mcp が行う。normativepdf + 自前増分エンジン。npx @shuji-bonji/pdf-writer-mcp で起動。フォント上書きは任意で PDF_WRITER_FONT。",
   "author": {
     "name": "shuji-bonji",
