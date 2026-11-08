@@ -151,15 +151,16 @@ describe('pdfVersion: "2.0" (B-16)', () => {
     expect(xmp).toContain('<pdf:Producer>');
   });
 
-  it('rejects tagged: true, which would declare PDF/UA-1 on a 2.0 file', async () => {
-    await expect(
-      handleCreateTextPdf({
-        ...BASE,
-        tagged: true,
-        pdfVersion: '2.0',
-        outputPath: join(dir, 'never.pdf'),
-      }),
-    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+  // 0.26.x まではこの組み合わせを INVALID_ARGUMENT で断っていた（B-16）。0.27.0 から PDF/UA-2 を
+  // 名乗る（#26）。宣言の中身は tests/pdfua2.test.ts の SPEC-WRITER-PDFUA2-001 が固定している
+  it('accepts tagged: true and declares PDF/UA-2 rather than PDF/UA-1 on a 2.0 file', async () => {
+    const result = await handleCreateTextPdf({
+      ...BASE,
+      tagged: true,
+      pdfVersion: '2.0',
+      outputPath: join(dir, 'ua2.pdf'),
+    });
+    expect(result.path).toBeDefined();
   });
 });
 

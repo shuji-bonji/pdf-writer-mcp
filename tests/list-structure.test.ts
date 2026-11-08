@@ -105,8 +105,14 @@ const topLists = (root: Node): Node[] => {
   return out;
 };
 
-async function render(markdown: string): Promise<Node> {
-  const res = await handleCreateMarkdownPdf({ markdown, title: 'Lists', lang: 'en', tagged: true });
+async function render(markdown: string, pdfVersion?: '2.0'): Promise<Node> {
+  const res = await handleCreateMarkdownPdf({
+    markdown,
+    title: 'Lists',
+    lang: 'en',
+    tagged: true,
+    ...(pdfVersion ? { pdfVersion } : {}),
+  });
   return tree(await PDFDocument.load(Buffer.from(res.base64 as string, 'base64')));
 }
 
@@ -178,5 +184,28 @@ describe('SPEC-WRITER-CREATE-MARKDOWN-PDF-004 本文は記号の幅だけ右か�
     const labels = all(root, 'Lbl');
     expect(labels).toHaveLength(2);
     expect(labels[1].shown[0].x).toBeGreaterThan(labels[0].shown[0].x);
+  });
+});
+
+describe('SPEC-WRITER-CREATE-MARKDOWN-PDF-005 PDF/UA-2 では入れ子のリストを親の L の直接の子に置く', () => {
+  const md = '- Alpha\n  - Beta\n  - Gamma\n- Delta\n';
+
+  it('SPEC-WRITER-CREATE-MARKDOWN-PDF-005 PDF/UA-2 の箇条書きの中の箇条書き', async () => {
+    const [list] = topLists(await render(md, '2.0'));
+    expect(list.kids.map((k) => k.role)).toEqual(['LI', 'L', 'LI']);
+    const [alpha, nested, delta] = list.kids;
+    expect(textOf(alpha.kids[1])).toBe('Alpha');
+    expect(alpha.kids[1].kids.filter((k) => k.role === 'L')).toHaveLength(0);
+    expect(nested.kids.map((li) => textOf(li.kids[1]))).toEqual(['Beta', 'Gamma']);
+    expect(textOf(delta.kids[1])).toBe('Delta');
+  });
+
+  it('SPEC-WRITER-CREATE-MARKDOWN-PDF-005 描く位置は PDF/UA-1 と同じ', async () => {
+    const xOfBeta = (root: Node) =>
+      all(root, 'LBody').find((b) => textOf(b) === 'Beta')?.shown[0]?.x;
+    const ua1 = xOfBeta(await render(md));
+    const ua2 = xOfBeta(await render(md, '2.0'));
+    expect(ua1).toBeDefined();
+    expect(ua2).toBe(ua1);
   });
 });

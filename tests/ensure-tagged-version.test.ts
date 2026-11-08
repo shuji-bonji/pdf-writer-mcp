@@ -1,12 +1,13 @@
 /**
  * ensure_tagged は PDF 2.0 の入力に PDF/UA-1 の宣言を書かない
- * （openspec/changes/ensure-tagged-refuses-pdf20。#17）
+ * （openspec/changes/ensure-tagged-refuses-pdf20。#17。0.27.0 で ensure-pdfua2・#26 に変更）
  *
  * 0.24.0 は版を確かめず、`%PDF-2.0` のまま `pdfuaid:part=1` を書いていた。
+ * 0.25.0〜0.26.x は 2.0 の入力を INVALID_ARGUMENT で断り、0.27.0 から PDF/UA-2 を名乗る。
  * ツールは buildServer() の実物を InMemoryTransport 越しに呼び、本文を見る。
  */
 
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
@@ -59,9 +60,14 @@ describe('SPEC-WRITER-ENSURE-TAGGED-003 PDF 2.0 の入力に PDF/UA-1 の宣言�
       lang: 'en',
       outputPath,
     });
-    expect(isError).toBe(true);
-    expect(body.code).toBe('INVALID_ARGUMENT');
-    expect(existsSync(outputPath)).toBe(false);
+    expect(isError).toBe(false);
+    const bytes = readFileSync(outputPath).toString('latin1');
+    expect(bytes.startsWith('%PDF-2.0')).toBe(true);
+    // XMP は非圧縮で書く（xmp-cos）ので、バイト列のまま読める
+    expect(bytes).toMatch(/<pdfuaid:part>2<\/pdfuaid:part>/);
+    expect(bytes).toMatch(/<pdfuaid:rev>2024<\/pdfuaid:rev>/);
+    expect(bytes).toMatch(/\/NS \(http:\/\/iso\.org\/pdf2\/ssn\)/);
+    expect(body.warnings.some((w: string) => w.includes('"pdfua-2"'))).toBe(true);
   });
 
   it('SPEC-WRITER-ENSURE-TAGGED-003 PDF 1.7 の文書は今までどおり', async () => {
