@@ -93,8 +93,9 @@ export const tools: ToolDefinition[] = [
       'Create a PDF from Markdown. Supports headings, paragraphs, bullet/numbered lists, code blocks, quotes, horizontal rules and tables. ' +
       'Inline decoration markers are stripped and the text rendered plain (single font). ' +
       'Nested lists keep their nesting, and wrapped list text lines up after the bullet or number. ' +
-      'With tagged: true each item is LI > Lbl (bullet/number) + LBody, a nested list sits inside its parent LBody, ' +
-      'and each L states ListNumbering (Decimal or Disc) (v0.25.0).',
+      'With tagged: true each item is LI > Lbl (bullet/number) + LBody and each L states ListNumbering (Decimal or Disc) (v0.25.0). ' +
+      'A nested list sits inside its parent LBody under PDF/UA-1, and directly in the parent L right after the item under PDF/UA-2 ' +
+      '(pdfVersion "2.0"; ISO 32000-2 §14.8.4.8.2) (v0.27.0).',
     inputSchema: CreateMarkdownSchema,
     annotations: base,
   },
@@ -240,8 +241,8 @@ export const tools: ToolDefinition[] = [
     name: 'ensure_tagged',
     title: 'Ensure Tagged (PDF/UA scaffold & repair)',
     description:
-      'Put an existing PDF onto the PDF/UA-1 "vessel". If it is already tagged, the structure tree is untouched and ' +
-      'only missing document-level requirements are supplied (MarkInfo / Lang / DisplayDocTitle / XMP pdfuaid:part and dc:title). ' +
+      'Put an existing PDF onto the PDF/UA "vessel". If it is already tagged, the structure tree is untouched and ' +
+      'only missing document-level requirements are supplied (MarkInfo / Lang / DisplayDocTitle / XMP pdfuaid and dc:title). ' +
       'For untagged documents, a minimal structure tree (each page = one P element) is created so the content ' +
       'becomes reachable by assistive technology. ' +
       '**IMPORTANT**: machines cannot infer meaning — headings, tables, lists, reading order and figure alt text are ' +
@@ -251,8 +252,10 @@ export const tools: ToolDefinition[] = [
       'The result separates addedRequirements (absent from the input) from replacedRequirements (present with a different value, rewritten); ' +
       'a requirement already present with the same value is neither rewritten nor listed. requirementsChanged is false when nothing was ' +
       'added, replaced or created — the output file is still written (v0.24.0). ' +
-      'A PDF 2.0 input (header or catalog /Version) is refused as INVALID_ARGUMENT before anything is written: ' +
-      'PDF/UA-1 allows only PDF 1.0 to 1.7 (ISO 14289-1 §6.1) (v0.25.0).',
+      'The declared part follows the input version (header or catalog /Version), which is never changed: ' +
+      'PDF/UA-1 (pdfuaid:part 1) for PDF 1.0 to 1.7 (ISO 14289-1 §6.1), PDF/UA-2 (pdfuaid:part 2, rev 2024) for PDF 2.0 ' +
+      '(ISO 14289-2 §6.1). For PDF 2.0, a new tree puts Document and P in the PDF 2.0 namespace; an existing tree whose ' +
+      'root is not a single Document in that namespace (ISO 14289-2 §8.2.5.2) is left as it is and named in warnings (v0.27.0).',
     inputSchema: EnsureTaggedSchema,
     annotations: base,
   },
@@ -279,8 +282,10 @@ export const tools: ToolDefinition[] = [
       'For signed PDFs, preserveSignatures: true (approval signatures only; certification signatures are refused). ' +
       'However, **the -4 flavours combined with preserveSignatures are refused unless the input is already PDF 2.0** ' +
       '(an incremental update cannot rewrite the file header, and rewriting it would break the signatures). ' +
-      '**The -4 flavours are refused (INVALID_ARGUMENT, next_actions: flavour "pdfa-3b") when the input declares PDF/UA**: ' +
+      '**The -4 flavours are refused (INVALID_ARGUMENT, next_actions: flavour "pdfa-3b") when the input declares PDF/UA-1**: ' +
       'PDF/A-4 needs a PDF 2.0 header and PDF/UA-1 allows only 1.0 to 1.7 (ISO 14289-1 §6.1). ' +
+      'Conversely, **"pdfa-3b" is refused (next_actions: flavour "pdfa-4") when the input declares PDF/UA-2**, which requires ' +
+      'PDF 2.0 (ISO 14289-2 §6.1) while PDF/A-3 requires a PDF 1.x header. PDF/A-4 and PDF/UA-2 can both hold (v0.27.0). ' +
       'The result reports previousDeclaration — the PDF/A the input already claimed, { part, conformance } or null (it replaced wasDeclared in v0.24.0).',
     inputSchema: EnsurePdfaSchema,
     annotations: base,

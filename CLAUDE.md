@@ -16,7 +16,7 @@ PDF family（[reader](https://github.com/shuji-bonji/pdf-reader-mcp) = 何があ
 
 | 系統 | ツール |
 |------|--------|
-| 生成（Tier 0） | `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`（`tagged: true` で PDF/UA-1） |
+| 生成（Tier 0） | `create_text_pdf` / `create_markdown_pdf` / `create_table_pdf`（`tagged: true` で PDF/UA-1、`pdfVersion: "2.0"` も付けると PDF/UA-2） |
 | 編集 Tier A | `set_metadata` / `merge_pdfs` / `split_pdf` / `extract_pages` / `delete_pages` / `reorder_pages` / `rotate_pages` / `add_bookmarks` / `add_annotation` |
 | 編集 Tier B | `attach_file` / `add_watermark` / `stamp_page_numbers` / `fill_form` / `flatten_form` / `tag_form_fields`（PDF/UA 修復・v0.8.0） |
 | Tier C | `ensure_tagged`（タグ付けの足場・修復・v0.12.0）+ 全編集ツールの `preserveSignatures` |

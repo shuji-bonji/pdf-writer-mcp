@@ -228,18 +228,23 @@ export interface PdfaDeclaration {
 }
 
 /** 入力の XMP が名乗っている PDF/A と PDF/UA の宣言を読む */
-export async function readXmpDeclarations(
-  editor: PdfDocumentEditor,
-): Promise<{ pdfa: PdfaDeclaration | null; pdfuaPart: number | null; xmp: string | null }> {
+export async function readXmpDeclarations(editor: PdfDocumentEditor): Promise<{
+  pdfa: PdfaDeclaration | null;
+  pdfuaPart: number | null;
+  pdfuaRev: number | null;
+  xmp: string | null;
+}> {
   const xmp = await readXmpPacket(editor);
-  if (xmp === null) return { pdfa: null, pdfuaPart: null, xmp };
+  if (xmp === null) return { pdfa: null, pdfuaPart: null, pdfuaRev: null, xmp };
   const part = Number.parseInt(xmpProperty(xmp, 'pdfaid:part') ?? '', 10);
   const uaPart = Number.parseInt(xmpProperty(xmp, 'pdfuaid:part') ?? '', 10);
+  const uaRev = Number.parseInt(xmpProperty(xmp, 'pdfuaid:rev') ?? '', 10);
   return {
     pdfa: Number.isNaN(part)
       ? null
       : { part, conformance: xmpProperty(xmp, 'pdfaid:conformance') || null },
     pdfuaPart: Number.isNaN(uaPart) ? null : uaPart,
+    pdfuaRev: Number.isNaN(uaRev) ? null : uaRev,
     xmp,
   };
 }
@@ -291,3 +296,10 @@ export async function stripInfoForPdfa4(editor: PdfDocumentEditor): Promise<stri
  * 第二段階（19005-4 購入後）に Table 2 で確認すること。
  */
 export const PDFA4_REV = 2020;
+
+/**
+ * `pdfuaid:rev` に書く値。PDF/UA-2 = **ISO 14289-2:2024**。
+ * §5 Table 1 が rev を Required とし、「the four digits of the year of publication or revision」と定める。
+ * veraPDF 1.30.0 の規則 ISO 14289-2:2024 5-5 も「The value of "pdfuaid:rev" shall be "2024"」。
+ */
+export const PDFUA2_REV = 2024;

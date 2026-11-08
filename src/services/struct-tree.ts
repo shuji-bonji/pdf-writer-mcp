@@ -22,12 +22,13 @@
  * 「何も持たないリスト」を宣言することになる。旧実装も `BMC` だった。
  */
 
+import type { CosDict, CosObject, CosRef } from 'normativepdf';
 import {
   StructTreeBuilder as CoreStructTree,
   type StructElement,
   type TaggedStream,
 } from 'normativepdf';
-import { dict, name } from './cos.js';
+import { dict, name, textString } from './cos.js';
 import type { WriterDocument, WriterPage } from './writer-doc.js';
 
 /** 構造要素のタグ（PDF/UA で使う標準構造型の部分集合） */
@@ -53,7 +54,50 @@ export type StructTag =
   | 'BlockQuote'
   | 'Caption'
   | 'Span'
-  | 'Annot';
+  | 'Annot'
+  | 'Title';
+
+/**
+ * どの規格の器として構造木を組むか。
+ *
+ * - `pdfua-1`: ISO 14289-1（PDF 1.7 基盤）。名前空間を書かない（既定の PDF 1.7 の名前空間）
+ * - `pdfua-2`: ISO 14289-2（PDF 2.0 基盤）。§8.2.5.2 は `Document` を PDF 2.0 の名前空間に
+ *   置くことを求める（shall）。PDF 2.0 の名前空間にある型にはすべて `/NS` を付け、
+ *   無い型（`BlockQuote`・`Code`。ISO 32000-2 Annex M）は既定の PDF 1.7 の名前空間のまま
+ *   置く（§8.2.4 はどちらも許す。混在は ISO/TS 32005 で認められる）
+ */
+export type StructProfile = 'pdfua-1' | 'pdfua-2';
+
+/** ISO 32000-2 §14.8.6.1 の名前空間名 */
+export const PDF20_NAMESPACE = 'http://iso.org/pdf2/ssn';
+
+/**
+ * PDF 2.0 の標準構造名前空間にある型（ISO 32000-2 §14.8.4・Annex M）。
+ * `StructTag` のうち `BlockQuote` と `Code` だけが PDF 1.7 の名前空間にしか無い。
+ */
+const IN_PDF20_NAMESPACE: ReadonlySet<StructTag> = new Set<StructTag>([
+  'Document',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'P',
+  'L',
+  'LI',
+  'LBody',
+  'Lbl',
+  'Table',
+  'TR',
+  'TH',
+  'TD',
+  'Figure',
+  'Caption',
+  'Span',
+  'Annot',
+  'Title',
+]);
 
 export interface StructElemOptions {
   /** 代替テキスト（Figure では PDF/UA 必須） */
@@ -106,10 +150,45 @@ export class StructTreeBuilder {
    * これは常に開いたまま（`end()` で外れない = 対応の取れない `end()` を検出できる）。
    */
   readonly #open: OpenElement[];
+  readonly #profile: StructProfile;
+  /** PDF 2.0 の名前空間辞書（Table 356）。`pdfua-2` のときだけ */
+  readonly #pdf20Namespace: CosRef | undefined;
 
-  constructor(doc: WriterDocument) {
+  constructor(doc: WriterDocument, profile: StructProfile = 'pdfua-1') {
     this.#doc = doc;
-    this.#open = [{ element: this.#core.element('Document'), tag: 'Document' }];
+    this.#profile = profile;
+    this.#pdf20Namespace =
+      profile === 'pdfua-2'
+        ? doc.allocate(
+            dict([
+              ['Type', name('Namespace')],
+              ['NS', textString(PDF20_NAMESPACE)],
+            ]),
+          )
+        : undefined;
+    this.#open = [
+      {
+        element: this.#core.element('Document', this.#namespaceOptions('Document')),
+        tag: 'Document',
+      },
+    ];
+  }
+
+  /** どの規格の器として組んでいるか（レンダラが入れ子のリストと見出しの形を選ぶのに使う） */
+  get profile(): StructProfile {
+    return this.#profile;
+  }
+
+  /** `pdfua-2` で、PDF 2.0 の名前空間にある型なら `/NS` を付ける（ISO 32000-2 Table 355） */
+  #namespaceOptions(
+    tag: StructTag,
+    extra?: Map<string, CosObject>,
+  ): { extra?: Map<string, CosObject> } {
+    const entries = new Map(extra ?? []);
+    if (this.#pdf20Namespace !== undefined && IN_PDF20_NAMESPACE.has(tag)) {
+      entries.set('NS', this.#pdf20Namespace);
+    }
+    return entries.size > 0 ? { extra: entries } : {};
   }
 
   /** 構造要素を開始する */
@@ -128,13 +207,13 @@ export class StructTreeBuilder {
               ['ListNumbering', name(options.listNumbering)],
             ])
           : undefined;
-    const extra = new Map(attrs === undefined ? [] : [['A', attrs] as const]);
+    const extra = new Map<string, CosObject>(attrs === undefined ? [] : [['A', attrs]]);
     const element = this.#core.element(tag, {
       parent,
       ...(options.alt !== undefined ? { alt: options.alt } : {}),
       ...(options.actualText !== undefined ? { actualText: options.actualText } : {}),
       ...(options.lang !== undefined ? { lang: options.lang } : {}),
-      ...(extra.size > 0 ? { extra } : {}),
+      ...this.#namespaceOptions(tag, extra),
     });
     this.#open.push({ element, tag });
   }
@@ -185,9 +264,18 @@ export class StructTreeBuilder {
     if (this.#open.length !== 1) {
       throw new Error(`struct tree: unclosed structure element <${this.#innermost.tag}>`);
     }
+    const namespace = this.#pdf20Namespace;
     const built = this.#core.finish({
       reserve: () => this.#doc.reserve(),
-      write: (target, object) => this.#doc.write(target, object),
+      // StructTreeRoot の /Namespaces（Table 354: 構造木で使う名前空間辞書の配列）。
+      // normativepdf は根の辞書に足す口を持たないので、書き込みの途中で足す
+      write: (target, object) =>
+        this.#doc.write(
+          target,
+          namespace !== undefined && isStructTreeRoot(object)
+            ? withNamespaces(object, namespace)
+            : object,
+        ),
     });
 
     // /StructParents はページ辞書に載る（R-14.7.5.4-12）。ページ辞書を組むのは
@@ -218,4 +306,16 @@ export class StructTreeBuilder {
     this.#streams.set(page, stream);
     return stream;
   }
+}
+
+function isStructTreeRoot(object: CosObject): object is CosDict {
+  if (object.kind !== 'dict') return false;
+  const type = object.entries.get('Type');
+  return type?.kind === 'name' && type.value === 'StructTreeRoot';
+}
+
+function withNamespaces(root: CosDict, namespace: CosRef): CosDict {
+  const entries = new Map(root.entries);
+  entries.set('Namespaces', { kind: 'array', items: [namespace] });
+  return { kind: 'dict', entries };
 }

@@ -25,6 +25,7 @@ import { arr, dict, hex, name, stream, textString } from './cos.js';
 import { writeOutputFile } from './output-write.js';
 import { pdfDate } from './pdf-date.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
+import { PDFUA2_REV } from './pdfa-cos.js';
 import type { WriterDocument } from './writer-doc.js';
 import { buildXmpPacket } from './xmp-build.js';
 
@@ -53,8 +54,10 @@ function fileIdentifier(when: Date, info: ReadonlyMap<string, string>): ReturnTy
 export interface FinalizeCreatedOptions {
   /** 表示用フォント名（`CreateResult.font` に返る） */
   readonly fontName: string;
-  /** タグ付き生成なら PDF/UA-1 を名乗るための言語。未指定なら宣言しない */
+  /** タグ付き生成なら PDF/UA を名乗るための言語。未指定なら宣言しない */
   readonly uaLang?: string;
+  /** 名乗る PDF/UA の part（1 = ISO 14289-1、2 = ISO 14289-2）。`uaLang` と対で使う。既定 1 */
+  readonly uaPart?: 1 | 2;
 }
 
 /**
@@ -101,7 +104,13 @@ export async function finalizeCreated(
       ...(opts.title !== undefined ? { title: opts.title } : {}),
       ...(opts.author !== undefined ? { author: opts.author } : {}),
       ...(version === '2.0' ? { producer } : {}),
-      ...(extra.uaLang !== undefined ? { pdfuaPart: 1, lang: extra.uaLang } : {}),
+      ...(extra.uaLang !== undefined
+        ? {
+            pdfuaPart: extra.uaPart ?? 1,
+            ...(extra.uaPart === 2 ? { pdfuaRev: PDFUA2_REV } : {}),
+            lang: extra.uaLang,
+          }
+        : {}),
     });
     const bytes = new TextEncoder().encode(packet);
     const metadata = doc.allocate(

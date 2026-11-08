@@ -43,13 +43,14 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
 
   // SPEC-WRITER-ENSURE-PDFA-001（#9・F-19）: PDF/A-4 はヘッダーを %PDF-2.0 にし、
   // PDF/UA-1 は ISO 14289-1 §6.1 で版を 1.0〜1.7 とする。両方を名乗るファイルは片方の
-  // 検査で必ず落ちる（veraPDF ISO 14289-1:2014 6.1-1）。作成系の B-16 と同じく断る
-  if (isPdfa4 && declared.pdfuaPart !== null) {
+  // 検査で必ず落ちる（veraPDF ISO 14289-1:2014 6.1-1）。作成系と同じく断る。
+  // PDF/UA-2（ISO 14289-2 §6.1: 版は 2.0）は PDF/A-4 と両立するので断らない（#26）
+  if (isPdfa4 && declared.pdfuaPart !== null && declared.pdfuaPart !== 2) {
     const err = invalidArg(
       `The input declares PDF/UA-${declared.pdfuaPart} (pdfuaid:part in XMP), and ${flavour} would set the header to PDF 2.0, which PDF/UA-1 does not allow (ISO 14289-1 §6.1: version 1.0 to 1.7). The file would then fail one of its two declarations.`,
     );
     throw new PdfWriterError(err.message, 'INVALID_ARGUMENT', {
-      hint: 'Use flavour "pdfa-3b": it keeps the PDF 1.7 header, so PDF/A-3b and PDF/UA-1 can both hold. PDF/UA-2 output (the PDF 2.0 counterpart) is not implemented.',
+      hint: 'Use flavour "pdfa-3b": it keeps the PDF 1.7 header, so PDF/A-3b and PDF/UA-1 can both hold. To combine PDF/A-4 with accessibility, create the document as PDF/UA-2 (tagged: true with pdfVersion: "2.0").',
       next_actions: [
         {
           action: 'retry_with_flavour',
@@ -59,6 +60,27 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
         },
       ],
     });
+  }
+
+  // SPEC-WRITER-ENSURE-PDFA-003（#26）: 逆向きの組み合わせ。PDF/UA-2 は版 2.0 を求め
+  // （ISO 14289-2 §6.1）、PDF/A-3 はヘッダーを %PDF-1.n（n は 0〜7）に限る
+  // （veraPDF ISO 19005-3:2012 6.1.2-1、実測 2026-11-09）。ensure_pdfa はヘッダーを下げない
+  if (!isPdfa4 && declared.pdfuaPart === 2) {
+    throw new PdfWriterError(
+      `The input declares PDF/UA-2 (pdfuaid:part in XMP), which requires PDF 2.0 (ISO 14289-2 §6.1), and ${flavour} requires a PDF 1.x header. The file would then fail one of its two declarations.`,
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Use flavour "pdfa-4" (or "pdfa-4f"): PDF/A-4 is based on PDF 2.0, so PDF/A-4 and PDF/UA-2 can both hold.',
+        next_actions: [
+          {
+            action: 'retry_with_flavour',
+            reason:
+              'PDF/A-4 keeps the PDF 2.0 header and can stand together with the PDF/UA-2 declaration. Call again with flavour "pdfa-4".',
+            example: { flavour: 'pdfa-4' },
+          },
+        ],
+      },
+    );
   }
 
   // PDF/A-4 は PDF 2.0 基盤で、ヘッダが `%PDF-2.n` であることを要求する

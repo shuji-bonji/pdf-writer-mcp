@@ -86,7 +86,7 @@ export const commonCreateShape = {
       'Whether to draw title as a heading at the top of the body. Default true. ' +
         'Pass false when the body already starts with its own heading (e.g. a Markdown "# ..." line): ' +
         'the title then goes into the metadata only (Info /Title, and XMP dc:title when tagged), ' +
-        'so tagged output keeps the dc:title PDF/UA-1 (ISO 14289-1, 7.1) requires without a duplicated H1.',
+        'so tagged output keeps the dc:title PDF/UA requires (ISO 14289-1 7.1 / ISO 14289-2 8.11.1) without a duplicated heading.',
     ),
   author: z.string().optional().describe('PDF author (metadata).'),
   onMissingGlyph: z
@@ -101,9 +101,13 @@ export const commonCreateShape = {
     .boolean()
     .optional()
     .describe(
-      'Generate as a tagged PDF (PDF/UA-1, ISO 14289). Default false. ' +
+      'Generate as a tagged PDF (PDF/UA, ISO 14289). Default false. ' +
         'When true, a structure tree, the PDF/UA declaration, /Lang and DisplayDocTitle are added, ' +
-        'making the document readable by screen readers. PDF/UA requires a title, so title becomes required.',
+        'making the document readable by screen readers. PDF/UA requires a title, so title becomes required. ' +
+        'Which part is declared follows pdfVersion: PDF/UA-1 (ISO 14289-1) on the default 1.7, ' +
+        'PDF/UA-2 (ISO 14289-2, pdfuaid:part 2 and rev 2024) with pdfVersion "2.0". ' +
+        'Under PDF/UA-2 the drawn title is a Title element (not H1), Markdown headings keep their own level, ' +
+        'and structure elements are placed in the PDF 2.0 namespace (BlockQuote and Code, which it lacks, stay in the PDF 1.7 one).',
     ),
   lang: z
     .string()
@@ -123,7 +127,7 @@ export const commonCreateShape = {
       'PDF version to output. Default "1.7". "2.0" (ISO 32000-2) satisfies not just the version claim but ' +
         'the duties bound to it: a trailer /ID is added (Required per Table 15), and the Info dictionary is ' +
         'trimmed to CreationDate / ModDate with title, author and Producer moved to XMP (§14.3.3). ' +
-        'Cannot be combined with tagged: true (the only declaration the writer can produce is PDF/UA-1, built on PDF 1.7).',
+        'With tagged: true, "2.0" declares PDF/UA-2 instead of PDF/UA-1 (PDF/UA-1 allows only PDF 1.0 to 1.7, ISO 14289-1 §6.1).',
     ),
 } as const;
 
@@ -498,14 +502,18 @@ export const ensureTaggedShape = {
     .string()
     .min(1)
     .optional()
-    .describe('Document title (required by PDF/UA-1 7.1). Falls back to the existing Info Title.'),
+    .describe(
+      'Document title (required by PDF/UA-1 7.1 / PDF/UA-2 8.11.1). Falls back to the existing Info Title, then the XMP dc:title.',
+    ),
   lang: z
     .string()
     .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, {
       message: 'must be a BCP 47 language tag like "ja" or "en-US"',
     })
     .optional()
-    .describe('Natural language of the document (BCP 47, e.g. "ja"). Required by PDF/UA-1 7.2.'),
+    .describe(
+      'Natural language of the document (BCP 47, e.g. "ja"). Required by PDF/UA-1 7.2 / PDF/UA-2 8.4.4.',
+    ),
   preserveSignatures: zPreserveSignatures,
   ...commonEditShape,
 } as const;

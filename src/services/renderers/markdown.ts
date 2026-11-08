@@ -170,12 +170,17 @@ function renderCodeBlock(engine: LayoutEngine, code: string): void {
  *
  * builder がタイトルを H1 として描画済みなら開始レベルは 1、描いていなければ 0
  * （本文の最初の見出しを H1 にする。SPEC-WRITER-CREATE-TITLE-003）。
+ *
+ * PDF/UA-2 では正規化しない（`asWritten`）。ISO 14289-2 §8.2.5.12 は「見出しの段が明らかなら、
+ * 構造要素の段をそれに合わせる」ことを求め、段を飛ばさないことは求めない（NOTE 2）。
+ * Markdown の `#` の数は書き手が示した段なので、そのまま使う（SPEC-WRITER-PDFUA2-004）。
  */
-function createHeadingNormalizer(startLevel = 1) {
+function createHeadingNormalizer(startLevel = 1, asWritten = false) {
   let last = startLevel;
   return {
     normalize(depth: number): number {
       const wanted = Number.isFinite(depth) ? Math.min(Math.max(Math.trunc(depth), 1), 6) : 1;
+      if (asWritten) return wanted;
       const level = Math.min(wanted, last + 1);
       last = level;
       return level;
@@ -194,7 +199,10 @@ const LABEL_GAP = 4;
  * - 構造は `L > LI > (Lbl, LBody)`。記号・番号は Lbl、本文は LBody（ISO 14289-1 §7.6 R-7.6-3、
  *   ISO 32000-1 Table 336）。番号は Lbl に字として書く（Table 347 の NOTE）
  * - L に `/A << /O /List /ListNumbering /Decimal | /Disc >>` を書く（R-7.6-4）
- * - 入れ子のリストは親の項目の LBody の中に置く（Table 336 は LBody の中にリストを許す）
+ * - 入れ子のリストの置き場所は、宣言する適合で分ける（#20）。PDF/UA-1 は親の項目の LBody の中
+ *   （ISO 32000-1 Table 336 は LBody の中にリストを許す）。PDF/UA-2 は親の L の直接の子で、
+ *   親の項目の直後（ISO 32000-2 §14.8.4.8.2: 階層のあるリストの入れ子は L の子か、L に属する
+ *   Div の中に置く。SPEC-WRITER-CREATE-MARKDOWN-PDF-005）
  * - 本文は記号の欄の右から始め、折り返した行も同じ位置から始める（ぶら下げの字下げ）
  *
  * タグ無しのときも同じ位置に描く（struct が無ければ begin/end は何もしない）。
@@ -214,6 +222,7 @@ function drawList(engine: LayoutEngine, list: any, indent: number): void {
   );
   const bodyIndent = indent + labelColumn;
 
+  const nestBesideItem = engine.struct?.profile === 'pdfua-2';
   engine.struct?.begin('L', { listNumbering: list.ordered ? 'Decimal' : 'Disc' });
   items.forEach((item, i) => {
     // biome-ignore lint/suspicious/noExplicitAny: 同上
@@ -234,9 +243,15 @@ function drawList(engine: LayoutEngine, list: any, indent: number): void {
     engine.struct?.end();
     engine.struct?.begin('LBody');
     engine.drawParagraph(body, { leftIndent: bodyIndent, spaceAfter: 2 });
-    for (const child of nested) drawList(engine, child, bodyIndent);
+    if (!nestBesideItem) {
+      for (const child of nested) drawList(engine, child, bodyIndent);
+    }
     engine.struct?.end();
     engine.struct?.end();
+    // 描く位置は同じ（本文の欄から字下げ）。違うのは構造木の中の置き場所だけ
+    if (nestBesideItem) {
+      for (const child of nested) drawList(engine, child, bodyIndent);
+    }
   });
   engine.struct?.end();
 }
@@ -249,7 +264,7 @@ export function renderMarkdown(
 ): void {
   assertRenderable(markdown, loaded);
 
-  const headings = createHeadingNormalizer(headingStartLevel);
+  const headings = createHeadingNormalizer(headingStartLevel, engine.struct?.profile === 'pdfua-2');
   const tokens = marked.lexer(markdown);
 
   for (const token of tokens) {

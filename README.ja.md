@@ -38,7 +38,7 @@
 { "text": "本文。", "title": "レポート", "pdfVersion": "2.0" }
 ```
 
-`tagged: true` とは併用できません。本サーバが書けるアクセシビリティ宣言は PDF/UA-1（ISO 14289-1 = PDF 1.7 基盤）だけで、2.0 の文書に載せると**誰にも測れない宣言**になります。PDF/UA-2 出力は未実装のため、黙って生成せずエラーにします。
+`tagged: true` と一緒に渡すと、2.0 の文書は PDF/UA-1 ではなく **PDF/UA-2**（ISO 14289-2）を宣言します。PDF/UA-1 は版を 1.0〜1.7 に限るためです（ISO 14289-1 §6.1）。下の [PDF/UA-2](#pdfua-2v0270) を参照してください。v0.26.x までは、この組み合わせをエラーにしていました。
 
 ### タグ付き PDF / PDF/UA（v0.5.0）
 
@@ -48,7 +48,7 @@
 { "markdown": "# 見出し\n\n本文。", "title": "レポート", "tagged": true, "lang": "ja" }
 ```
 
-Markdown は構造木に対応付けられます。見出し → `H1`〜`H6`、リスト → `L`/`LI`/`LBody`、表 → `Table`/`TR`/`TH`/`TD`（ヘッダには `/Scope`）、引用 → `BlockQuote`、コード → `Code`。水平線・罫線・コード背景は Artifact になります。見出しレベルは「H1 始まり・飛ばさない」よう正規化されるため、Markdown の `# → ###` は構造上 `H1 → H2` になります（見た目のサイズは元のままです）。
+Markdown は構造木に対応付けられます。見出し → `H1`〜`H6`、リスト → `L`/`LI`/`LBody`、表 → `Table`/`TR`/`TH`/`TD`（ヘッダには `/Scope`）、引用 → `BlockQuote`、コード → `Code`。水平線・罫線・コード背景は Artifact になります。PDF/UA-1 では見出しレベルを「H1 始まり・飛ばさない」よう正規化するため、Markdown の `# → ###` は構造上 `H1 → H2` になります（見た目のサイズは元のままです。PDF/UA-2 では書いた段のままにします。下を参照）。
 
 PDF/UA はタイトルを要求するため、`tagged: true` では `title` が必須です。`title` は必ずメタデータ（`dc:title`）に書き、既定では本文の最初の `H1` としても描きます。Markdown が自前の `# …` で始まるときは `drawTitle: false` を渡してください。題名はメタデータにだけ入り、本文の最初の見出しが `H1` になります（`## → ###` は `H1 → H2`）。この形でも PDF/UA-1 に適合します（veraPDF 106/106）。`lang`（BCP 47）は省略すると本文から推定し、`warnings` で報告します。**誤った `/Lang` はスクリーンリーダの誤読を招く**ため、分かっている場合は明示してください。
 
@@ -56,6 +56,28 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 > タグ付けは opt-in です — 既定の出力は変わりません。
 >
 > 機械検証（veraPDF）が見られるのは**存在の有無**までです。読み順や代替テキストが「適切か」は判定できないため、人手の確認は依然として必要です。
+
+#### PDF/UA-2（v0.27.0）
+
+`tagged: true` に `pdfVersion: "2.0"` を足すと、PDF 2.0 の **PDF/UA-2（ISO 14289-2:2024）** として書きます。既定（1.7・PDF/UA-1）の出力は変わりません。
+
+```jsonc
+{ "markdown": "# Title\n\nBody.", "title": "Report", "tagged": true, "pdfVersion": "2.0", "lang": "ja" }
+```
+
+PDF/UA-1 の出力との違いと、その根拠の条文です。
+
+| | PDF/UA-1（1.7） | PDF/UA-2（2.0） |
+|---|---|---|
+| XMP の宣言（§5） | `pdfuaid:part` 1 | `pdfuaid:part` 2 と `pdfuaid:rev` 2024 |
+| 名前空間（§8.2.4・§8.2.5.2） | 書かない（既定の PDF 1.7 の名前空間） | `Document` と、PDF 2.0 の名前空間にある型の要素に `/NS`（`http://iso.org/pdf2/ssn`）を付けます。その名前空間に無い `BlockQuote` と `Code` は PDF 1.7 の名前空間のままです |
+| 描く題名（§8.2.5.13） | 最初の `H1` | `Title`（見出しにしない） |
+| Markdown の見出し（§8.2.5.12） | H1 から始め、段を飛ばさないよう正規化 | 書いた段のまま（`#` → `H1`、`###` → `H3`） |
+| 入れ子のリスト | 親の項目の `LBody` の中 | 親の `L` の直接の子で、親の項目の直後（ISO 32000-2 §14.8.4.8.2） |
+
+veraPDF 1.30.0（`pdfua-2`、1,728 規則）で、生成 3 ツールの出力、タグの無い PDF 2.0 に `ensure_tagged` を掛けた出力、PDF/UA-2 の文書に `ensure_pdfa(flavour: "pdfa-4")` を掛けた出力のどれも適合と判定されました。最後のものは PDF/A-4 でも適合です（109/109）。
+
+編集しても宣言は残ります。XMP を作り直すツールは `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぎ、Info 辞書に `Title` が無ければ `dc:title` を引き継ぎます（PDF 2.0 の出力は Info に `Title` を置きません）。PDF/UA-2 の検査で落ちると分かっている編集が 1 つあります。`add_bookmarks` はページの行き先を書きますが、§8.8 は文書内の行き先を structure destination にすることを求めます。しおりは動きます。ツールはそのことを `warnings` で伝えます。
 
 ### 編集 — ページ操作
 
@@ -126,7 +148,9 @@ PDF/UA はタイトルを要求するため、`tagged: true` では `title` が�
 
 **v0.24.0 から、応答の `wasDeclared` を `previousDeclaration` に置き換えました（破壊的変更）。** 入力がすでに名乗っていた PDF/A を `{ part, conformance }` で、無ければ `null` で返します。`wasDeclared`（真偽値）は、前の宣言が求めた flavour と同じだったかを分けていませんでした。
 
-**v0.24.0 から、PDF/UA を宣言した入力への `pdfa-4`・`pdfa-4f` は断ります。** PDF/A-4 はヘッダーを PDF 2.0 にし、PDF/UA-1 は版を 1.0〜1.7 とする（ISO 14289-1 §6.1）ので、出力は 2 つの宣言の片方で必ず落ちます。エラーは `INVALID_ARGUMENT` で、`next_actions` が `flavour: "pdfa-3b"`（ヘッダーを 1.7 のままにする）を案内します。作成系が `tagged: true` と `pdfVersion: "2.0"` の組み合わせを断るのと同じ扱いです。
+**v0.24.0 から、PDF/UA-1 を宣言した入力への `pdfa-4`・`pdfa-4f` は断ります。** PDF/A-4 はヘッダーを PDF 2.0 にし、PDF/UA-1 は版を 1.0〜1.7 とする（ISO 14289-1 §6.1）ので、出力は 2 つの宣言の片方で必ず落ちます。エラーは `INVALID_ARGUMENT` で、`next_actions` が `flavour: "pdfa-3b"`（ヘッダーを 1.7 のままにする）を案内します。
+
+v0.27.0 から、**PDF/UA-2** を宣言した入力では逆になります。`pdfa-4`・`pdfa-4f` は通し（どちらも PDF 2.0 基盤です）、`pdfa-3b` は断って `next_actions` で `flavour: "pdfa-4"` を案内します。PDF/A-3 はヘッダーを PDF 1.x に限り（veraPDF の規則 ISO 19005-3:2012 6.1.2-1）、PDF/UA-2 は 2.0 を求めるためです。
 
 #### PDF/A-4（v0.16.0）
 

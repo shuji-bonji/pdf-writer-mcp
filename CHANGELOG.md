@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0] - 2026-11-09
+
+Proposed version: 0.27.0. OpenSpec changes `pdfua2-output` (new capability `pdfua2`,
+SPEC-WRITER-PDFUA2-001 to 006; SPEC-WRITER-CREATE-TITLE-003 modified), `nested-lists-pdfua2`
+(SPEC-WRITER-CREATE-MARKDOWN-PDF-003 modified, 005 added) and `ensure-pdfua2`
+(SPEC-WRITER-ENSURE-TAGGED-003 and SPEC-WRITER-ENSURE-PDFA-001 modified, ENSURE-TAGGED-004 and
+ENSURE-PDFA-003 added).
+
+### Added
+
+- **PDF/UA-2 output** (#26). `tagged: true` with `pdfVersion: "2.0"` on the three create tools
+  now writes a PDF/UA-2 (ISO 14289-2:2024) file instead of being refused with
+  `INVALID_ARGUMENT`. The default (1.7, PDF/UA-1) output is byte-identical to 0.26.1.
+  - XMP declares `pdfuaid:part` 2 and `pdfuaid:rev` 2024 (§5, both Required); the `pdfaExtension`
+    description of the `pdfuaid` schema also describes `rev`.
+  - `StructTreeRoot` gets `/Namespaces` with the PDF 2.0 standard structure namespace
+    (`http://iso.org/pdf2/ssn`, ISO 32000-2 §14.8.6.1), and every element whose type exists in
+    that namespace gets `/NS` — the `Document` element has to (§8.2.5.2). `BlockQuote` and `Code`,
+    which the PDF 2.0 namespace lacks (ISO 32000-2 Annex M), stay in the default PDF 1.7 one
+    (§8.2.4 allows both).
+  - The drawn title is a `Title` element, not `H1` (§8.2.5.13), and Markdown headings keep the
+    level as written instead of being normalised to start at H1 and never skip (§8.2.5.12
+    requires the evident level, not sequential levels).
+  - Nested Markdown lists are placed directly in the parent `L`, right after the item
+    (ISO 32000-2 §14.8.4.8.2), instead of inside the item's `LBody` (#20). The drawn position is
+    unchanged. pdf-reader-mcp 0.23.0 reads both forms with the same `text`, `pages` and `boxes`.
+  - Measured with veraPDF 1.30.0 (`pdfua-2`, 1,728 rules): the output of all three create tools
+    passes. Two checks veraPDF does not make (§8.2.5.12 and §8.2.5.13) are covered by tests.
+- **`ensure_tagged` declares PDF/UA-2 on PDF 2.0 input** instead of refusing it. The part follows
+  the input version, which is never changed. A new structure tree puts `Document` and `P` in the
+  PDF 2.0 namespace, and the title goes to XMP only (the Info dictionary is deprecated for
+  document metadata in PDF 2.0, §14.3.3). An existing tree whose root is not a single `Document`
+  in that namespace is left as it is and named in `warnings`.
+- **`ensure_pdfa` accepts `pdfa-4` / `pdfa-4f` for a PDF/UA-2 input.** Both standards are built
+  on PDF 2.0; the output passes veraPDF `pdfa-4` (109/109) and `pdfua-2` (1,728/1,728).
+
+### Changed
+
+- **`ensure_pdfa` refuses `pdfa-3b` for a PDF/UA-2 input** (`INVALID_ARGUMENT`, `next_actions`:
+  `flavour: "pdfa-4"`). PDF/A-3 requires a PDF 1.x header (veraPDF rule ISO 19005-3:2012
+  6.1.2-1) and PDF/UA-2 requires 2.0; `ensure_pdfa` does not lower the header. The refusal of
+  `pdfa-4` for a PDF/UA-1 input is unchanged.
+- **`add_bookmarks` warns on a PDF/UA-2 input** that the file will fail PDF/UA-2 rule 8.8-1:
+  §8.8 requires structure destinations for targets inside the document, and the tool writes
+  page destinations. The bookmarks are written as before.
+
+### Fixed
+
+- **Editing a PDF 2.0 file no longer drops `dc:title`.** Tools that rebuild the XMP
+  (`set_metadata`, and `ensure_pdfa` through the same path) took the title from the Info
+  dictionary only; PDF 2.0 output does not put `Title` there, so `set_metadata` with only
+  `author` removed the title from a PDF 2.0, PDF/A-4 or PDF/UA-2 file. The existing `dc:title` is
+  now kept when Info has no `Title`. `Author`, `Subject` and `Keywords` are still taken from Info
+  only. Why it was not caught: no test edited a PDF 2.0 file and read its XMP back.
+- The same path now carries `pdfuaid:rev` with `pdfuaid:part`, so an edit does not turn a PDF/UA-2
+  declaration into one without its Required `rev`.
+
 ## [0.26.1] - 2026-11-08
 
 Proposed version: 0.26.1 (decided for #25). OpenSpec change `glyph-policy-wording`

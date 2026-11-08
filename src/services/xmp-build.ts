@@ -27,6 +27,11 @@ export interface XmpOptions {
   /** PDF/UA 宣言を含める場合の part（1 | 2） */
   pdfuaPart?: number;
   /**
+   * `pdfuaid:rev` — PDF/UA-2 の版の年（ISO 14289-2 §5 Table 1。Required。値は `2024`）。
+   * PDF/UA-1 は rev を持たない（ISO 14289-1 §5）ので、part 1 では渡さない。
+   */
+  pdfuaRev?: number;
+  /**
    * PDF/A 宣言を含める場合の part（B-8 では 3）。
    * `pdfaConformance` と対で使う（PDF/A-1〜3 は conformance level を持つ）。
    */
@@ -100,7 +105,7 @@ function escapeXml(value: string): string {
  * pdfuaid 名前空間は XMP 標準スキーマではないので、使うなら pdfaExtension で
  * 「どんなプロパティを持つスキーマか」を自己記述する必要がある。
  */
-const PDFUA_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
+const PDFUA_EXTENSION_SCHEMA_HEAD = `    <rdf:Description rdf:about=""
       xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/"
       xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
       xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">
@@ -117,7 +122,18 @@ const PDFUA_EXTENSION_SCHEMA = `    <rdf:Description rdf:about=""
                   <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
                   <pdfaProperty:category>internal</pdfaProperty:category>
                   <pdfaProperty:description>Indicates, which part of ISO 14289 standard is followed</pdfaProperty:description>
-                </rdf:li>
+                </rdf:li>`;
+
+/** `pdfuaid:rev` の記述。PDF/UA-2 の宣言（rev を持つ）のときだけ足す */
+const PDFUA_EXTENSION_SCHEMA_REV = `
+                <rdf:li rdf:parseType="Resource">
+                  <pdfaProperty:name>rev</pdfaProperty:name>
+                  <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
+                  <pdfaProperty:category>internal</pdfaProperty:category>
+                  <pdfaProperty:description>Indicates the year of the ISO 14289 part that is followed</pdfaProperty:description>
+                </rdf:li>`;
+
+const PDFUA_EXTENSION_SCHEMA_TAIL = `
               </rdf:Seq>
             </pdfaSchema:property>
           </rdf:li>
@@ -193,14 +209,22 @@ export function buildXmpPacket(opts: XmpOptions): string {
   }
 
   if (opts.pdfuaPart !== undefined) {
+    // ISO 14289-2 §5: PDF/UA-2 は part（2）と rev（2024）の両方を Required とする
+    const rev =
+      opts.pdfuaRev !== undefined ? `      <pdfuaid:rev>${opts.pdfuaRev}</pdfuaid:rev>\n` : '';
     parts.push(
       `    <rdf:Description rdf:about="" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">\n` +
         `      <pdfuaid:part>${opts.pdfuaPart}</pdfuaid:part>\n` +
+        rev +
         `    </rdf:Description>`,
     );
     // ISO 14289-1 5-1: pdfuaid は XMP の定義済みスキーマではないため、
     // PDF/A 拡張スキーマ記述（pdfaExtension）で宣言しないと準拠と認められない
-    parts.push(PDFUA_EXTENSION_SCHEMA);
+    parts.push(
+      PDFUA_EXTENSION_SCHEMA_HEAD +
+        (opts.pdfuaRev !== undefined ? PDFUA_EXTENSION_SCHEMA_REV : '') +
+        PDFUA_EXTENSION_SCHEMA_TAIL,
+    );
   }
 
   // #4: TDMRep。reservation が無い policy は Report の形に無いので書かない。

@@ -38,7 +38,7 @@ The version is not only a header. ISO 32000-2 attaches two obligations to it, an
 { "text": "Body.", "title": "Report", "pdfVersion": "2.0" }
 ```
 
-`tagged: true` cannot be combined with it. The only accessibility declaration this server writes is PDF/UA-1 (ISO 14289-1), which is built on PDF 1.7 — putting it in a 2.0 file would be a claim nothing could measure. PDF/UA-2 output is not implemented, so the combination is refused rather than silently produced.
+With `tagged: true`, a 2.0 file declares **PDF/UA-2** (ISO 14289-2) instead of PDF/UA-1, which allows only PDF 1.0 to 1.7 (ISO 14289-1 §6.1). See [PDF/UA-2](#pdfua-2-v0270) below. Up to v0.26.x the combination was refused.
 
 ### Tagged PDF / PDF/UA (v0.5.0)
 
@@ -48,7 +48,7 @@ Pass `tagged: true` to produce an accessible, tagged PDF conforming to **PDF/UA-
 { "markdown": "# Title\n\nBody.", "title": "Report", "tagged": true, "lang": "en" }
 ```
 
-Markdown maps onto the structure tree: headings → `H1`–`H6`, lists → `L`/`LI`/`LBody`, tables → `Table`/`TR`/`TH`/`TD` (headers get `/Scope`), quotes → `BlockQuote`, code → `Code`. Rules, borders and code backgrounds become artifacts. Heading levels are normalised so they start at H1 and never skip — a Markdown `# → ###` jump becomes `H1 → H2` in the structure, while visual sizes stay as authored.
+Markdown maps onto the structure tree: headings → `H1`–`H6`, lists → `L`/`LI`/`LBody`, tables → `Table`/`TR`/`TH`/`TD` (headers get `/Scope`), quotes → `BlockQuote`, code → `Code`. Rules, borders and code backgrounds become artifacts. Under PDF/UA-1, heading levels are normalised so they start at H1 and never skip — a Markdown `# → ###` jump becomes `H1 → H2` in the structure, while visual sizes stay as authored (PDF/UA-2 keeps the level as written; see below).
 
 PDF/UA mandates a document title, so `tagged: true` requires `title`. The title is always written to the metadata (`dc:title`) and, by default, also drawn as the first `H1`. When the Markdown already starts with its own `# …` heading, pass `drawTitle: false`: the title then stays in the metadata only, and the first body heading becomes `H1` (`## → ###` becomes `H1 → H2`). Output stays PDF/UA-1 compliant (veraPDF 106/106). `lang` (BCP 47) is inferred from the text when omitted and reported via `warnings` — pass it explicitly when you know it, since a wrong `/Lang` makes screen readers mispronounce the text.
 
@@ -56,6 +56,28 @@ PDF/UA mandates a document title, so `tagged: true` requires `title`. The title 
 > Tagging is opt-in — default output is unchanged.
 >
 > Machine validation (veraPDF) only sees whether things *exist*. It cannot judge whether reading order or alt text are *appropriate* — human review still matters.
+
+#### PDF/UA-2 (v0.27.0)
+
+Add `pdfVersion: "2.0"` to `tagged: true` and the file is written as **PDF/UA-2 (ISO 14289-2:2024)** on PDF 2.0. The default (1.7, PDF/UA-1) is unchanged.
+
+```jsonc
+{ "markdown": "# Title\n\nBody.", "title": "Report", "tagged": true, "pdfVersion": "2.0", "lang": "en" }
+```
+
+What differs from the PDF/UA-1 output, with the clause behind each:
+
+| | PDF/UA-1 (1.7) | PDF/UA-2 (2.0) |
+|---|---|---|
+| XMP declaration (§5) | `pdfuaid:part` 1 | `pdfuaid:part` 2 and `pdfuaid:rev` 2024 |
+| Namespaces (§8.2.4, §8.2.5.2) | none (the default PDF 1.7 namespace) | `Document` and every type the PDF 2.0 namespace has get `/NS` → `http://iso.org/pdf2/ssn`; `BlockQuote` and `Code`, which it lacks, stay in the PDF 1.7 namespace |
+| Drawn title (§8.2.5.13) | first `H1` | `Title` (not a heading) |
+| Markdown headings (§8.2.5.12) | normalised to start at H1 and never skip | the level as written (`#` → `H1`, `###` → `H3`) |
+| Nested lists | inside the parent item's `LBody` | directly in the parent `L`, right after the item (ISO 32000-2 §14.8.4.8.2) |
+
+Measured with veraPDF 1.30.0 (`pdfua-2`, 1,728 rules): the output of all three create tools, `ensure_tagged` on an untagged PDF 2.0 file, and `ensure_pdfa(flavour: "pdfa-4")` on a PDF/UA-2 file all pass, and the last one also passes PDF/A-4 (109/109).
+
+Edits keep the declaration: when a tool rebuilds the XMP, `pdfuaid:rev` is carried with `pdfuaid:part`, and `dc:title` is kept when the Info dictionary has no `Title` (PDF 2.0 output does not put one there). One edit is known to fail PDF/UA-2: `add_bookmarks` writes page destinations, and §8.8 requires structure destinations for targets inside the document. The bookmarks still work; the tool says so in `warnings`.
 
 ### Editing — page operations
 
@@ -126,7 +148,9 @@ Since v0.17.0 the result also carries `declarationRisks` when the claim is **alr
 
 Since v0.24.0 the result carries `previousDeclaration` — the PDF/A the input already claimed, as `{ part, conformance }`, or `null` — **in place of `wasDeclared`** (a boolean that did not say whether the earlier claim matched the requested flavour). This is a breaking change.
 
-**`ensure_pdfa` refuses `pdfa-4` / `pdfa-4f` for an input that declares PDF/UA** (v0.24.0). PDF/A-4 sets the header to PDF 2.0, while PDF/UA-1 allows versions 1.0 to 1.7 (ISO 14289-1 §6.1), so the file would fail one of its two claims. The error is `INVALID_ARGUMENT` with `next_actions` pointing at `flavour: "pdfa-3b"`, which keeps the 1.7 header — the same rule the create tools apply to `tagged: true` with `pdfVersion: "2.0"`.
+**`ensure_pdfa` refuses `pdfa-4` / `pdfa-4f` for an input that declares PDF/UA-1** (v0.24.0). PDF/A-4 sets the header to PDF 2.0, while PDF/UA-1 allows versions 1.0 to 1.7 (ISO 14289-1 §6.1), so the file would fail one of its two claims. The error is `INVALID_ARGUMENT` with `next_actions` pointing at `flavour: "pdfa-3b"`, which keeps the 1.7 header.
+
+Since v0.27.0 a **PDF/UA-2** input is the other way round: `pdfa-4` / `pdfa-4f` are accepted (both standards are built on PDF 2.0), and `pdfa-3b` is refused with `next_actions` pointing at `flavour: "pdfa-4"` — PDF/A-3 requires a PDF 1.x header (veraPDF rule ISO 19005-3:2012 6.1.2-1) and PDF/UA-2 requires 2.0.
 
 #### PDF/A-4 (v0.16.0)
 

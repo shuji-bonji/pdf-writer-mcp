@@ -42,7 +42,8 @@ import { PdfWriterError } from '../errors.js';
 import { arr, bool, dict, int, name, stream, textString } from './cos.js';
 import { textOf } from './cos-read.js';
 import { setInfoEntries } from './info-dict.js';
-import { readXmpDeclarations } from './pdfa-cos.js';
+import { PDFUA2_REV, readXmpDeclarations } from './pdfa-cos.js';
+import { PDF20_NAMESPACE } from './struct-tree.js';
 import { infoCreationDateIso, writeXmpMetadata } from './xmp-cos.js';
 
 export interface EnsureTaggedOptions {
@@ -50,6 +51,11 @@ export interface EnsureTaggedOptions {
   title?: string;
   /** 文書の自然言語（BCP 47。7.2 で必須） */
   lang?: string;
+  /**
+   * 名乗る PDF/UA の part。1 = ISO 14289-1（PDF 1.7 以下）、2 = ISO 14289-2（PDF 2.0）。既定 1。
+   * 呼び出し側（`edit-ensure-tagged.ts`）が入力の版から決める（SPEC-WRITER-ENSURE-TAGGED-003）
+   */
+  uaPart?: 1 | 2;
 }
 
 export interface EnsureTaggedOutcome {
@@ -171,10 +177,23 @@ async function wrapPageContentInP(
 async function createMinimalStructure(
   editor: PdfDocumentEditor,
   outcome: EnsureTaggedOutcome,
+  uaPart: 1 | 2,
 ): Promise<void> {
   // `/Parent` が相互に要るので、先に番号だけ採る（`outline.ts` と同じ手順）
   const rootRef = await editor.allocate(COS_NULL);
   const docElemRef = await editor.allocate(COS_NULL);
+  // PDF/UA-2 §8.2.5.2: Document は PDF 2.0 の名前空間に置く（shall）。P も PDF 2.0 の名前空間にある型なので
+  // 同じ名前空間にする（生成系の StructTreeBuilder と同じ規則。ISO 32000-2 Table 355 の /NS・Table 354 の /Namespaces）
+  const namespace =
+    uaPart === 2
+      ? await editor.allocate(
+          dict([
+            ['Type', name('Namespace')],
+            ['NS', textString(PDF20_NAMESPACE)],
+          ]),
+        )
+      : undefined;
+  const ns: [string, CosObject][] = namespace === undefined ? [] : [['NS', namespace]];
 
   const pElems: CosRef[] = [];
   const nums: CosObject[] = [];
@@ -199,6 +218,7 @@ async function createMinimalStructure(
         ['Pg', page.ref],
         // R-14.7.5.2-5: K が整数なら、それは `/Pg` のページにある MCID を指す
         ['K', int(mcid)],
+        ...ns,
       ]),
     );
     pElems.push(pRef);
@@ -220,6 +240,7 @@ async function createMinimalStructure(
       ['S', name('Document')],
       ['P', rootRef],
       ['K', arr(pElems)],
+      ...ns,
     ]),
     docElemRef.generationNumber,
   );
@@ -233,6 +254,9 @@ async function createMinimalStructure(
       ['ParentTree', parentTree],
       // R-14.7.5.4-9: 使用中のどの鍵（0〜ページ数-1）より大きい
       ['ParentTreeNextKey', int(pages.length)],
+      ...(namespace === undefined
+        ? []
+        : ([['Namespaces', arr([namespace])]] as [string, CosObject][])),
     ]),
     rootRef.generationNumber,
   );
@@ -250,6 +274,12 @@ async function applyDocumentRequirements(
   opts: EnsureTaggedOptions,
   outcome: EnsureTaggedOutcome,
 ): Promise<void> {
+  const uaPart = opts.uaPart ?? 1;
+  // 警告に書く規格と節。PDF/UA-1 は §7.1・§7.2、PDF/UA-2 は §8.4.4（言語）・§8.11（dc:title・DisplayDocTitle）
+  const cite =
+    uaPart === 2
+      ? { lang: 'PDF/UA-2 8.4.4', title: 'PDF/UA-2 8.11' }
+      : { lang: 'PDF/UA-1 7.2', title: 'PDF/UA-1 7.1' };
   // `/MarkInfo <</Marked true>>`（7.1）
   if (!(await isMarked(editor))) {
     await updateCatalog(editor, (entries) => {
@@ -280,7 +310,7 @@ async function applyDocumentRequirements(
     }
   } else if (catalog === undefined || dictGet(catalog, 'Lang') === undefined) {
     outcome.warnings.push(
-      'No "lang" given and the document declares no /Lang; PDF/UA-1 7.2 requires one. ' +
+      `No "lang" given and the document declares no /Lang; ${cite.lang} requires one. ` +
         'Pass "lang" (BCP 47) — a missing or wrong language makes screen readers mispronounce text.',
     );
   }
@@ -322,17 +352,20 @@ async function applyDocumentRequirements(
   const infoText = async (key: string): Promise<string | undefined> =>
     info.kind === 'dict' ? textOf(await editor.resolve(dictGet(info, key) ?? COS_NULL)) : undefined;
 
-  const title = opts.title ?? (await infoText('Title'));
-  if (title !== undefined && title !== '') {
+  const declared = await readXmpDeclarations(editor);
+  const title = opts.title ?? (await infoText('Title')) ?? xmpTitle(declared.xmp);
+  // PDF 2.0 では Info の文書メタデータが非推奨（ISO 32000-2 §14.3.3）。題名は XMP にだけ書く
+  if (title !== undefined && title !== '' && uaPart === 1) {
     await setInfoEntries(editor, [['Title', textString(title)]]);
   }
 
-  // XMP（pdfuaid:part 1 + dc:title）。pdfuaid:part が 1 で、title があるときは dc:title に
-  // それが入っていれば同じ値と見なす（XMP の全体の一致は見ない）
-  const declared = await readXmpDeclarations(editor);
+  // XMP（pdfuaid:part + dc:title。PDF/UA-2 は pdfuaid:rev も Required — ISO 14289-2 §5）。
+  // 宣言が同じ part（と rev）で、title があるときは dc:title にそれが入っていれば同じ値と見なす
+  // （XMP の全体の一致は見ない）
   const xmpSame =
     declared.xmp !== null &&
-    declared.pdfuaPart === 1 &&
+    declared.pdfuaPart === uaPart &&
+    (uaPart === 1 || declared.pdfuaRev === PDFUA2_REV) &&
     (title === undefined || title === '' || declared.xmp.includes(xmlEscaped(title)));
   if (!xmpSame) {
     await writeXmpRequirements(editor, opts, title, infoText);
@@ -343,7 +376,7 @@ async function applyDocumentRequirements(
 
   if (title === undefined || title === '') {
     outcome.warnings.push(
-      'No title: PDF/UA-1 7.1 requires a document title (dc:title + DisplayDocTitle). ' +
+      `No title: ${cite.title} requires a document title (dc:title + DisplayDocTitle). ` +
         'Pass "title" — validation will fail without it.',
     );
   }
@@ -361,7 +394,8 @@ async function writeXmpRequirements(
     ...((await infoText('Author')) !== undefined ? { author: await infoText('Author') } : {}),
     ...((await infoText('Subject')) !== undefined ? { subject: await infoText('Subject') } : {}),
     ...((await infoText('Keywords')) !== undefined ? { keywords: await infoText('Keywords') } : {}),
-    pdfuaPart: 1,
+    pdfuaPart: opts.uaPart ?? 1,
+    ...(opts.uaPart === 2 ? { pdfuaRev: PDFUA2_REV } : {}),
     ...(opts.lang !== undefined ? { lang: opts.lang } : {}),
     // W-6: 既存 PDF の編集経路なので、作成日時は Info の `/CreationDate` から引き継ぐ
     ...((await infoCreationDateIso(editor)) !== undefined
@@ -391,7 +425,7 @@ export async function ensureTaggedStructure(
       : await editor.resolve(dictGet(catalog, 'StructTreeRoot') ?? COS_NULL);
 
   if (structRoot.kind !== 'dict') {
-    await createMinimalStructure(editor, outcome);
+    await createMinimalStructure(editor, outcome, opts.uaPart ?? 1);
     outcome.warnings.push(
       'This document had no structure tree. A minimal scaffold was created: each page is ' +
         'wrapped in a single P (paragraph) element. The text is now reachable by assistive ' +
@@ -406,6 +440,50 @@ export async function ensureTaggedStructure(
     );
   }
 
+  // 既存の構造木は直さない。PDF/UA-2 で測ると落ちると分かっている形だけ名指す（SPEC-WRITER-ENSURE-TAGGED-004）
+  if (structRoot.kind === 'dict' && (opts.uaPart ?? 1) === 2) {
+    if (!(await documentInPdf20Namespace(editor, structRoot))) {
+      outcome.warnings.push(
+        'PDF/UA-2 (ISO 14289-2, 8.2.5.2) requires the structure tree root to hold a single Document ' +
+          'element in the PDF 2.0 namespace (http://iso.org/pdf2/ssn). The existing structure tree does ' +
+          'not, and ensure_tagged leaves existing structure untouched — this file will NOT pass ' +
+          'PDF/UA-2 validation until the tree is fixed.',
+      );
+    }
+  }
+
   await applyDocumentRequirements(editor, opts, outcome);
   return outcome;
+}
+
+/** XMP の dc:title の最初の項目（xmp-build が書く rdf:Alt の rdf:li）。実体参照は戻す */
+function xmpTitle(xmp: string | null): string | undefined {
+  const raw =
+    xmp === null ? undefined : /<dc:title>[\s\S]*?<rdf:li[^>]*>([^<]*)<\/rdf:li>/.exec(xmp)?.[1];
+  if (raw === undefined) return undefined;
+  return raw
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * 構造木の根の子が 1 つだけで、それが PDF 2.0 の名前空間の Document か（ISO 14289-2 §8.2.5.2）。
+ * `/NS` は名前空間辞書（Table 356）への参照で、その `/NS` の文字列を比べる。
+ */
+async function documentInPdf20Namespace(
+  editor: PdfDocumentEditor,
+  structRoot: CosDict,
+): Promise<boolean> {
+  const k = await editor.resolve(dictGet(structRoot, 'K') ?? COS_NULL);
+  const only =
+    k.kind === 'array' ? (k.items.length === 1 ? await editor.resolve(k.items[0]) : COS_NULL) : k;
+  if (only.kind !== 'dict') return false;
+  const type = await editor.resolve(dictGet(only, 'S') ?? COS_NULL);
+  if (type.kind !== 'name' || type.value !== 'Document') return false;
+  const ns = await editor.resolve(dictGet(only, 'NS') ?? COS_NULL);
+  if (ns.kind !== 'dict') return false;
+  return textOf(await editor.resolve(dictGet(ns, 'NS') ?? COS_NULL)) === PDF20_NAMESPACE;
 }

@@ -9,7 +9,7 @@
 
 import { DEFAULTS } from '../config.js';
 import { PAGE_SIZES, type PageSizeName, RENDERER_GENERATED_CHARS } from '../constants.js';
-import { invalidArg, PdfWriterError } from '../errors.js';
+import { invalidArg } from '../errors.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { inferLang } from '../utils/lang.js';
 import { rgb01 } from './color.js';
@@ -24,7 +24,7 @@ import { LayoutEngine } from './layout.js';
 import { finalizeCreated } from './output-created.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
 import { assertRenderable } from './renderers/text.js';
-import { StructTreeBuilder } from './struct-tree.js';
+import { type StructProfile, StructTreeBuilder } from './struct-tree.js';
 import { WriterDocument } from './writer-doc.js';
 
 /**
@@ -38,19 +38,10 @@ export async function buildPdf(
   inputTexts: string[],
   render: RenderFn,
 ): Promise<CreateResult> {
-  // B-16: writer が書けるアクセシビリティ宣言は PDF/UA-1（ISO 14289-1）だけで、
-  // これは PDF 1.7 基盤の規格。PDF 2.0 の器に pdfuaid:part=1 を載せると、
-  // **測れない宣言を自分で書く**ことになる（ensure_pdfa を非適合文書に掛けるのと同型）。
-  // PDF 2.0 側の相手は PDF/UA-2 で、それは未実装なので黙って通さず断る。
-  if (opts.tagged && opts.pdfVersion === '2.0') {
-    throw new PdfWriterError(
-      'tagged: true cannot be combined with pdfVersion: "2.0" — this server only writes the PDF/UA-1 declaration (ISO 14289-1), which is based on PDF 1.7. PDF/UA-2 output is not implemented.',
-      'INVALID_ARGUMENT',
-      {
-        hint: 'Drop pdfVersion (PDF/UA-1 on PDF 1.7), or drop tagged (untagged PDF 2.0).',
-      },
-    );
-  }
+  // SPEC-WRITER-PDFUA2-001（#26）: 宣言する PDF/UA の part は版で決まる。
+  // PDF/UA-1（ISO 14289-1 §6.1）は PDF 1.0〜1.7、PDF/UA-2（ISO 14289-2 §6.1）は PDF 2.0 を求める。
+  // 0.26.x まではこの組み合わせを INVALID_ARGUMENT で断っていた（B-16）
+  const profile: StructProfile = opts.pdfVersion === '2.0' ? 'pdfua-2' : 'pdfua-1';
 
   const doc = WriterDocument.create(opts.pdfVersion ?? DEFAULT_PDF_VERSION);
   const source = await openFont(opts.fontPath);
@@ -83,18 +74,26 @@ export async function buildPdf(
   let struct: StructTreeBuilder | undefined;
   let lang: string | undefined;
   if (opts.tagged) {
-    // PDF/UA-1 §7.1 が求めるのは dc:title で、本文の題名ではない。描くかどうかに関わらず必須（006）
+    // PDF/UA-1 §7.1・PDF/UA-2 §8.11.1 が求めるのは dc:title で、本文の題名ではない。
+    // 描くかどうかに関わらず必須（006）
     if (!opts.title) {
       throw invalidArg(
-        'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
+        profile === 'pdfua-2'
+          ? 'tagged: true requires "title" — PDF/UA-2 (ISO 14289-2, 8.11.1) mandates dc:title in the XMP metadata.'
+          : 'tagged: true requires "title" — PDF/UA (ISO 14289-1, 7.1) mandates a document title.',
       );
     }
     if (source.isStandard) {
-      // veraPDF 実測（2026-07-17）: 標準フォントは 7.21.4.1-1（フォント埋め込み）で必ず違反になる
+      // veraPDF 実測（2026-07-17）: 標準フォントは 7.21.4.1-1（フォント埋め込み）で必ず違反になる。
+      // PDF/UA-2 も §8.4.5.5 で埋め込みを求める
       warnings.push(
-        'The standard font (Helvetica) is not embedded, but PDF/UA-1 (7.21.4.1) requires all ' +
-          'fonts to be embedded — this tagged PDF will NOT pass conformance validation. ' +
-          'Pass "fontPath" (or set PDF_WRITER_FONT) to embed a font.',
+        profile === 'pdfua-2'
+          ? 'The standard font (Helvetica) is not embedded, but PDF/UA-2 (8.4.5.5) requires all ' +
+              'fonts to be embedded — this tagged PDF will NOT pass conformance validation. ' +
+              'Pass "fontPath" (or set PDF_WRITER_FONT) to embed a font.'
+          : 'The standard font (Helvetica) is not embedded, but PDF/UA-1 (7.21.4.1) requires all ' +
+              'fonts to be embedded — this tagged PDF will NOT pass conformance validation. ' +
+              'Pass "fontPath" (or set PDF_WRITER_FONT) to embed a font.',
       );
     }
     lang = opts.lang;
@@ -107,7 +106,7 @@ export async function buildPdf(
           : `Inferred document language as "${lang}", but the text has no kana so it could also be Chinese. Pass "lang" explicitly — a wrong /Lang makes screen readers mispronounce the text.`,
       );
     }
-    struct = new StructTreeBuilder(doc);
+    struct = new StructTreeBuilder(doc, profile);
   }
 
   const engine = new LayoutEngine(doc, {
@@ -120,9 +119,11 @@ export async function buildPdf(
     struct,
   });
 
-  // 描く題名は本文冒頭に見出しとして描画（メタデータには描くかどうかに関わらず finalizeCreated が opts.title を書く）
+  // 描く題名は本文冒頭に描画（メタデータには描くかどうかに関わらず finalizeCreated が opts.title を書く）。
+  // PDF/UA-1 では H1、PDF/UA-2 では Title（ISO 14289-2 §8.2.5.13: 題名は Title で示し、見出しとして示さない。
+  // SPEC-WRITER-PDFUA2-003）
   if (title) {
-    struct?.begin('H1');
+    struct?.begin(profile === 'pdfua-2' ? 'Title' : 'H1');
     engine.drawParagraph(title, {
       size: fontSize + 7,
       color: rgb01(0, 0, 0),
@@ -148,7 +149,7 @@ export async function buildPdf(
 
   const result = await finalizeCreated(doc, opts, {
     fontName: loaded.name,
-    ...(struct ? { uaLang: lang as string } : {}),
+    ...(struct ? { uaLang: lang as string, uaPart: profile === 'pdfua-2' ? 2 : 1 } : {}),
   });
   if (warnings.length > 0) result.warnings = warnings;
   return result;

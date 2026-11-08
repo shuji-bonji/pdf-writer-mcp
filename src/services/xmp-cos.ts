@@ -131,9 +131,24 @@ export interface XmpSyncResult {
   warnings: string[];
 }
 
+/** xmp-build の escapeXml の逆（5 つの定義済み実体参照だけ） */
+function xmlUnescape(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 /** 既存 XMP から引き継ぐ事実を取り出す。 */
 const facts = (text: string) => ({
   pdfuaPart: /<pdfuaid:part>\s*(\d+)\s*<\/pdfuaid:part>/.exec(text)?.[1],
+  // PDF/UA-2 の宣言は part と rev の対（ISO 14289-2 §5）。part だけ運ぶと rev が消える
+  pdfuaRev: /<pdfuaid:rev>\s*(\d+)\s*<\/pdfuaid:rev>/.exec(text)?.[1],
+  // dc:title の最初の項目（xmp-build が書く rdf:Alt の rdf:li）。実体参照は戻して持つ
+  title: xmlUnescape(/<dc:title>[\s\S]*?<rdf:li[^>]*>([^<]*)<\/rdf:li>/.exec(text)?.[1]),
   lang: /<dc:language>[\s\S]*?<rdf:li>([^<]*)<\/rdf:li>/.exec(text)?.[1],
   createDate: /<xmp:CreateDate>([^<]+)<\/xmp:CreateDate>/.exec(text)?.[1],
   pdfaPart: /<pdfaid:part>\s*(\d+)\s*<\/pdfaid:part>/.exec(text)?.[1],
@@ -211,11 +226,16 @@ export async function syncXmpWithInfo(
   const redeclaring = overrides?.pdfaPart !== undefined;
 
   const packet = buildXmpPacket({
-    title: await infoText(editor, 'Title'),
+    // Info の Title を優先し、無ければ既存の dc:title を引き継ぐ。PDF 2.0 の出力は Info に Title を
+    // 置かない（§14.3.3 が Info の文書メタデータを非推奨にしている）ので、Info だけから作ると、
+    // 題名を書いていない編集（set_metadata の author だけなど）で dc:title が消える。
+    // PDF/UA-1 §7.1・PDF/UA-2 §8.11.1 は dc:title を求める（SPEC-WRITER-PDFUA2-005）
+    title: (await infoText(editor, 'Title')) ?? kept.title,
     author: await infoText(editor, 'Author'),
     subject: await infoText(editor, 'Subject'),
     keywords: await infoText(editor, 'Keywords'),
     pdfuaPart: kept.pdfuaPart !== undefined ? Number(kept.pdfuaPart) : undefined,
+    pdfuaRev: kept.pdfuaRev !== undefined ? Number(kept.pdfuaRev) : undefined,
     pdfaPart:
       overrides?.pdfaPart ?? (kept.pdfaPart !== undefined ? Number(kept.pdfaPart) : undefined),
     pdfaConformance: redeclaring ? overrides?.pdfaConformance : kept.pdfaConformance,
