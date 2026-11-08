@@ -44,9 +44,16 @@ ENSURE-PDFA-003 added).
   `flavour: "pdfa-4"`). PDF/A-3 requires a PDF 1.x header (veraPDF rule ISO 19005-3:2012
   6.1.2-1) and PDF/UA-2 requires 2.0; `ensure_pdfa` does not lower the header. The refusal of
   `pdfa-4` for a PDF/UA-1 input is unchanged.
-- **`add_bookmarks` warns on a PDF/UA-2 input** that the file will fail PDF/UA-2 rule 8.8-1:
-  §8.8 requires structure destinations for targets inside the document, and the tool writes
-  page destinations. The bookmarks are written as before.
+- **`add_bookmarks` writes structure destinations on a PDF/UA-2 input.** §8.8 requires
+  destinations inside the document to be structure destinations (ISO 32000-2 §12.3.2.3); page
+  destinations fail veraPDF rule 8.8-1. Each bookmark becomes `/A << /S /GoTo /D [page …]
+  /SD [element …] >>` (Table 202: `SD` is PDF 2.0 and takes precedence over `D`), so viewers that
+  do not read `SD` still go to the page. The element is the first one in the page's parent array
+  whose §12.3.2.3 page is that page — a paragraph continued from the previous page is skipped,
+  because the algorithm would land on the previous page. A page with no structure content keeps
+  a page destination and is named in `warnings`. Measured with veraPDF 1.30.0: `pdfua-2`
+  1,728/1,728 for both a full save and `preserveSignatures: true`; pdf.js 4.10.38 opens the
+  right page through `D`. Other inputs keep the page destination.
 
 ### Fixed
 

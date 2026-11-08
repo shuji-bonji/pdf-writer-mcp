@@ -77,7 +77,7 @@ PDF/UA-1 の出力との違いと、その根拠の条文です。
 
 veraPDF 1.30.0（`pdfua-2`、1,728 規則）で、生成 3 ツールの出力、タグの無い PDF 2.0 に `ensure_tagged` を掛けた出力、PDF/UA-2 の文書に `ensure_pdfa(flavour: "pdfa-4")` を掛けた出力のどれも適合と判定されました。最後のものは PDF/A-4 でも適合です（109/109）。
 
-編集しても宣言は残ります。XMP を作り直すツールは `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぎ、Info 辞書に `Title` が無ければ `dc:title` を引き継ぎます（PDF 2.0 の出力は Info に `Title` を置きません）。PDF/UA-2 の検査で落ちると分かっている編集が 1 つあります。`add_bookmarks` はページの行き先を書きますが、§8.8 は文書内の行き先を structure destination にすることを求めます。しおりは動きます。ツールはそのことを `warnings` で伝えます。
+編集しても宣言は残ります。XMP を作り直すツールは `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぎ、Info 辞書に `Title` が無ければ `dc:title` を引き継ぎます（PDF 2.0 の出力は Info に `Title` を置きません）。`add_bookmarks` は、PDF/UA-2 の文書では §8.8 のとおり structure destination で書きます。GoTo アクションの `SD` に、指したページで始まる構造要素を書き、`SD` を読まないビューアのために `D` にページの行き先を残します。構造要素の内容が無いページはページの行き先のまま書き、`warnings` で名指します。
 
 ### 編集 — ページ操作
 

@@ -29,15 +29,21 @@ import { saveOpened } from './output-edited.js';
 import { readXmpDeclarations } from './pdfa-cos.js';
 
 /**
- * PDF/UA-2 の入力に足したしおりが測ると落ちることの名指し（#26）。
- * ISO 14289-2 §8.8 は文書内を指す行き先を structure destination（ISO 32000-2 §12.3.2.3 の /SD）に
- * することを求める。setBookmarks はページの行き先（/Dest）しか書かない。
- * 実測（veraPDF 1.30.0、2026-11-09）: ISO 14289-2:2024 8.8-1 で 1 件落ちる。
+ * PDF/UA-2 の入力には、しおりの行き先を structure destination で書く（#26・SPEC-WRITER-PDFUA2-006）。
+ * ISO 14289-2 §8.8 は文書内を指す行き先を structure destination（ISO 32000-2 §12.3.2.3）に
+ * することを求める。ページの行き先だけだと veraPDF 1.30.0 の ISO 14289-2:2024 8.8-1 で落ちる
+ * （実測 2026-11-09）。そのページに構造要素の内容が無く、要素を選べなかったしおりは
+ * ページの行き先で書き、warnings で名指す。
  */
-const PDFUA2_OUTLINE_WARNING =
-  'The input declares PDF/UA-2, which requires destinations inside the document to be structure ' +
-  'destinations (ISO 14289-2, 8.8). add_bookmarks writes page destinations only, so the file will NOT ' +
-  'pass PDF/UA-2 validation (rule 8.8-1) after this edit. The bookmarks themselves work in viewers.';
+function unresolvedWarning(items: { title: string; page: number }[]): string {
+  const list = items.map((i) => `"${i.title}" (page ${i.page})`).join(', ');
+  return (
+    `The input declares PDF/UA-2, which requires destinations inside the document to be structure ` +
+    `destinations (ISO 14289-2, 8.8). No structure element has its first content on the page of ` +
+    `${list}, so ${items.length === 1 ? 'that bookmark was' : 'those bookmarks were'} written with a ` +
+    `page destination and the file will NOT pass PDF/UA-2 validation (rule 8.8-1). The bookmarks work in viewers.`
+  );
+}
 
 export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> {
   const total = countBookmarks(args.bookmarks);
@@ -53,7 +59,11 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
   }
 
   const declaresUa2 = (await readXmpDeclarations(opened.editor)).pdfuaPart === 2;
-  const added = await setBookmarks(opened.editor, args.bookmarks);
+  const unresolved: { title: string; page: number }[] = [];
+  const added = await setBookmarks(opened.editor, args.bookmarks, {
+    structureDestinations: declaresUa2,
+    unresolved,
+  });
   logger.info('Editor', `Set ${added} bookmark(s)`);
 
   let result: EditResult;
@@ -67,6 +77,6 @@ export async function addBookmarks(args: AddBookmarksArgs): Promise<EditResult> 
   } else {
     result = await saveOpened(opened, args);
   }
-  if (!declaresUa2) return result;
-  return { ...result, warnings: [...(result.warnings ?? []), PDFUA2_OUTLINE_WARNING] };
+  if (unresolved.length === 0) return result;
+  return { ...result, warnings: [...(result.warnings ?? []), unresolvedWarning(unresolved)] };
 }

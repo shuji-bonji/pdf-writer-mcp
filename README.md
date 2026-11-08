@@ -77,7 +77,7 @@ What differs from the PDF/UA-1 output, with the clause behind each:
 
 Measured with veraPDF 1.30.0 (`pdfua-2`, 1,728 rules): the output of all three create tools, `ensure_tagged` on an untagged PDF 2.0 file, and `ensure_pdfa(flavour: "pdfa-4")` on a PDF/UA-2 file all pass, and the last one also passes PDF/A-4 (109/109).
 
-Edits keep the declaration: when a tool rebuilds the XMP, `pdfuaid:rev` is carried with `pdfuaid:part`, and `dc:title` is kept when the Info dictionary has no `Title` (PDF 2.0 output does not put one there). One edit is known to fail PDF/UA-2: `add_bookmarks` writes page destinations, and §8.8 requires structure destinations for targets inside the document. The bookmarks still work; the tool says so in `warnings`.
+Edits keep the declaration: when a tool rebuilds the XMP, `pdfuaid:rev` is carried with `pdfuaid:part`, and `dc:title` is kept when the Info dictionary has no `Title` (PDF 2.0 output does not put one there). `add_bookmarks` writes structure destinations on a PDF/UA-2 file, as §8.8 requires: a GoTo action whose `SD` names the structure element that starts on the target page, with `D` kept as the page destination for viewers that do not read `SD`. A page with no structure content keeps a page destination and is named in `warnings`.
 
 ### Editing — page operations
 

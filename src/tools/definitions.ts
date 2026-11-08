@@ -166,7 +166,10 @@ export const tools: ToolDefinition[] = [
     title: 'Add Bookmarks (Outline)',
     description:
       'Set the bookmarks (outline) of a PDF. Existing bookmarks are replaced. Nest with children. ' +
-      'For signed PDFs, preserveSignatures: true sets them while keeping the signatures intact.',
+      'For signed PDFs, preserveSignatures: true sets them while keeping the signatures intact. ' +
+      'When the input declares PDF/UA-2, each bookmark goes to a structure destination as ISO 14289-2 §8.8 requires: ' +
+      'a GoTo action whose SD names the structure element that starts on the target page, with D kept as the page ' +
+      'destination for viewers that do not read SD. A page with no structure content gets a page destination and is named in warnings (v0.27.0).',
     inputSchema: AddBookmarksSchema,
     annotations: base,
   },

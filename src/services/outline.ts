@@ -24,10 +24,29 @@
  * 日本語の題名は旧実装と同じく UTF-16BE（BOM 付き）になる。
  */
 
-import { type CosObject, type CosRef, dictGet, type PdfDocumentEditor } from 'normativepdf';
+import {
+  type CosDict,
+  type CosObject,
+  type CosRef,
+  dictGet,
+  type PdfDocumentEditor,
+} from 'normativepdf';
 import { LIMITS } from '../constants.js';
 import type { BookmarkInput } from '../types/index.js';
 import { arr, dict, int, name, textString } from './cos.js';
+import { structureElementForPage } from './struct-dest.js';
+
+export interface SetBookmarksOptions {
+  /**
+   * 行き先を structure destination で書くか（ISO 14289-2 §8.8。PDF/UA-2 の文書で true）。
+   * 書くときは `/A << /S /GoTo /D [ページ …] /SD [構造要素 …] >>`（ISO 32000-2 §12.6.4.2 Table 202）。
+   * `SD` は PDF 2.0 の項目で、`D` より優先される。`SD` を知らないビューアは `D` のページへ飛ぶ。
+   * Table 151 は `Dest` と `A` を同時に置くことを禁じるので、`Dest` は書かない
+   */
+  readonly structureDestinations?: boolean;
+  /** 構造要素を選べず、ページの行き先で書いたしおり（題名とページ） */
+  readonly unresolved?: { title: string; page: number }[];
+}
 
 const COS_NULL: CosObject = { kind: 'null' };
 
@@ -51,8 +70,13 @@ interface BuiltNode {
 export async function setBookmarks(
   editor: PdfDocumentEditor,
   bookmarks: BookmarkInput[],
+  options: SetBookmarksOptions = {},
 ): Promise<number> {
   const pages = await editor.pages();
+  const structTreeRoot = options.structureDestinations
+    ? await readStructTreeRoot(editor)
+    : undefined;
+  const elementForPage = new Map<number, CosRef | undefined>();
 
   // 参照を先に取ってから中身を書く。`/Parent` `/Prev` `/Next` が互いを指すので、
   // 番号が決まっていないと辿れる木にならない
@@ -84,12 +108,37 @@ export async function setBookmarks(
       total += 1;
 
       const ref = await editor.allocate(COS_NULL);
+      // [page /XYZ left top zoom] —— null は「現在値を維持」（§12.3.2.2 Table 149）
+      const pageDest = arr([page.ref, name('XYZ'), COS_NULL, COS_NULL, COS_NULL]);
       const entries = new Map<string, CosObject>([
         ['Title', textString(item.title)],
         ['Parent', parentRef],
-        // /Dest [page /XYZ left top zoom] —— null は「現在値を維持」（§12.3.2.2 Table 149）
-        ['Dest', arr([page.ref, name('XYZ'), COS_NULL, COS_NULL, COS_NULL])],
       ]);
+      let element: CosRef | undefined;
+      if (structTreeRoot !== undefined) {
+        if (!elementForPage.has(pageIndex)) {
+          elementForPage.set(
+            pageIndex,
+            await structureElementForPage(editor, structTreeRoot, page.ref, page.dict),
+          );
+        }
+        element = elementForPage.get(pageIndex);
+      }
+      if (element !== undefined) {
+        // structure destination は Table 149 と同じ書き方で、先頭が構造要素（§12.3.2.3）
+        entries.set(
+          'A',
+          dict([
+            ['S', name('GoTo')],
+            ['D', pageDest],
+            ['SD', arr([element, name('XYZ'), COS_NULL, COS_NULL, COS_NULL])],
+          ]),
+        );
+      } else {
+        entries.set('Dest', pageDest);
+        if (options.structureDestinations)
+          options.unresolved?.push({ title: item.title, page: item.page });
+      }
 
       const node: BuiltNode = {
         ref,
@@ -168,4 +217,14 @@ export function countBookmarks(items: BookmarkInput[]): number {
     if (item.children) n += countBookmarks(item.children);
   }
   return n;
+}
+
+/** catalog の `/StructTreeRoot`。無ければ undefined */
+async function readStructTreeRoot(editor: PdfDocumentEditor): Promise<CosDict | undefined> {
+  const root = dictGet(editor.trailer(), 'Root');
+  if (root === undefined) return undefined;
+  const catalog = await editor.resolve(root);
+  if (catalog.kind !== 'dict') return undefined;
+  const tree = await editor.resolve(dictGet(catalog, 'StructTreeRoot') ?? COS_NULL);
+  return tree.kind === 'dict' ? tree : undefined;
 }
