@@ -251,7 +251,8 @@ export const NEXT_ACTIONS = {
     action: 'retry_with_onMissingGlyph',
     reason:
       'The text has characters the font does not contain. Pass a different font, or set ' +
-      '"onMissingGlyph" to "replace" (draw a replacement box) or "ignore" (drop them silently).',
+      '"onMissingGlyph" to "replace" (substitute 〓, or ? when the font lacks 〓, and warn) or ' +
+      '"ignore" (draw a blank in their place and warn).',
     example: { onMissingGlyph: 'replace' },
   }),
   checkFilePath: (path?: string): NextAction => ({

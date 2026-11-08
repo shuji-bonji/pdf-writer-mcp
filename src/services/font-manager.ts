@@ -211,7 +211,7 @@ export function applyMissingGlyphPolicy(
   if (policy === 'error') {
     throw new PdfWriterError(
       `The font "${source.name}" has no glyph for: ${list}. ` +
-        'These characters would render as blank boxes.',
+        'This font cannot draw these characters.',
       'MISSING_GLYPH',
       { next_actions: [NEXT_ACTIONS.changeMissingGlyphPolicy()], detail: characterDetail(chars) },
     );

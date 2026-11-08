@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.1] - 2026-11-08
+
+Proposed version: 0.26.1 (decided for #25). OpenSpec change `glyph-policy-wording`
+(SPEC-WRITER-CREATE-TITLE-002 modified, wording only).
+
+### Fixed
+
+- **The texts about `onMissingGlyph` and `fontPath` now describe what 0.26.0 does** (#25).
+  The PDFs were already correct; only the texts shown to the caller were wrong.
+  - The `MISSING_GLYPH` `next_actions[].reason` said `replace` draws "a replacement box" and
+    `ignore` drops the characters "silently". `replace` substitutes `〓`, or `?` when the font
+    lacks `〓` (always `?` with the standard font, since 0.25.1); `ignore` draws a blank
+    (`.notdef`, or the space code with the standard font) and names the characters in
+    `warnings`.
+  - The `onMissingGlyph` description in `tools/list` now says `replace` falls back to `?`.
+  - The `fontPath` description of the three create tools said it was "required for non-Latin
+    text". Since 0.26.0 the boundary is WinAnsiEncoding: `ł` needs a font, `“ — €` do not.
+    The `fontPath` descriptions of `stamp_page_numbers`, `add_watermark`, `fill_form` and
+    `flatten_form` (separate schema parts, "required for CJK") now say the same.
+  - The `MISSING_GLYPH` `error` ended with "These characters would render as blank boxes",
+    which is not true for the standard font. It now says the font cannot draw them.
+  - Why it was not caught: the `?` fallback (0.25.1) and the WinAnsiEncoding boundary (0.26.0)
+    changed the behaviour without a review of these texts, and no test compares them — the
+    family error contract lets text items change between versions.
+- `code`, `retryable`, `next_actions[].action`, `example`, `detail` and the input schemas are
+  unchanged.
+
 ## [0.26.0] - 2026-11-06
 
 Proposed version: 0.26.0 (decided in #22). OpenSpec changes `standard-font-winansi-input`

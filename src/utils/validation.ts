@@ -65,7 +65,7 @@ export const commonCreateShape = {
   fontPath: zPath
     .optional()
     .describe(
-      'Absolute path of the font file to embed (.ttf / .otf). Required for non-Latin text such as Japanese. ' +
+      'Absolute path of the font file to embed (.ttf / .otf). Required for characters outside WinAnsiEncoding (Japanese, for example). ' +
         '.ttc (TrueType Collection) is not supported. Can also be set via the PDF_WRITER_FONT environment variable.',
     ),
   fontSize: zFontSize.optional().describe('Body font size (pt). Default 11. Range 4-96.'),
@@ -94,8 +94,8 @@ export const commonCreateShape = {
     .optional()
     .describe(
       'What to do with characters the font lacks (e.g. ✔ U+2714, missing from Noto Sans JP). ' +
-        'error (default) = fail, listing the missing characters / replace = substitute 〓 with a warning / ' +
-        'ignore = render as blanks with a warning.',
+        'error (default) = fail, listing the missing characters / replace = substitute 〓 with a warning ' +
+        '(? when the font lacks 〓, so always ? with the standard font) / ignore = render as blanks with a warning.',
     ),
   tagged: z
     .boolean()
@@ -375,7 +375,7 @@ export const stampPageNumbersShape = {
     .optional()
     .describe(
       'Font to embed (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, then the standard font. ' +
-        'Required for formats containing CJK text.',
+        'Required for formats containing characters outside WinAnsiEncoding (CJK, for example).',
     ),
   pages: zPageSpec
     .optional()
@@ -421,7 +421,7 @@ export const addWatermarkShape = {
     .optional()
     .describe(
       'Font to embed (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, then the standard font. ' +
-        'Required for CJK watermarks.',
+        'Required for watermarks containing characters outside WinAnsiEncoding (CJK, for example).',
     ),
   pages: zPageSpec.optional().describe('Target pages, "1,3-5,8-" (1-based). All when omitted.'),
   preserveSignatures: zPreserveSignatures,
@@ -444,7 +444,7 @@ export const fillFormShape = {
     .optional()
     .describe(
       'Font used to render values (.ttf/.otf). Falls back to the PDF_WRITER_FONT environment variable, ' +
-        'then the standard font. Required for CJK values.',
+        'then the standard font. Required for values containing characters outside WinAnsiEncoding (CJK, for example).',
     ),
   flatten: z
     .boolean()
@@ -467,7 +467,8 @@ export const flattenFormShape = {
     .optional()
     .describe(
       'Font for appearance regeneration. Falls back to the PDF_WRITER_FONT environment variable, then the ' +
-        'standard font. Not needed when existing appearances can be reused, but required for CJK forms that need regeneration.',
+        'standard font. Not needed when existing appearances can be reused, but required when appearances must be ' +
+        'regenerated for values containing characters outside WinAnsiEncoding (CJK, for example).',
     ),
   allowBreakingTags: z
     .boolean()

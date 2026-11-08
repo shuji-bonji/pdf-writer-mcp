@@ -178,8 +178,8 @@ Characters absent from the font (e.g. ✔ U+2714, which Noto Sans JP does not in
 | Value | Behaviour |
 |-------|-----------|
 | `error` (default) | Fail, listing the offending characters as `"✔" (U+2714)` |
-| `replace` | Substitute 〓 and report via `warnings` |
-| `ignore` | Render as blanks and report via `warnings` |
+| `replace` | Substitute 〓 (or `?` when the font lacks 〓, which is always the case for the standard font) and report via `warnings` |
+| `ignore` | Render as blanks and report via `warnings` (the characters are not dropped silently) |
 
 ## Result
 
