@@ -16,6 +16,7 @@ import {
   PDFDict,
   PDFDocument,
   PDFName,
+  PDFNumber,
   PDFRawStream,
   PDFRef,
   PDFString,
@@ -204,28 +205,136 @@ describe('SPEC-WRITER-PDFUA2-005 編集で XMP を作り直しても PDF/UA-2 �
   });
 });
 
-describe('SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書に足すしおりが検査で落ちることを名指す', () => {
-  const bookmarks = [{ title: 'Top', page: 1 }];
+/** 最初のしおりの項目 */
+function firstOutlineItem(doc: PDFDocument): PDFDict {
+  const outlines = doc.catalog.lookup(PDFName.of('Outlines'), PDFDict);
+  return outlines.lookup(PDFName.of('First'), PDFDict);
+}
 
+/** 題名がこれのしおりの項目 */
+function outlineItem(doc: PDFDocument, title: string): PDFDict {
+  let item: PDFDict | undefined = firstOutlineItem(doc);
+  while (item) {
+    const t = item.lookup(PDFName.of('Title'));
+    if ((t as PDFString).decodeText() === title) return item;
+    const next = item.lookup(PDFName.of('Next'));
+    item = next instanceof PDFDict ? next : undefined;
+  }
+  throw new Error(`no bookmark "${title}"`);
+}
+
+const pageNumberOf = (doc: PDFDocument, ref: unknown): number =>
+  doc.getPages().findIndex((p) => p.ref === ref) + 1;
+
+/** ISO 32000-2 §12.3.2.3 の手順で、構造要素が指すページの参照（writer とは別の実装で辿る） */
+function pageOfElement(doc: PDFDocument, element: PDFDict): PDFRef | undefined {
+  const own = element.get(PDFName.of('Pg'));
+  const k = element.get(PDFName.of('K'));
+  const kidsRaw = k instanceof PDFArray ? k.asArray() : k === undefined ? [] : [k];
+  for (const raw of kidsRaw) {
+    const kid = raw instanceof PDFRef ? doc.context.lookup(raw) : raw;
+    if (kid instanceof PDFNumber) {
+      if (own instanceof PDFRef) return own;
+      continue;
+    }
+    if (!(kid instanceof PDFDict)) continue;
+    const type = (kid.get(PDFName.of('Type')) as PDFName | undefined)?.decodeText();
+    if (type === 'MCR' || type === 'OBJR') {
+      const pg = kid.get(PDFName.of('Pg')) ?? own;
+      if (pg instanceof PDFRef) return pg;
+      continue;
+    }
+    const found = pageOfElement(doc, kid);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+describe('SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書に足すしおりは structure destination で書く', () => {
   it('SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書にしおりを足す', async () => {
     const input = await createUa2Text('bm-in.pdf');
+    const outputPath = join(dir, 'bm-out.pdf');
     const result = await handleAddBookmarks({
       inputPath: input,
-      bookmarks,
-      outputPath: join(dir, 'bm-out.pdf'),
-    });
-    expect((result.warnings ?? []).some((w) => w.includes('8.8'))).toBe(true);
-  });
-
-  it('SPEC-WRITER-PDFUA2-006 PDF/UA-1 の文書には書かない', async () => {
-    const input = join(dir, 'bm-ua1.pdf');
-    await handleCreateTextPdf({ ...BASE, text: 'body text', tagged: true, outputPath: input });
-    const result = await handleAddBookmarks({
-      inputPath: input,
-      bookmarks,
-      outputPath: join(dir, 'bm-ua1-out.pdf'),
+      bookmarks: [{ title: 'Top', page: 1 }],
+      outputPath,
     });
     expect((result.warnings ?? []).some((w) => w.includes('8.8'))).toBe(false);
+    const { doc } = await load(outputPath);
+    const item = firstOutlineItem(doc);
+    expect(item.has(PDFName.of('Dest'))).toBe(false);
+    const action = item.lookup(PDFName.of('A'), PDFDict);
+    expect((action.get(PDFName.of('S')) as PDFName).decodeText()).toBe('GoTo');
+    const d = action.lookup(PDFName.of('D'), PDFArray);
+    expect(pageNumberOf(doc, d.get(0))).toBe(1);
+    const sd = action.lookup(PDFName.of('SD'), PDFArray);
+    const element = doc.context.lookup(sd.get(0), PDFDict);
+    expect((element.get(PDFName.of('Type')) as PDFName).decodeText()).toBe('StructElem');
+    expect(pageNumberOf(doc, pageOfElement(doc, element))).toBe(1);
+  });
+
+  it('SPEC-WRITER-PDFUA2-006 前のページから続く要素は選ばない', async () => {
+    const input = join(dir, 'bm-long.pdf');
+    const sentence = 'This sentence fills the page so that the paragraph runs on. ';
+    await handleCreateTextPdf({
+      ...BASE,
+      text: `${sentence.repeat(120)}\n\n${sentence.repeat(20)}`,
+      tagged: true,
+      pdfVersion: '2.0',
+      outputPath: input,
+    });
+    expect((await load(input)).doc.getPageCount()).toBeGreaterThanOrEqual(2);
+    const outputPath = join(dir, 'bm-long-out.pdf');
+    await handleAddBookmarks({
+      inputPath: input,
+      bookmarks: [{ title: 'Second', page: 2 }],
+      outputPath,
+    });
+    const { doc } = await load(outputPath);
+    const action = outlineItem(doc, 'Second').lookup(PDFName.of('A'), PDFDict);
+    const element = doc.context.lookup(action.lookup(PDFName.of('SD'), PDFArray).get(0), PDFDict);
+    expect(pageNumberOf(doc, pageOfElement(doc, element))).toBe(2);
+  });
+
+  it('SPEC-WRITER-PDFUA2-006 構造要素の内容が無いページ', async () => {
+    const ua2 = await createUa2Text('bm-blank-base.pdf');
+    const base = await PDFDocument.load(readFileSync(ua2), { updateMetadata: false });
+    base.addPage();
+    const input = join(dir, 'bm-blank.pdf');
+    writeFileSync(input, await base.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'bm-blank-out.pdf');
+    const result = await handleAddBookmarks({
+      inputPath: input,
+      bookmarks: [
+        { title: 'Text', page: 1 },
+        { title: 'Blank', page: 2 },
+      ],
+      outputPath,
+    });
+    const warning = (result.warnings ?? []).find((w) => w.includes('8.8'));
+    expect(warning).toBeDefined();
+    expect(warning).toContain('Blank');
+    expect(warning).not.toContain('"Text"');
+    const { doc } = await load(outputPath);
+    const blank = outlineItem(doc, 'Blank');
+    expect(pageNumberOf(doc, blank.lookup(PDFName.of('Dest'), PDFArray).get(0))).toBe(2);
+    expect(outlineItem(doc, 'Text').has(PDFName.of('A'))).toBe(true);
+  });
+
+  it('SPEC-WRITER-PDFUA2-006 PDF/UA-1 の文書は今までどおり', async () => {
+    const input = join(dir, 'bm-ua1.pdf');
+    await handleCreateTextPdf({ ...BASE, text: 'body text', tagged: true, outputPath: input });
+    const outputPath = join(dir, 'bm-ua1-out.pdf');
+    const result = await handleAddBookmarks({
+      inputPath: input,
+      bookmarks: [{ title: 'Top', page: 1 }],
+      outputPath,
+    });
+    expect((result.warnings ?? []).some((w) => w.includes('8.8'))).toBe(false);
+    const item = firstOutlineItem((await load(outputPath)).doc);
+    expect(item.has(PDFName.of('Dest'))).toBe(true);
+    expect(item.has(PDFName.of('A'))).toBe(false);
   });
 });
 
