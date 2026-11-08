@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-08
+pr: 27
 implementation: required
 targets: [create-title]
 ---

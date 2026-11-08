@@ -41,7 +41,7 @@ ISO 14289-1 の §7.1・§7.4.2 は pdf-spec-mcp（`pdfua1`）で原文を確か
 
 ### Requirement: SPEC-WRITER-CREATE-TITLE-002 title にもフォントに無い文字の扱いを当てる
 
-埋め込みフォントで生成し、題名を本文に描くとき（`drawTitle` が `false` でないとき）、`title` の文字にも本文と同じ `onMissingGlyph` を当てる（SHALL）。既定の `error` では、フォントに無い文字を含む `title` は、その文字のコードポイントを挙げたエラーになる。題名を描かないとき（`drawTitle: false`）は、`title` を描かないので、フォントに無い文字の扱いも、標準フォントでの非 Latin-1 の拒否も `title` には当てない（SHALL）。メタデータの `title` はテキスト文字列（ISO 32000-2 §7.9.2.2）として書くので、グリフを要さない。
+埋め込みフォントで生成し、題名を本文に描くとき（`drawTitle` が `false` でないとき）、`title` の文字にも本文と同じ `onMissingGlyph` を当てる（SHALL）。既定の `error` では、フォントに無い文字を含む `title` は、その文字のコードポイントを挙げたエラーになる。題名を描かないとき（`drawTitle: false`）は、`title` を描かないので、フォントに無い文字の扱いも、標準フォントで WinAnsiEncoding に符号の無い字を `FONT_REQUIRED` で断ること（SPEC-WRITER-STANDARD-FONT-ENCODING-004）も、`title` には当てない（SHALL）。メタデータの `title` はテキスト文字列（ISO 32000-2 §7.9.2.2）として書くので、グリフを要さない。
 
 #### Scenario: フォントに無い文字を title に含める
 
