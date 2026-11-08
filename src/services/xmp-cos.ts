@@ -131,15 +131,44 @@ export interface XmpSyncResult {
   warnings: string[];
 }
 
-/** xmp-build の escapeXml の逆（5 つの定義済み実体参照だけ） */
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  amp: '&',
+};
+
+/**
+ * XML の文字参照を戻す（1 回の走査で。順に置き換えると `&amp;lt;` が `<` になる）。
+ * 定義済みの 5 つの実体参照（XML 1.0 §4.6）と、数値文字参照 `&#NNN;`・`&#xHHHH;`（§4.1）。
+ * 他のツールが書いた XMP は、記号や絵文字を数値文字参照で書いていることがある。
+ * 戻せない参照（範囲外の数値・未定義の名前）はそのまま残す。
+ */
 function xmlUnescape(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
-  return value
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&');
+  return value.replace(/&(#x[0-9A-Fa-f]+|#[0-9]+|[A-Za-z]+);/g, (whole, body: string) => {
+    if (body.startsWith('#')) {
+      const code =
+        body[1] === 'x' || body[1] === 'X'
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+      return Number.isInteger(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : whole;
+    }
+    return NAMED_ENTITIES[body] ?? whole;
+  });
+}
+
+/**
+ * XMP の `dc:title` の最初の項目（`rdf:Alt` の最初の `rdf:li`）を、文字参照を戻して返す。
+ * 複数の言語の項目（ISO 32000-2 §14.3.3 の例は x-default・en・de の 3 つ）は最初の 1 つしか
+ * 拾わない。書き戻す側（buildXmpPacket）が項目を 1 つしか書かないため（制限）。
+ */
+export function xmpTitleOf(xmp: string | null | undefined): string | undefined {
+  if (xmp === null || xmp === undefined) return undefined;
+  return xmlUnescape(/<dc:title>[\s\S]*?<rdf:li[^>]*>([^<]*)<\/rdf:li>/.exec(xmp)?.[1]);
 }
 
 /** 既存 XMP から引き継ぐ事実を取り出す。 */
@@ -148,7 +177,7 @@ const facts = (text: string) => ({
   // PDF/UA-2 の宣言は part と rev の対（ISO 14289-2 §5）。part だけ運ぶと rev が消える
   pdfuaRev: /<pdfuaid:rev>\s*(\d+)\s*<\/pdfuaid:rev>/.exec(text)?.[1],
   // dc:title の最初の項目（xmp-build が書く rdf:Alt の rdf:li）。実体参照は戻して持つ
-  title: xmlUnescape(/<dc:title>[\s\S]*?<rdf:li[^>]*>([^<]*)<\/rdf:li>/.exec(text)?.[1]),
+  title: xmpTitleOf(text),
   lang: /<dc:language>[\s\S]*?<rdf:li>([^<]*)<\/rdf:li>/.exec(text)?.[1],
   createDate: /<xmp:CreateDate>([^<]+)<\/xmp:CreateDate>/.exec(text)?.[1],
   pdfaPart: /<pdfaid:part>\s*(\d+)\s*<\/pdfaid:part>/.exec(text)?.[1],

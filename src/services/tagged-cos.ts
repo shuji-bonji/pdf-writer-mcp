@@ -44,7 +44,7 @@ import { textOf } from './cos-read.js';
 import { setInfoEntries } from './info-dict.js';
 import { PDFUA2_REV, readXmpDeclarations } from './pdfa-cos.js';
 import { PDF20_NAMESPACE } from './struct-tree.js';
-import { infoCreationDateIso, writeXmpMetadata } from './xmp-cos.js';
+import { infoCreationDateIso, writeXmpMetadata, xmpTitleOf } from './xmp-cos.js';
 
 export interface EnsureTaggedOptions {
   /** 文書タイトル（PDF/UA 7.1 で必須）。省略時は既存 Info の Title を使う */
@@ -353,7 +353,7 @@ async function applyDocumentRequirements(
     info.kind === 'dict' ? textOf(await editor.resolve(dictGet(info, key) ?? COS_NULL)) : undefined;
 
   const declared = await readXmpDeclarations(editor);
-  const title = opts.title ?? (await infoText('Title')) ?? xmpTitle(declared.xmp);
+  const title = opts.title ?? (await infoText('Title')) ?? xmpTitleOf(declared.xmp);
   // PDF 2.0 では Info の文書メタデータが非推奨（ISO 32000-2 §14.3.3）。題名は XMP にだけ書く
   if (title !== undefined && title !== '' && uaPart === 1) {
     await setInfoEntries(editor, [['Title', textString(title)]]);
@@ -454,19 +454,6 @@ export async function ensureTaggedStructure(
 
   await applyDocumentRequirements(editor, opts, outcome);
   return outcome;
-}
-
-/** XMP の dc:title の最初の項目（xmp-build が書く rdf:Alt の rdf:li）。実体参照は戻す */
-function xmpTitle(xmp: string | null): string | undefined {
-  const raw =
-    xmp === null ? undefined : /<dc:title>[\s\S]*?<rdf:li[^>]*>([^<]*)<\/rdf:li>/.exec(xmp)?.[1];
-  if (raw === undefined) return undefined;
-  return raw
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&');
 }
 
 /**

@@ -61,8 +61,13 @@ ENSURE-PDFA-003 added).
   (`set_metadata`, and `ensure_pdfa` through the same path) took the title from the Info
   dictionary only; PDF 2.0 output does not put `Title` there, so `set_metadata` with only
   `author` removed the title from a PDF 2.0, PDF/A-4 or PDF/UA-2 file. The existing `dc:title` is
-  now kept when Info has no `Title`. `Author`, `Subject` and `Keywords` are still taken from Info
-  only. Why it was not caught: no test edited a PDF 2.0 file and read its XMP back.
+  now kept when Info has no `Title`, with character references decoded first — the five
+  predefined entities and numeric references such as `&#x2014;` (XML 1.0 §4.1, §4.6), so a title
+  another tool wrote that way is not encoded twice (`&amp;#x2014;`). Only the first `rdf:li` of
+  `dc:title` is kept, because the XMP is rebuilt with one item; a title in several languages
+  (the form ISO 32000-2 §14.3.3 shows) is reduced to its first. `Author`, `Subject` and
+  `Keywords` are still taken from Info only. Why it was not caught: no test edited a PDF 2.0
+  file and read its XMP back.
 - The same path now carries `pdfuaid:rev` with `pdfuaid:part`, so an edit does not turn a PDF/UA-2
   declaration into one without its Required `rev`.
 
