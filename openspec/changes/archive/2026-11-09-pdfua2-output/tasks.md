@@ -23,6 +23,6 @@
 
 ## 4. 承認と取り込み（人が判断する）
 
-- [ ] 4.1 人が `proposal.md` の front matter に `approved: YYYY-MM-DD` と `pr: N` を書く
-- [ ] 4.2 マージの前に、同じ PR の中で `npx openspec archive pdfua2-output --yes` を実行する。新しい `openspec/specs/pdfua2/spec.md` に front matter（`spec_id: WRITER`・`kind: common`・`introduced_by: pdfua2-output`）と Purpose（50 文字以上）を書く
+- [x] 4.1 人が `proposal.md` の front matter に `approved: YYYY-MM-DD` と `pr: N` を書く
+- [x] 4.2 マージの前に、同じ PR の中で `npx openspec archive pdfua2-output --yes` を実行する。新しい `openspec/specs/pdfua2/spec.md` に front matter（`spec_id: WRITER`・`kind: common`・`introduced_by: pdfua2-output`）と Purpose（50 文字以上）を書く
 - [ ] 4.3 `npx openspec validate --all && npx spec-ids check` が通る

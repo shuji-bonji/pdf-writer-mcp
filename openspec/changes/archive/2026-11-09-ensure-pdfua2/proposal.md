@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-09
+pr: 29
 implementation: required
 targets: [ensure-tagged, ensure-pdfa]
 ---

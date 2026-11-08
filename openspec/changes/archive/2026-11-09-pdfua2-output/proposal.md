@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-09
+pr: 29
 implementation: required
 targets: [pdfua2, create-title]
 ---
