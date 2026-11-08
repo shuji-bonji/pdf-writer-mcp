@@ -52,7 +52,8 @@ targets: [pdfua2, create-title]
 
 - `tag_form_fields`・`add_annotation` など、構造木に要素を足す編集ツールが足した要素に `/NS` を付けること。足した要素は既定の PDF 1.7 の名前空間に入る（§8.2.4 は許す）。`add_annotation` の出力は veraPDF の PDF/UA-2 で適合（2026-11-09）。`tag_form_fields` は測っていない。
 - `stamp_page_numbers`・`add_watermark` を `fontPath` なしで使うと、標準フォントが埋め込まれず §8.4.5.5 で落ちる。PDF/UA-1 でも同じ扱い（7.21.4.1）で、変えない。
-- Info の `Author`・`Subject`・`Keywords` が無いときに XMP の値を引き継ぐこと。`dc:title` だけを引き継ぐ（PDF/UA が求めるのは `dc:title`）。
+- Info の `Author`・`Subject`・`Keywords` が無いときに XMP の値を引き継ぐこと、複数の言語の `dc:title` をそのまま運ぶこと。`dc:title` の最初の項目だけを引き継ぐ（PDF/UA が求めるのは `dc:title`）。#28 で扱う。
+- 出力の版と宣言をその版の条文に合わせること全般（`merge_pdfs` の版の混在、2.0 の文書の Info への書き込み、タグ無しの 2.0 への `pdfa-3b` など）。#28 で扱う。
 
 ## Capabilities
 
@@ -65,4 +66,4 @@ targets: [pdfua2, create-title]
 - 版は 0.27.0（2026-11-09 に本人が決定）。
 - `add_bookmarks` の structure destination は B 案（GoTo の `D` と `SD`）・PDF/UA-2 を宣言した文書だけ・要素の無いページはページの行き先で書いて警告（2026-11-09 に本人が決定）。
 - 🔴 未判断: `dc:title` の引き継ぎを PDF/UA-2 以外の文書にも当てること（PDFUA2-005）。
-- 🔴 未判断: 生成系が CLAIMS の warnings を出さないこと（PDF/UA-1 と同じ）。
+- 生成系は CLAIMS の warnings を今は出さない（PDF/UA-1 と同じ）。いずれ名乗る版・規格に合わせて出す（2026-11-09 に本人が決定。#28 で扱う）。
