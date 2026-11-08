@@ -48,12 +48,17 @@ PDF/UA-2 で `create_markdown_pdf` を使うとき、見出しの構造型は Ma
 
 ### Requirement: SPEC-WRITER-PDFUA2-005 編集で XMP を作り直しても PDF/UA-2 の宣言と dc:title を残す
 
-既存の文書を編集して XMP を作り直すとき、入力の XMP の `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぐ（SHALL）。Info 辞書に `Title` が無いときは、入力の XMP の `dc:title` を引き継ぐ（SHALL）。PDF 2.0 の出力は Info 辞書に `Title` を置かない（ISO 32000-2 §14.3.3 が Info の文書メタデータを非推奨にしている）ので、Info だけから作り直すと題名が消え、ISO 14289-2 §8.11.1（XMP の `dc:title`）を満たさなくなる。
+既存の文書を編集して XMP を作り直すとき、入力の XMP の `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぐ（SHALL）。Info 辞書に `Title` が無いときは、入力の XMP の `dc:title` の最初の項目を、文字参照（定義済みの実体参照と数値文字参照。XML 1.0 §4.1・§4.6）を戻した字で引き継ぐ（SHALL）。PDF 2.0 の出力は Info 辞書に `Title` を置かない（ISO 32000-2 §14.3.3 が Info の文書メタデータを非推奨にしている）ので、Info だけから作り直すと題名が消え、ISO 14289-2 §8.11.1（XMP の `dc:title`）を満たさなくなる。
 
 #### Scenario: set_metadata で author だけを変える
 
 - **WHEN** PDF/UA-2 で作った文書に `set_metadata` を `author` だけで呼ぶ
 - **THEN** 出力の XMP に `pdfuaid:part` 2・`pdfuaid:rev` 2024・元の `dc:title` が残る
+
+#### Scenario: 数値文字参照で書かれた題名を二重に符号化しない
+
+- **WHEN** XMP の `dc:title` が `A &#x2014; B` と数値文字参照で書かれ、Info 辞書に `Title` が無い文書に、`set_metadata` を `author` だけで呼ぶ
+- **THEN** 出力の XMP の `dc:title` は `A — B`（U+2014 の字そのもの）で、`&amp;#x2014;` を含まない
 
 ### Requirement: SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書に足すしおりは structure destination で書く
 
