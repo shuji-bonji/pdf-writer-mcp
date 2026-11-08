@@ -203,6 +203,27 @@ describe('SPEC-WRITER-PDFUA2-005 編集で XMP を作り直しても PDF/UA-2 �
     expect(xmp).toMatch(/<pdfuaid:rev>2024<\/pdfuaid:rev>/);
     expect(xmp).toMatch(/<dc:title>[\s\S]*Report[\s\S]*<\/dc:title>/);
   });
+
+  it('SPEC-WRITER-PDFUA2-005 数値文字参照で書かれた題名を二重に符号化しない', async () => {
+    // 他のツールが書いた XMP を模して、dc:title を数値文字参照に書き換える
+    const base = await createUa2Text('meta-ncr-base.pdf');
+    const doc = await PDFDocument.load(readFileSync(base), { updateMetadata: false });
+    const xmp = xmpOf(doc).replace('>Report<', '>A &#x2014; B<');
+    expect(xmp).toContain('A &#x2014; B');
+    const replaced = doc.context.stream(new TextEncoder().encode(xmp), {
+      Type: 'Metadata',
+      Subtype: 'XML',
+    });
+    doc.catalog.set(PDFName.of('Metadata'), doc.context.register(replaced));
+    const input = join(dir, 'meta-ncr.pdf');
+    writeFileSync(input, await doc.save({ useObjectStreams: false }));
+
+    const outputPath = join(dir, 'meta-ncr-out.pdf');
+    await handleSetMetadata({ inputPath: input, author: 'someone', outputPath });
+    const out = xmpOf((await load(outputPath)).doc);
+    expect(out).toMatch(/<dc:title>[\s\S]*A \u2014 B[\s\S]*<\/dc:title>/);
+    expect(out).not.toContain('&amp;#x2014;');
+  });
 });
 
 /** 最初のしおりの項目 */
