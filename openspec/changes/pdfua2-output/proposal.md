@@ -34,14 +34,14 @@ targets: [pdfua2, create-title]
 - PDF 2.0 の名前空間辞書を `StructTreeRoot` の `/Namespaces` に置き、PDF 2.0 の名前空間にある型の要素に `/NS` を書く。`BlockQuote`・`Code` は既定の PDF 1.7 の名前空間のまま（PDFUA2-002）。
 - 描く題名は `Title`（PDFUA2-003）。`create_markdown_pdf` の見出しは書いた段のまま（PDFUA2-004）。CREATE-TITLE-003 を PDF/UA-1 に限る（MODIFIED）。
 - 既存の文書の XMP を作り直す共通の経路（`syncXmpWithInfo`）で、`pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぎ、Info 辞書に `Title` が無いときは既存の `dc:title` を引き継ぐ（PDFUA2-005）。
-- `add_bookmarks` は、PDF/UA-2 の入力では §8.8 で落ちることを warnings に書く（PDFUA2-006）。
+- `add_bookmarks` は、PDF/UA-2 の入力ではしおりの行き先を structure destination で書く。`/A << /S /GoTo /D [ページ] /SD [構造要素] >>`（ISO 32000-2 §12.6.4.2 Table 202）。要素はそのページの親配列から §12.3.2.3 の手順で同じページに戻る最初のもの。要素が無いページはページの行き先で書き、warnings で名指す（PDFUA2-006）。
 - ツールの説明文（`tagged`・`pdfVersion`・`create_markdown_pdf`）・initialize の instructions・README（英語・日本語）・DESIGN.md・TASKS.md。
 
 ### 変わる振る舞い
 
 - `tagged: true` + `pdfVersion: "2.0"`：`INVALID_ARGUMENT` だったものが、PDF/UA-2 の PDF を返す。
 - `set_metadata` など XMP を作り直す編集：Info に `Title` が無い文書（PDF 2.0 の出力、PDF/A-4 にした文書）で `dc:title` が残る。0.26.x は消していた。PDF/UA-2 以外の文書にも当たる。
-- `add_bookmarks`：PDF/UA-2 の入力で warnings が 1 つ増える。
+- `add_bookmarks`：PDF/UA-2 の入力では、しおりの項目が `/Dest` ではなく `/A`（GoTo・`D`・`SD`）になる。
 
 ### 変わらない振る舞い
 
@@ -50,7 +50,6 @@ targets: [pdfua2, create-title]
 
 ### 対象外
 
-- しおりを structure destination（ISO 32000-2 §12.3.2.3）で書くこと。warnings で名指すだけにする。
 - `tag_form_fields`・`add_annotation` など、構造木に要素を足す編集ツールが足した要素に `/NS` を付けること。足した要素は既定の PDF 1.7 の名前空間に入る（§8.2.4 は許す）。`add_annotation` の出力は veraPDF の PDF/UA-2 で適合（2026-11-09）。`tag_form_fields` は測っていない。
 - `stamp_page_numbers`・`add_watermark` を `fontPath` なしで使うと、標準フォントが埋め込まれず §8.4.5.5 で落ちる。PDF/UA-1 でも同じ扱い（7.21.4.1）で、変えない。
 - Info の `Author`・`Subject`・`Keywords` が無いときに XMP の値を引き継ぐこと。`dc:title` だけを引き継ぐ（PDF/UA が求めるのは `dc:title`）。
@@ -63,7 +62,7 @@ targets: [pdfua2, create-title]
 ## 人が判断すること
 
 - 引数の形（`tagged` + `pdfVersion: "2.0"`）・名前空間（PDF 2.0 にある型はすべて 2.0）・題名は `Title`・範囲（#20・`ensure_tagged`・`ensure_pdfa` を含める）は 2026-11-09 に本人が決定。
-- 🔴 未判断: 版（0.27.0 の案）。
+- 版は 0.27.0（2026-11-09 に本人が決定）。
+- `add_bookmarks` の structure destination は B 案（GoTo の `D` と `SD`）・PDF/UA-2 を宣言した文書だけ・要素の無いページはページの行き先で書いて警告（2026-11-09 に本人が決定）。
 - 🔴 未判断: `dc:title` の引き継ぎを PDF/UA-2 以外の文書にも当てること（PDFUA2-005）。
-- 🔴 未判断: `add_bookmarks` は warnings だけにすること（PDFUA2-006）。
 - 🔴 未判断: 生成系が CLAIMS の warnings を出さないこと（PDF/UA-1 と同じ）。

@@ -55,16 +55,26 @@ PDF/UA-2 で `create_markdown_pdf` を使うとき、見出しの構造型は Ma
 - **WHEN** PDF/UA-2 で作った文書に `set_metadata` を `author` だけで呼ぶ
 - **THEN** 出力の XMP に `pdfuaid:part` 2・`pdfuaid:rev` 2024・元の `dc:title` が残る
 
-### Requirement: SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書に足すしおりが検査で落ちることを名指す
+### Requirement: SPEC-WRITER-PDFUA2-006 PDF/UA-2 の文書に足すしおりは structure destination で書く
 
-`add_bookmarks` の入力の XMP が `pdfuaid:part` 2 を宣言しているとき、しおりは書いたうえで、文書内の行き先が structure destination でないため PDF/UA-2 の検査で落ちることを warnings に書く（SHALL）。根拠は ISO 14289-2 §8.8（文書内を指す行き先は structure destination にする。ISO 32000-2 §12.3.2.3）。`add_bookmarks` はページの行き先しか書かない。
+`add_bookmarks` の入力の XMP が `pdfuaid:part` 2 を宣言しているとき、しおりの行き先を `/A << /S /GoTo /D [ページ /XYZ null null null] /SD [構造要素 /XYZ null null null] >>` で書き、`/Dest` を書かない（SHALL）。構造要素は、そのページの親配列（ParentTree の `/StructParents` の値）に並ぶ要素を MCID の順に見て、ISO 32000-2 §12.3.2.3 の手順で同じページに戻る最初のものにする（SHALL）。前のページから続く要素は、手順が前のページに着くので選ばない。どの要素も戻らないページのしおりは、今までどおり `/Dest [ページ …]` で書き、PDF/UA-2 の検査で落ちることを warnings で名指す（SHALL）。PDF/UA-2 を宣言していない入力では、今までどおり `/Dest [ページ …]` だけを書く（SHALL）。根拠は ISO 14289-2 §8.8（文書内を指す行き先は structure destination にする）、ISO 32000-2 §12.3.2.3、§12.6.4.2 Table 202（`SD` は PDF 2.0 の項目で、`D` より優先される）、Table 151（`Dest` と `A` を同時に置かない）。`/D` を残すのは、`SD` を知らないビューアがそのページへ飛べるようにするためである。
 
 #### Scenario: PDF/UA-2 の文書にしおりを足す
 
-- **WHEN** PDF/UA-2 で作った文書に `add_bookmarks` を呼ぶ
-- **THEN** 成功し、warnings に `8.8` を含む文がある
+- **WHEN** PDF/UA-2 で作った 1 ページの文書に、1 ページ目を指す `add_bookmarks` を呼ぶ
+- **THEN** しおりの項目に `/Dest` が無く、`/A` の `/S` は `GoTo`、`/D` の先頭は 1 ページ目、`/SD` の先頭は構造要素で、warnings に `8.8` を含む文が無い
 
-#### Scenario: PDF/UA-1 の文書には書かない
+#### Scenario: 前のページから続く要素は選ばない
+
+- **WHEN** 段落が 1 ページ目から 2 ページ目へ続く PDF/UA-2 の文書に、2 ページ目を指すしおりを足す
+- **THEN** `/SD` の要素は §12.3.2.3 の手順で 2 ページ目に着き、その段落ではない
+
+#### Scenario: 構造要素の内容が無いページ
+
+- **WHEN** 構造要素の内容を 1 つも持たないページを含む PDF/UA-2 の文書で、そのページを指すしおりを足す
+- **THEN** 成功し、そのしおりは `/Dest` の先頭がそのページで、warnings に `8.8` と、そのしおりの題名を含む文がある
+
+#### Scenario: PDF/UA-1 の文書は今までどおり
 
 - **WHEN** PDF/UA-1 で作った文書に `add_bookmarks` を呼ぶ
-- **THEN** warnings に `8.8` を含む文が無い
+- **THEN** しおりの項目に `/Dest` があり `/A` が無く、warnings に `8.8` を含む文が無い
