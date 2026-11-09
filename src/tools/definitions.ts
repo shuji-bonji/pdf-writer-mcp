@@ -113,7 +113,8 @@ export const tools: ToolDefinition[] = [
     description:
       "Update an existing PDF's metadata (the Info dictionary). Only the given fields change; the rest are preserved. " +
       'At least one of title / author / subject / keywords / creator / tdmReservation is required. ' +
-      'In documents with XMP (/Metadata), dc:title etc. are synchronized to prevent divergence. ' +
+      'In documents with XMP (/Metadata), dc:title etc. are synchronized to prevent divergence; XMP values you did not pass are carried over as written (other languages of dc:title, every dc:creator, unknown namespaces). ' +
+      'On a PDF 2.0 input the values go to XMP and no new Info entries are added (ISO 32000-2 14.3.3 deprecates Info metadata); on a PDF/UA-2 input the existing Info entries are moved to XMP and removed. The output keeps the version of its input. ' +
       'tdmReservation (0 | 1) and tdmPolicy (URL) write the W3C TDM Reservation Protocol statement to XMP (tdm:reservation / tdm:policy, namespace http://www.w3.org/ns/tdmrep/); a document without XMP gets one. When the document declares PDF/A, the tdmrep schema is also described in pdfaExtension:schemas, so veraPDF does not fail ISO 19005-2 6.6.2.3 on it. ' +
       'For signed PDFs, preserveSignatures: true updates while keeping the signatures intact.',
     inputSchema: SetMetadataInputSchema,
@@ -124,6 +125,7 @@ export const tools: ToolDefinition[] = [
     title: 'Merge PDFs',
     description:
       'Merge multiple PDFs into one, in the given order. Document metadata is carried over from the first file. ' +
+      'The output keeps the version of the inputs; when they mix PDF 2.0 and PDF 1.x the call is refused unless pdfVersion is given — "2.0" is an explicit conversion, and versions are never lowered. ' +
       PAGE_COPY_NOTE,
     inputSchema: MergePdfsSchema,
     annotations: base,
@@ -270,7 +272,8 @@ export const tools: ToolDefinition[] = [
       'Choose the flavour: "pdfa-3b" (default) / "pdfa-4" / "pdfa-4f". ' +
       'Supplies only the missing document-level requirements: the trailer /ID (ISO 32000-1 14.4), ' +
       'an sRGB OutputIntent (GTS_PDFA1; an ICC profile is generated and embedded), and XMP pdfaid. ' +
-      '**The -4 flavours additionally set the header to PDF 2.0 and delete the Info dictionary** ' +
+      '**The -4 flavours additionally set the header to PDF 2.0 and delete the Info dictionary** — this is the explicit conversion to PDF 2.0. ' +
+      '"pdfa-3b" is refused on a PDF 2.0 input (PDF/A-3 needs a %PDF-1.n header and versions are never lowered). ' +
       '(-4 forbids Info unless the catalog has /PieceInfo — stricter than ISO 32000-2 14.3.3). ' +
       '**Content, structure tree and fonts are never touched.** ' +
       '**Documents with attachments must use "pdfa-4f"** — plain "pdfa-4" requires every attachment to be ' +

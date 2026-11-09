@@ -45,3 +45,39 @@ export async function setInfoEntries(
     editor.setTrailerEntry('Info', updated);
   }
 }
+
+/**
+ * `/Info` から `keep` 以外の項目を除き、除いた鍵を返す（SPEC-WRITER-OUTPUT-VERSION-001・002）。
+ *
+ * PDF 2.0 では Info の文書メタデータは `CreationDate`・`ModDate` 以外が非推奨で（§14.3.3・
+ * Table 349）、PDF/UA-2 は非推奨の機能を含まないことを求める（ISO 14289-2 §6.2 should not）。
+ * **値を XMP に移してから呼ぶこと。**
+ */
+export async function removeInfoEntriesExcept(
+  editor: PdfDocumentEditor,
+  keep: readonly string[],
+): Promise<string[]> {
+  const raw = dictGetRaw(editor.trailer(), 'Info');
+  if (raw === undefined || raw.kind === 'null') return [];
+  const resolved = await editor.resolve(raw);
+  if (resolved.kind !== 'dict') return [];
+  const entries = new Map<string, CosObject>();
+  const removed: string[] = [];
+  for (const [key, value] of (resolved as CosDict).entries) {
+    if (keep.includes(key)) entries.set(key, value);
+    else removed.push(key);
+  }
+  if (removed.length === 0) return [];
+  const updated: CosDict = { kind: 'dict', entries };
+  if (raw.kind === 'ref') editor.set(raw.objectNumber, updated, raw.generationNumber);
+  else editor.setTrailerEntry('Info', updated);
+  return removed;
+}
+
+/** `/Info` にある鍵（無ければ空） */
+export async function infoKeys(editor: PdfDocumentEditor): Promise<string[]> {
+  const raw = dictGetRaw(editor.trailer(), 'Info');
+  if (raw === undefined || raw.kind === 'null') return [];
+  const resolved = await editor.resolve(raw);
+  return resolved.kind === 'dict' ? [...(resolved as CosDict).entries.keys()] : [];
+}

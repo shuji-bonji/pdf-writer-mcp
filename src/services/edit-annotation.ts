@@ -17,7 +17,8 @@ import { assertDocMdpAllows } from './doc-mdp.js';
 import { openForEdit } from './edit-open.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
-import { appendAnnotationToStructTree } from './struct-annot.js';
+import { readXmpDeclarations } from './pdfa-cos.js';
+import { appendAnnotationToStructTree, defaultNamespaceNote } from './struct-annot.js';
 
 export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult> {
   const opened = await openForEdit(args.inputPath, args);
@@ -42,6 +43,10 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
       'The document is tagged and the annotation was nested in an Annot structure element. ' +
         'Pass "alt" to give assistive technology a description of it.',
     );
+  }
+
+  if (linked.tagged && (await readXmpDeclarations(opened.editor)).pdfuaPart === 2) {
+    warnings.push(defaultNamespaceNote(['Annot']));
   }
 
   const result = preserve ? await appendOpened(opened, args) : await saveOpened(opened, args);

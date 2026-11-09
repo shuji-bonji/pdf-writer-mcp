@@ -22,6 +22,7 @@ import { documentDate, PACKAGE_INFO } from '../config.js';
 import type { CommonCreateOptions, CreateResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { arr, dict, hex, name, stream, textString } from './cos.js';
+import { describeOutput } from './output-declares.js';
 import { writeOutputFile } from './output-write.js';
 import { pdfDate } from './pdf-date.js';
 import { DEFAULT_PDF_VERSION } from './pdf-version.js';
@@ -143,6 +144,7 @@ export async function finalizeCreated(
     pageCount: doc.pages.length,
     bytes: bytes.length,
     font: extra.fontName,
+    output: await describeOutput(bytes),
   };
 
   if (opts.outputPath) {

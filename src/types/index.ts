@@ -81,6 +81,19 @@ export interface CreateTableArgs extends CommonCreateOptions {
 /**
  * 生成結果
  */
+/**
+ * 書いたファイルの版と宣言（SPEC-WRITER-OUTPUT-VERSION-005）。書いた後のバイト列から読む。
+ */
+export interface OutputDescription {
+  /** 出力の版（ヘッダーと catalog の `/Version` のうち新しいほう。例 `"1.7"`・`"2.0"`） */
+  pdfVersion: string;
+  /**
+   * XMP が宣言している規格。`pdfua` は `pdfuaid:part`、`pdfa` は `pdfaid:part` と
+   * `pdfaid:conformance` を小文字でつないだもの（`"3b"`・`"4"`・`"4f"`）。宣言の無い規格のキーは置かない
+   */
+  declares: { pdfua?: number; pdfa?: string };
+}
+
 export interface CreateResult {
   /** 保存した場合の絶対パス */
   path?: string;
@@ -94,6 +107,8 @@ export interface CreateResult {
   font: string;
   /** グリフ欠落の置換・無視など、注意すべき事象の報告 */
   warnings?: string[];
+  /** 出力の版と宣言（SPEC-WRITER-OUTPUT-VERSION-005） */
+  output?: OutputDescription;
 }
 
 /**
@@ -125,6 +140,8 @@ export interface SetMetadataArgs extends CommonEditOptions, PreservableEditOptio
 export interface MergePdfsArgs extends CommonEditOptions {
   /** 結合する PDF のパス（結合順） */
   inputPaths: string[];
+  /** 出力の版。入力の版が混ざっているときは必須（SPEC-WRITER-OUTPUT-VERSION-001） */
+  pdfVersion?: '1.7' | '2.0';
 }
 
 export interface ExtractPagesArgs extends CommonEditOptions {
@@ -483,13 +500,15 @@ export interface EditResult {
   warnings?: string[];
   /** 増分更新（末尾追記）で保存したか。true なら既存署名は保持されている */
   incremental?: boolean;
+  /** 出力の版と宣言（SPEC-WRITER-OUTPUT-VERSION-005） */
+  output?: OutputDescription;
 }
 
 /**
  * 分割結果
  */
 export interface SplitResult {
-  files: Array<{ path: string; pageCount: number; bytes: number }>;
+  files: Array<{ path: string; pageCount: number; bytes: number; output?: OutputDescription }>;
   count: number;
   /**
    * 注意すべき事象の報告。全パートが同じ入力から出るため損失も共通で、

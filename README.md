@@ -79,11 +79,29 @@ Measured with veraPDF 1.30.0 (`pdfua-2`, 1,728 rules): the output of all three c
 
 Edits keep the declaration: when a tool rebuilds the XMP, `pdfuaid:rev` is carried with `pdfuaid:part`, and `dc:title` is kept when the Info dictionary has no `Title` (PDF 2.0 output does not put one there). `add_bookmarks` writes structure destinations on a PDF/UA-2 file, as §8.8 requires: a GoTo action whose `SD` names the structure element that starts on the target page, with `D` kept as the page destination for viewers that do not read `SD`. A page with no structure content keeps a page destination and is named in `warnings`.
 
+### Versions and declarations
+
+An edit writes the PDF version of its input. Only an explicit conversion changes it: `ensure_pdfa` with `flavour: "pdfa-4"` / `"pdfa-4f"` (to PDF 2.0), and `merge_pdfs` with `pdfVersion`. Versions are never lowered.
+
+- Anything that would break a *shall* of the output's version, or of a standard the file declares, is refused with `INVALID_ARGUMENT`. The message names the input's version and declarations; `next_actions` gives a call that fits. Examples: `merge_pdfs` over PDF 2.0 and PDF 1.x inputs without `pdfVersion`, and `ensure_pdfa(flavour: "pdfa-3b")` on any PDF 2.0 input (PDF/A-3 needs a `%PDF-1.n` header).
+- A form that the output's version deprecates is written the way that version prescribes. On a PDF 2.0 input, `set_metadata` writes to XMP and adds no Info entries (ISO 32000-2 §14.3.3); on a PDF/UA-2 input it also moves the existing Info entries to XMP and removes them (ISO 14289-2 §6.2).
+- A mix the standard allows is written and reported. Structure elements that `add_annotation` and `tag_form_fields` add to a PDF/UA-2 file have no `/NS`, so they sit in the PDF 1.7 namespace (§8.2.4 allows it); `warnings` says so.
+
+Every tool result carries `output`, read back from the written file:
+
+```json
+{ "output": { "pdfVersion": "2.0", "declares": { "pdfua": 2, "pdfa": "4" } } }
+```
+
+`declares.pdfua` is `pdfuaid:part`; `declares.pdfa` joins `pdfaid:part` and `pdfaid:conformance` (`"3b"`, `"4"`, `"4f"`). A key is absent when nothing is declared. A declaration is only a claim — measure it with pdf-verify-mcp.
+
+When a tool rewrites the XMP (`set_metadata`, `ensure_pdfa`), the values you did not pass are carried over as written: the other languages of `dc:title`, every name in `dc:creator`, and properties in namespaces this server does not know. Changing `title` replaces the `x-default` entry and names the other languages in `warnings`.
+
 ### Editing — page operations
 
 | Tool | Purpose |
 |------|---------|
-| `merge_pdfs` | Concatenate 2–50 PDFs in order; metadata inherited from the first file |
+| `merge_pdfs` | Concatenate 2–50 PDFs in order; metadata inherited from the first file. Inputs that mix PDF 2.0 and PDF 1.x need `pdfVersion: "2.0"` |
 | `split_pdf` | One output file per page range |
 | `extract_pages` | Extract pages in the requested order (doubles as reordering) |
 | `delete_pages` | Remove pages (deleting every page is rejected) |

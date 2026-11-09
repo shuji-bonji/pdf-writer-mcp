@@ -222,6 +222,14 @@ export const mergePdfsShape = {
     .min(2)
     .max(LIMITS.MERGE_MAX_INPUTS)
     .describe('Absolute paths of the PDFs to merge (in merge order, 2 or more).'),
+  pdfVersion: z
+    .enum(PDF_VERSIONS)
+    .optional()
+    .describe(
+      'Version of the merged file. Omit it to keep the version of the inputs (the first input decides among PDF 1.x versions). ' +
+        'Required when the inputs mix PDF 2.0 and PDF 1.x: "2.0" converts the merged file to PDF 2.0 (trailer /ID, Info metadata moved to XMP). ' +
+        '"1.7" is refused when any input is PDF 2.0 — versions are never lowered.',
+    ),
   ...commonEditShape,
 } as const;
 

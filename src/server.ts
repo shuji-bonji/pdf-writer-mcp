@@ -33,6 +33,15 @@ as PDF/UA-2), and for ensure_pdfa the same string you passed
 as its flavour ("pdfa-3b" by default, or "pdfa-4" / "pdfa-4f"). If you cannot measure it, do not
 write the declaration. The verdict is veraPDF's, not this server's.
 
+Versions: an edit writes the PDF version of its input, and only an explicit conversion changes it —
+ensure_pdfa with flavour "pdfa-4" / "pdfa-4f" (to PDF 2.0), and merge_pdfs with pdfVersion (required
+when the inputs mix PDF 2.0 and 1.x; versions are never lowered). A combination that would break
+a "shall" of the output's version or of a standard it declares is refused with INVALID_ARGUMENT,
+naming the versions; a deprecated form is written the way that version prescribes and reported in
+warnings. Every result carries output: { pdfVersion, declares } read back from the written file —
+the create tools report their PDF/UA declaration there, not in warnings. A declaration is still
+only a claim: measure it with pdf-verify-mcp.
+
 Other limits worth knowing before you plan a job:
   - PDF 2.0 is opt-in on the create tools (pdfVersion: "2.0"), and it is what PDF/A-4 is built
     on. With tagged: true it declares PDF/UA-2 instead of PDF/UA-1, and PDF/UA-2 is the one that

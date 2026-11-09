@@ -9,8 +9,10 @@
  * 両者の食い違いが dc:title 等の不一致（読み上げ・保存検証の誤り）になる。
  * Info を更新した後に呼ぶと、Info の現在値で XMP を組み直す。
  *
- * 引き継ぐもの: `pdfuaid:part` / `pdfaid:part` / `pdfaid:conformance` / `pdfaid:rev` /
- * `dc:language` / `xmp:CreateDate`。`xmp:CreateDate` が既存 XMP に無ければ
+ * 0.28.0（SPEC-WRITER-OUTPUT-VERSION-003）から、既存 XMP のプロパティは指示されたもの以外を
+ * **書かれていたとおりに運ぶ**（`xmp-carry.ts`）。作り直すのは宣言（`pdfuaid` / `pdfaid` /
+ * `tdm`）と日付（`xmp:CreateDate` / `ModifyDate` / `MetadataDate`）と、指示された値だけ。
+ * 既存 XMP に無い値は Info から補う。`xmp:CreateDate` が既存 XMP に無ければ
  * Info の `/CreationDate` から補う（W-6）。
  *
  * 差し替えは**同一 ref への `set`** で行い、catalog には触れない（増分更新で dirty が 1 つで済む）。
@@ -30,7 +32,8 @@ import {
 import { documentDate } from '../config.js';
 import { name, stream } from './cos.js';
 import { pdfDateToIso, textOf } from './cos-read.js';
-import { buildXmpPacket, type XmpOptions } from './xmp-build.js';
+import { buildXmpPacket, escapeXml, type XmpOptions } from './xmp-build.js';
+import { descriptionOf, readXmpProperties, replaceDefaultAltItem } from './xmp-carry.js';
 
 /** `/Info` を辞書として読む（無ければ `undefined`）。 */
 async function readInfo(editor: PdfDocumentEditor): Promise<CosDict | undefined> {
@@ -191,6 +194,121 @@ const facts = (text: string) => ({
     /\stdm:policy\s*=\s*["']([^"']+)["']/.exec(text))?.[1],
 });
 
+/** `set_metadata` が書き換えを指示した文書メタデータ（Info の鍵に対応する名前） */
+export interface XmpInstructed {
+  title?: string;
+  author?: string;
+  subject?: string;
+  keywords?: string;
+  creator?: string;
+}
+
+/** 書き手が自分で組み立てるので、既存の値をそのまま運ばないプロパティ */
+const REGENERATED: ReadonlyMap<string, ReadonlySet<string> | 'all'> = new Map<
+  string,
+  ReadonlySet<string> | 'all'
+>([
+  ['http://www.aiim.org/pdfua/ns/id/', 'all'],
+  ['http://www.aiim.org/pdfa/ns/id/', 'all'],
+  ['http://www.w3.org/ns/tdmrep/', 'all'],
+  ['http://www.w3.org/ns/tdmrep#', 'all'],
+  ['http://ns.adobe.com/xap/1.0/', new Set(['CreateDate', 'ModifyDate', 'MetadataDate'])],
+]);
+
+/** 指示されたら書き換える（指示されなければ運ぶ）プロパティ */
+const INSTRUCTABLE: ReadonlyArray<{
+  qname: string;
+  uri: string;
+  local: string;
+  key: keyof XmpInstructed | null;
+}> = [
+  { qname: 'dc:title', uri: 'http://purl.org/dc/elements/1.1/', local: 'title', key: 'title' },
+  { qname: 'dc:creator', uri: 'http://purl.org/dc/elements/1.1/', local: 'creator', key: 'author' },
+  {
+    qname: 'dc:description',
+    uri: 'http://purl.org/dc/elements/1.1/',
+    local: 'description',
+    key: 'subject',
+  },
+  { qname: 'dc:language', uri: 'http://purl.org/dc/elements/1.1/', local: 'language', key: null },
+  {
+    qname: 'pdf:Keywords',
+    uri: 'http://ns.adobe.com/pdf/1.3/',
+    local: 'Keywords',
+    key: 'keywords',
+  },
+  {
+    qname: 'xmp:CreatorTool',
+    uri: 'http://ns.adobe.com/xap/1.0/',
+    local: 'CreatorTool',
+    key: 'creator',
+  },
+];
+
+/** 書き手が拡張スキーマを自分で書く名前空間（`xmp-build.ts`） */
+const OWN_SCHEMAS = new Set(['http://www.aiim.org/pdfua/ns/id/', 'http://www.w3.org/ns/tdmrep/']);
+
+interface CarryPlan {
+  /** 運ぶ（または書き換えて運ぶ）ので、作り直さないもの（`dc:title` など） */
+  has(qname: string): boolean;
+  /** 既存の XMP が `xmp:MetadataDate` を持っていた */
+  hadMetadataDate: boolean;
+  descriptions: string[];
+  warnings: string[];
+}
+
+/**
+ * 既存の XMP のうち、どれをそのまま運び、どれを作り直すかを決める。
+ * 整形式で読めなければ何も運ばない（0.27.x と同じく作り直す）。
+ */
+function planCarry(text: string, instructed: XmpInstructed | undefined): CarryPlan {
+  const kept = new Set<string>();
+  const descriptions: string[] = [];
+  const warnings: string[] = [];
+  let hadMetadataDate = false;
+  const props = readXmpProperties(text);
+  for (const prop of props ?? []) {
+    const regenerated = REGENERATED.get(prop.uri);
+    if (regenerated === 'all' || regenerated?.has(prop.local)) {
+      if (prop.local === 'MetadataDate') hadMetadataDate = true;
+      continue;
+    }
+    if (prop.uri === 'http://www.aiim.org/pdfa/ns/extension/' && prop.local === 'schemas') {
+      // 自分で書く拡張スキーマ（pdfuaid・tdm）以外の記述を運ぶ。運んだ名前空間の値を
+      // PDF/A の検査が読めなくなる（ISO 19005-2/-3 6.6.2.3.1）のを防ぐ
+      const items = (prop.schemaItems ?? []).filter((i) => !OWN_SCHEMAS.has(i.namespaceURI));
+      if (items.length > 0) {
+        const bag = `<pdfaExtension:schemas><rdf:Bag>${items.map((i) => i.xml).join('')}</rdf:Bag></pdfaExtension:schemas>`;
+        descriptions.push(
+          descriptionOf(bag, new Map([...prop.namespaces, ['pdfaExtension', prop.uri]])),
+        );
+      }
+      continue;
+    }
+    const managed = INSTRUCTABLE.find((m) => m.uri === prop.uri && m.local === prop.local);
+    const value = managed?.key ? instructed?.[managed.key] : undefined;
+    if (managed !== undefined && value !== undefined) {
+      // 言語の項目を持つ値（dc:title・dc:description）は x-default だけを書き換える
+      if (prop.altItems !== undefined && prop.altItems.length > 0) {
+        const replaced = replaceDefaultAltItem(prop, escapeXml(value));
+        descriptions.push(descriptionOf(replaced.xml, prop.namespaces));
+        kept.add(managed.qname);
+        if (replaced.untouched.length > 0) {
+          warnings.push(
+            `${managed.qname} in XMP has entries in other languages (${replaced.untouched.join(', ')}); ` +
+              'only the x-default entry was replaced, so those still hold the previous value.',
+          );
+        }
+      }
+      // それ以外（dc:creator の並び・pdf:Keywords など）は指示された値で作り直す
+      continue;
+    }
+    if (managed !== undefined) kept.add(managed.qname);
+    descriptions.push(descriptionOf(prop.xml, prop.namespaces));
+  }
+  return { has: (q) => kept.has(q), hadMetadataDate, descriptions, warnings };
+}
+
 /** 書き込みの上書き指定（既存 XMP の値より優先する） */
 export interface XmpOverrides {
   pdfaPart?: number;
@@ -208,6 +326,11 @@ export async function syncXmpWithInfo(
    * 保持ではなく**上書き**なので、新たに PDF/A を名乗らせるときに使う。
    */
   overrides?: XmpOverrides,
+  /**
+   * 呼び出し側が書き換えを指示した値（`set_metadata` の引数）。既存の XMP の値より優先する。
+   * 指示されていない値は既存の XMP のまま運ぶ（SPEC-WRITER-OUTPUT-VERSION-003）
+   */
+  instructed?: XmpInstructed,
 ): Promise<XmpSyncResult> {
   const none: XmpSyncResult = { updated: false, catalogTouched: false, warnings: [] };
 
@@ -254,15 +377,33 @@ export async function syncXmpWithInfo(
   // `pdfaid:conformance` が生き残り、conformance level を持たない -4 が level を名乗る。
   const redeclaring = overrides?.pdfaPart !== undefined;
 
+  // SPEC-WRITER-OUTPUT-VERSION-003（#28）: 指示されていない値は、既存の XMP に書かれていた
+  // とおりに運ぶ（言語の項目・並び・書き手の知らない名前空間を含めて）。
+  // 既存の XMP に無い値だけを、指示された値か Info から作る
+  const carry = planCarry(text, instructed);
+  const fromInfo = async (key: string, value: string | undefined) =>
+    value ?? (await infoText(editor, key));
+
   const packet = buildXmpPacket({
-    // Info の Title を優先し、無ければ既存の dc:title を引き継ぐ。PDF 2.0 の出力は Info に Title を
-    // 置かない（§14.3.3 が Info の文書メタデータを非推奨にしている）ので、Info だけから作ると、
-    // 題名を書いていない編集（set_metadata の author だけなど）で dc:title が消える。
+    // dc:title が既存の XMP に無いときだけ作る。PDF 2.0 の出力は Info に Title を置かない
+    // （§14.3.3）ので、ここで Info しか見ないと題名を書いていない編集で dc:title が消える。
     // PDF/UA-1 §7.1・PDF/UA-2 §8.11.1 は dc:title を求める（SPEC-WRITER-PDFUA2-005）
-    title: (await infoText(editor, 'Title')) ?? kept.title,
-    author: await infoText(editor, 'Author'),
-    subject: await infoText(editor, 'Subject'),
-    keywords: await infoText(editor, 'Keywords'),
+    title: carry.has('dc:title')
+      ? undefined
+      : ((await fromInfo('Title', instructed?.title)) ?? kept.title),
+    author: carry.has('dc:creator') ? undefined : await fromInfo('Author', instructed?.author),
+    subject: carry.has('dc:description')
+      ? undefined
+      : await fromInfo('Subject', instructed?.subject),
+    keywords: carry.has('pdf:Keywords')
+      ? undefined
+      : await fromInfo('Keywords', instructed?.keywords),
+    creatorTool: carry.has('xmp:CreatorTool')
+      ? null
+      : (instructed?.creator ?? (await infoText(editor, 'Creator'))),
+    metadataDate: carry.hadMetadataDate,
+    omitLanguage: carry.has('dc:language'),
+    extraDescriptions: carry.descriptions,
     pdfuaPart: kept.pdfuaPart !== undefined ? Number(kept.pdfuaPart) : undefined,
     pdfuaRev: kept.pdfuaRev !== undefined ? Number(kept.pdfuaRev) : undefined,
     pdfaPart:
@@ -285,7 +426,7 @@ export async function syncXmpWithInfo(
     updated: true,
     ...(attached.ref !== undefined && !attached.catalogTouched ? { ref: attached.ref } : {}),
     catalogTouched: attached.catalogTouched,
-    warnings: [],
+    warnings: carry.warnings,
   };
 }
 
@@ -350,20 +491,35 @@ export async function declarePdfa(
 export async function createXmpFromInfo(
   editor: PdfDocumentEditor,
   extra: Omit<XmpOptions, 'now' | 'createDate'>,
+  /** 指示された値（Info より優先する。PDF 2.0 では Info に書かないので、ここで渡す） */
+  instructed: XmpInstructed = {},
 ): Promise<XmpSyncResult> {
   const rootRaw = dictGetRaw(editor.trailer(), 'Root');
   const catalog = rootRaw === undefined ? COS_NULL : await editor.resolve(rootRaw);
   const lang = catalog.kind === 'dict' ? textOf(dictGet(catalog, 'Lang')) : undefined;
   const infoRaw = dictGetRaw(editor.trailer(), 'Info');
   const info = infoRaw === undefined ? COS_NULL : await editor.resolve(infoRaw);
+  const fromKey: Record<string, keyof XmpInstructed> = {
+    Title: 'title',
+    Author: 'author',
+    Subject: 'subject',
+    Keywords: 'keywords',
+    Creator: 'creator',
+  };
   const infoText = async (key: string): Promise<string | undefined> =>
-    info.kind === 'dict' ? textOf(await editor.resolve(dictGet(info, key) ?? COS_NULL)) : undefined;
+    instructed[fromKey[key] as keyof XmpInstructed] ??
+    (info.kind === 'dict'
+      ? textOf(await editor.resolve(dictGet(info, key) ?? COS_NULL))
+      : undefined);
 
   const attached = await writeXmpMetadata(editor, {
     ...((await infoText('Title')) !== undefined ? { title: await infoText('Title') } : {}),
     ...((await infoText('Author')) !== undefined ? { author: await infoText('Author') } : {}),
     ...((await infoText('Subject')) !== undefined ? { subject: await infoText('Subject') } : {}),
     ...((await infoText('Keywords')) !== undefined ? { keywords: await infoText('Keywords') } : {}),
+    ...((await infoText('Creator')) !== undefined
+      ? { creatorTool: await infoText('Creator') }
+      : {}),
     ...(lang !== undefined ? { lang } : {}),
     ...extra,
     // W-6: 既存 PDF に XMP を新設する経路。作成日時は Info の /CreationDate から引き継ぐ

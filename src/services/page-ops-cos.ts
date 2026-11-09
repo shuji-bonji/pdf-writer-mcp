@@ -16,7 +16,7 @@ import { basename, extname, join } from 'node:path';
 import { PdfDocumentEditor } from 'normativepdf';
 import { documentDate } from '../config.js';
 import { LIMITS } from '../constants.js';
-import { invalidArg } from '../errors.js';
+import { invalidArg, PdfWriterError } from '../errors.js';
 import type { CommonEditOptions, EditResult, SplitResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { parsePageSpec } from '../utils/page-spec.js';
@@ -35,8 +35,10 @@ import {
   usesOptionalContent,
 } from './doc-level.js';
 import { type OpenedForEdit, openForEdit } from './edit-open.js';
-import { setInfoEntries } from './info-dict.js';
+import { infoKeys, removeInfoEntriesExcept, setInfoEntries } from './info-dict.js';
 import { saveRawBytes, touchModDate } from './output-edited.js';
+import { ensureFileIdentifier } from './pdfa-cos.js';
+import { createXmpFromInfo, syncXmpWithInfo } from './xmp-cos.js';
 
 /** 基本メタデータを src から dst へ引き継ぐ（ページの複写は文書情報を運ばない） */
 async function copyDocumentInfo(from: PdfDocumentEditor, to: PdfDocumentEditor): Promise<void> {
@@ -93,6 +95,7 @@ async function saveWithDocLevelWarnings(
   // §14.3.3 Table 349: `/ModDate` は「この文書が最後に変更された日時」。
   // ページを選び直した出力はここで生まれるので、書く前に入れる
   await touchModDate(to, documentDate(to));
+  await identifyIfPdf20(to);
   const bytes = await to.save();
   const result = await saveRawBytes(bytes, (await to.pages()).length, opts);
   if (warnings.length > 0) {
@@ -118,25 +121,71 @@ async function lossWarnings(
 
 export async function mergePdfs(
   inputPaths: string[],
-  opts: CommonEditOptions,
+  opts: CommonEditOptions & { pdfVersion?: '1.7' | '2.0' },
 ): Promise<EditResult> {
-  let to: PdfDocumentEditor | null = null;
+  const opened: OpenedForEdit[] = [];
+  for (const path of inputPaths) opened.push(await openForEdit(path, opts));
+  if (opened.length === 0) throw invalidArg('merge_pdfs needs at least one input');
+
+  // SPEC-WRITER-OUTPUT-VERSION-001（#28）: 編集の出力は入力の版のまま。版を変えるのは
+  // 明示した変換だけ。PDF 2.0 と 1.x が混ざると「入力の版」が 1 つに決まらないので、
+  // pdfVersion で明示させる（ISO 32000-2 R-7.5.2-4: 2.0 の文書を書く処理系は版を 2.0 と示す）
+  const versions = opened.map((o) => o.editor.base.version);
+  const has20 = versions.some(isPdf20);
+  const has1x = versions.some((v) => !isPdf20(v));
+  const listing = opened.map((o, i) => `"${o.absPath}" is PDF ${versions[i]}`).join(', ');
+  if (opts.pdfVersion === undefined && has20 && has1x) {
+    throw new PdfWriterError(
+      `The inputs mix PDF 2.0 and PDF 1.x (${listing}). Edits keep the version of their input, ` +
+        'and here there is no single input version to keep.',
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Pass pdfVersion: "2.0" to convert the merged file to PDF 2.0 explicitly (a 1.x header cannot hold PDF 2.0 pages, ISO 32000-2 §7.5.2).',
+        next_actions: [
+          {
+            action: 'retry_with_pdf_version',
+            reason:
+              'Merging into PDF 2.0 is an explicit conversion: the output gets a trailer /ID and its Info metadata moves to XMP (§14.3.3).',
+            example: { pdfVersion: '2.0' },
+          },
+        ],
+      },
+    );
+  }
+  if (opts.pdfVersion === '1.7' && has20) {
+    throw new PdfWriterError(
+      `pdfVersion "1.7" was requested, but PDF 2.0 inputs are present (${listing}). ` +
+        'A 1.7 header cannot hold a PDF 2.0 document (ISO 32000-2 R-7.5.2-4), and this server does not lower versions.',
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Pass pdfVersion: "2.0", or merge only the PDF 1.x inputs.',
+        next_actions: [
+          {
+            action: 'retry_with_pdf_version',
+            reason: 'Merge into PDF 2.0 instead.',
+            example: { pdfVersion: '2.0' },
+          },
+        ],
+      },
+    );
+  }
+
+  // 版は明示されていればそれ、無ければ**先頭の入力**に合わせる（先勝ちの一部。1.x どうしは
+  // 0.27.x と同じ）
+  const to = PdfDocumentEditor.create({
+    version: opts.pdfVersion ?? opened[0].editor.base.headerVersion,
+  });
   const surveys: DocLevelSurvey[] = [];
   const carryWarnings: string[] = [];
 
-  for (const path of inputPaths) {
-    const opened = await openForEdit(path, opts);
-    if (to === null) {
-      // 版は**先頭の入力**に合わせる（先勝ちの一部）
-      to = PdfDocumentEditor.create({ version: opened.editor.base.headerVersion });
-    }
-    surveys.push(surveyDocLevel(await catalogView(opened.editor)));
+  for (const [index, source] of opened.entries()) {
+    surveys.push(surveyDocLevel(await catalogView(source.editor)));
 
-    const ctx = newCopyContext(opened.editor, to);
-    const pages = await opened.editor.pages();
+    const ctx = newCopyContext(source.editor, to);
+    const pages = await source.editor.pages();
     await copyPagesInto(
       ctx,
-      pages.map((_, index) => index + 1),
+      pages.map((_, i) => i + 1),
     );
 
     // B-10b: 文書レベルの引き継ぎは**先勝ち**。採らなかったものはここで報告する ——
@@ -147,14 +196,52 @@ export async function mergePdfs(
       if (!carryWarnings.includes(warning)) carryWarnings.push(warning);
     }
     if (carry.skipped.length > 0) {
-      carryWarnings.push(firstWinsWarning('merge_pdfs', carry.skipped, `"${path}"`));
+      carryWarnings.push(firstWinsWarning('merge_pdfs', carry.skipped, `"${source.absPath}"`));
     }
-    if (surveys.length === 1) await copyDocumentInfo(opened.editor, to);
+    if (index === 0) await copyDocumentInfo(source.editor, to);
   }
 
-  if (to === null) throw invalidArg('merge_pdfs needs at least one input');
+  // pdfVersion "2.0" は明示した変換。PDF 2.0 の書き方にする（§14.3.3: Info の文書メタデータは
+  // CreationDate・ModDate 以外が非推奨。値は XMP に移す）。trailer /ID は save が書く
+  if (opts.pdfVersion === '2.0') {
+    const moved = await moveInfoToXmp(to);
+    const raised = versions.filter((v) => !isPdf20(v));
+    if (raised.length > 0) {
+      carryWarnings.push(
+        `merge_pdfs: converted to PDF 2.0 as requested (inputs were ${[...new Set(versions)].join(', ')}).` +
+          (moved.length > 0
+            ? ` The Info entries ${moved.join(', ')} were moved to XMP (ISO 32000-2 §14.3.3).`
+            : ''),
+      );
+    }
+  }
+
   logger.info('PageOps', `Merged ${inputPaths.length} PDFs (${(await to.pages()).length} pages)`);
   return saveWithDocLevelWarnings(to, opts, 'merge_pdfs', mergeSurveys(surveys), carryWarnings);
+}
+
+const isPdf20 = (version: string) => Number.parseFloat(version) >= 2;
+
+/**
+ * PDF 2.0 の出力に trailer `/ID` を書く（ISO 32000-2 Table 15 は 2.0 で Required）。
+ * ページを複製して作る新しい文書は入力の trailer を引き継がないので、0.27.x までは
+ * 2.0 の入力から作った出力にも `/ID` が無かった（#28 で見つけた）。
+ * `/ModDate` を入れた後に呼ぶ（ダイジェストの材料に Info を含めるため）。
+ */
+async function identifyIfPdf20(to: PdfDocumentEditor): Promise<void> {
+  if (isPdf20(to.base.headerVersion)) await ensureFileIdentifier(to);
+}
+
+/**
+ * Info の `CreationDate`・`ModDate` 以外の値を XMP に移し、Info から除く。移した鍵を返す。
+ * XMP があれば `syncXmpWithInfo`（既存の値を運び、無い値を Info から補う）、無ければ作る。
+ */
+async function moveInfoToXmp(editor: PdfDocumentEditor): Promise<string[]> {
+  const keys = (await infoKeys(editor)).filter((k) => k !== 'CreationDate' && k !== 'ModDate');
+  if (keys.length === 0) return [];
+  const synced = await syncXmpWithInfo(editor);
+  if (!synced.updated) await createXmpFromInfo(editor, {});
+  return removeInfoEntriesExcept(editor, ['CreationDate', 'ModDate']);
 }
 
 export async function extractPages(
@@ -237,8 +324,14 @@ export async function splitPdf(
     }
     const outputPath = join(outputDir, `${base}${index + 1}.pdf`);
     await touchModDate(to, documentDate(to));
+    await identifyIfPdf20(to);
     const saved = await saveRawBytes(await to.save(), (await to.pages()).length, { outputPath });
-    files.push({ path: saved.path as string, pageCount: saved.pageCount, bytes: saved.bytes });
+    files.push({
+      path: saved.path as string,
+      pageCount: saved.pageCount,
+      bytes: saved.bytes,
+      ...(saved.output !== undefined ? { output: saved.output } : {}),
+    });
   }
   logger.info('PageOps', `Split "${opened.absPath}" into ${files.length} file(s)`);
   return {

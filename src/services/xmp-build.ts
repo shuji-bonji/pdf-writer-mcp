@@ -74,6 +74,20 @@ export interface XmpOptions {
    * `syncXmpWithInfo` は `documentDate(doc)` を渡すので通常は意識しなくてよい。
    */
   now?: Date;
+  /**
+   * `dc:language` を書かない（既存の値をそのまま運ぶとき。SPEC-WRITER-OUTPUT-VERSION-003）。
+   * `lang` は `dc:title` の `xml:lang` にだけ使う
+   */
+  omitLanguage?: boolean;
+  /**
+   * `xmp:CreatorTool`（Info の `/Creator` に対応。Table 349 NOTE 5）。
+   * 省略時はこのサーバの名前。`null` は書かない（既存の値をそのまま運ぶとき）
+   */
+  creatorTool?: string | null;
+  /** `xmp:MetadataDate` を `now` で書く（既存の XMP が持っていたとき） */
+  metadataDate?: boolean;
+  /** 既存の XMP から運ぶ `rdf:Description`（`xmp-carry.ts` の `descriptionOf` で作ったもの） */
+  extraDescriptions?: readonly string[];
 }
 
 /**
@@ -91,7 +105,7 @@ export interface XmpOptions {
  */
 
 /** XML の特殊文字をエスケープする（タイトル等に < & " が入りうる） */
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -262,7 +276,7 @@ export function buildXmpPacket(opts: XmpOptions): string {
       `      <dc:description>\n        <rdf:Alt>\n          <rdf:li xml:lang="x-default">${escapeXml(opts.subject)}</rdf:li>\n        </rdf:Alt>\n      </dc:description>`,
     );
   }
-  if (opts.lang) {
+  if (opts.lang && opts.omitLanguage !== true) {
     dc.push(
       `      <dc:language>\n        <rdf:Bag>\n          <rdf:li>${escapeXml(opts.lang)}</rdf:li>\n        </rdf:Bag>\n      </dc:language>`,
     );
@@ -287,13 +301,21 @@ export function buildXmpPacket(opts: XmpOptions): string {
     );
   }
 
+  const creatorTool =
+    opts.creatorTool === undefined
+      ? `${PACKAGE_INFO.name}/${PACKAGE_INFO.version}`
+      : opts.creatorTool;
   parts.push(
     `    <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">\n` +
-      `      <xmp:CreatorTool>${escapeXml(`${PACKAGE_INFO.name}/${PACKAGE_INFO.version}`)}</xmp:CreatorTool>\n` +
+      (creatorTool === null
+        ? ''
+        : `      <xmp:CreatorTool>${escapeXml(creatorTool)}</xmp:CreatorTool>\n`) +
       `      <xmp:CreateDate>${escapeXml(opts.createDate ?? now)}</xmp:CreateDate>\n` +
       `      <xmp:ModifyDate>${now}</xmp:ModifyDate>\n` +
+      (opts.metadataDate === true ? `      <xmp:MetadataDate>${now}</xmp:MetadataDate>\n` : '') +
       `    </rdf:Description>`,
   );
+  parts.push(...(opts.extraDescriptions ?? []));
 
   return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="${escapeXml(PACKAGE_INFO.name)}">

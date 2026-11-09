@@ -26,6 +26,7 @@ import { logger } from '../utils/logger.js';
 import { textString } from './cos.js';
 import type { OpenedForEdit } from './edit-open.js';
 import { setInfoEntries } from './info-dict.js';
+import { describeOutput } from './output-declares.js';
 import { writeOutputFile } from './output-write.js';
 import { pdfDate } from './pdf-date.js';
 
@@ -124,7 +125,11 @@ export async function saveRawBytes(
   pageCount: number,
   opts: CommonEditOptions,
 ): Promise<EditResult> {
-  const result: EditResult = { pageCount, bytes: bytes.length };
+  const result: EditResult = {
+    pageCount,
+    bytes: bytes.length,
+    output: await describeOutput(bytes),
+  };
 
   if (opts.outputPath) {
     const abs = resolve(opts.outputPath);

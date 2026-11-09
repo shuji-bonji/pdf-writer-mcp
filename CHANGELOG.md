@@ -2,6 +2,71 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0] - 2026-11-10
+
+Proposed version: 0.28.0. OpenSpec change `output-version` (#28; new capability `output-version`,
+SPEC-WRITER-OUTPUT-VERSION-001 to 007; SPEC-WRITER-ENSURE-PDFA-004 added).
+
+The rule behind every item below: an edit writes the PDF version of its input, and only an
+explicit conversion changes it. What would break a *shall* of the output's version or of a
+declared standard is refused; what that version deprecates is written its way; a mix the
+standard allows is written and reported.
+
+### Added
+
+- **`output` on every result**: `{ pdfVersion, declares: { pdfua?, pdfa? } }`, read back from the
+  written file — not inferred from the arguments. `split_pdf` reports it per file.
+- **`merge_pdfs` takes `pdfVersion`** (`"1.7"` / `"2.0"`). `"2.0"` converts the merged file to
+  PDF 2.0: the Info metadata of the first input moves to XMP.
+- The initialize instructions state the version rule in one paragraph, and the descriptions of
+  `merge_pdfs`, `set_metadata` and `ensure_pdfa` use the same words.
+
+### Changed
+
+- **`merge_pdfs` refuses inputs that mix PDF 2.0 and PDF 1.x** unless `pdfVersion` is given
+  (`INVALID_ARGUMENT`, naming each input's version; `next_actions` offers `pdfVersion: "2.0"`).
+  `pdfVersion: "1.7"` with a PDF 2.0 input is refused too. Inputs that are all PDF 1.x still take
+  the version of the first one.
+- **`ensure_pdfa(flavour: "pdfa-3b")` refuses any PDF 2.0 input**, tagged or not (0.27.0 refused
+  only PDF/UA-2 input). `next_actions` offers `pdfa-4`.
+- **`set_metadata` on a PDF 2.0 input writes to XMP and adds no Info entries** (ISO 32000-2
+  §14.3.3 deprecates Info metadata other than `CreationDate` / `ModDate`). Existing entries are
+  kept and set to the same value — except on a PDF/UA-2 input, where they are moved to XMP and
+  removed (ISO 14289-2 §6.2: a file should not contain deprecated features). A PDF 2.0 input
+  without XMP gets one.
+- **Rewriting the XMP carries what was not asked for** (`set_metadata`, `ensure_pdfa`). 0.27.0
+  rebuilt the packet from the Info dictionary and kept only the first `dc:title` entry, a single
+  `dc:creator` and the declarations. Now every property not being changed is copied as written:
+  the other languages of `dc:title` (ISO 32000-2 §14.3.3 shows `x-default`, `en`, `de`), every
+  name in `dc:creator`, `xmp:CreatorTool`, properties in other namespaces (`xmpMM:DocumentID`
+  etc.) and `pdfaExtension` schema descriptions for them. Changing `title` replaces the
+  `x-default` entry (or the first one, which is what this server's create tools write) and names
+  the other languages in `warnings`. The values in the output of 0.27.0 and 0.28.0 are the same
+  for this server's own files; the properties are grouped into more `rdf:Description` elements.
+- Errors that refuse because of a version name the input's version and declarations.
+- `add_annotation` and `tag_form_fields` on a PDF/UA-2 input say in `warnings` that the
+  structure element they add has no `/NS` and sits in the PDF 1.7 namespace (§8.2.4 allows it).
+
+### Fixed
+
+- **PDF 2.0 output of the page-copy tools had no trailer `/ID`** (`merge_pdfs`, `split_pdf`,
+  `extract_pages`, `delete_pages`, `reorder_pages`). ISO 32000-2 Table 15 makes `/ID` Required
+  in PDF 2.0. These tools build a new document from the pages and do not carry the input's
+  trailer, and no test merged PDF 2.0 files. Found while measuring #28.
+
+### Measured
+
+veraPDF 1.30.0: `set_metadata(title)` on a PDF/UA-2 file whose Info had `Title` and `Author`
+passes `pdfua-2` (1,728/1,728). `merge_pdfs(pdfVersion: "2.0")` over 1.7 and 2.0 inputs followed by
+`ensure_pdfa(pdfa-4)` passes `pdfa-4` (109/109). A PDF/UA-1 file with a three-language `dc:title`
+and `xmpMM:DocumentID`, after `set_metadata(title)` and `ensure_pdfa(pdfa-3b)`, passes `pdfa-3b`
+(146/146) and `pdfua-1` (106/106).
+
+Not fixed here, found while measuring: `add_annotation` with `alt` on a PDF/UA-2 file fails
+ISO 14289-2 8.9.4.2-1 (`Alt` and the annotation's `Contents` must be identical) — 0.27.0 gives the
+same result. `tag_form_fields` on a PDF/UA-2 file fails 8.10.2.3-1 (a widget without a label needs
+`Contents`).
+
 ## [0.27.0] - 2026-11-09
 
 Proposed version: 0.27.0. OpenSpec changes `pdfua2-output` (new capability `pdfua2`,

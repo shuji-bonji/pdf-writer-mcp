@@ -2,7 +2,7 @@
 
 ### Requirement: SPEC-WRITER-OUTPUT-VERSION-001 merge_pdfs は版の違う入力を明示した版でだけ書く
 
-`merge_pdfs` は `pdfVersion`（`"1.7"`・`"2.0"`）を受け取る。`pdfVersion` が無ければ、入力の版がすべて同じときだけその版で書き、混ざっていれば断る（SHALL）。`pdfVersion: "1.7"` で入力に PDF 2.0 があれば断る（SHALL）。断るときはファイルを書かず、`next_actions` に `pdfVersion: "2.0"` の案内を置く（SHALL）。`pdfVersion: "2.0"` で書くときは trailer に `/ID` を書き、先頭の入力の Info の日付以外の値を XMP に移して Info から除く（SHALL）。根拠は ISO 32000-2 R-7.5.2-4・Table 15・§14.3.3 と、#28 の原則（版を変えるのは明示した変換だけ）。
+`merge_pdfs` は `pdfVersion`（`"1.7"`・`"2.0"`）を受け取る。`pdfVersion` が無く、入力に PDF 2.0 と PDF 1.x が混ざっていれば断る（SHALL）。1.x どうしは先頭の入力の版で書く。`pdfVersion: "1.7"` で入力に PDF 2.0 があれば断る（SHALL）。断るときはファイルを書かず、エラーの文に入力ごとの版を書き、`next_actions` に `pdfVersion: "2.0"` の案内を置く（SHALL）。`pdfVersion: "2.0"` では先頭の入力の Info の日付以外の値を XMP に移して Info から除く（SHALL）。PDF 2.0 の出力には trailer に `/ID` を書く（SHALL）。根拠は ISO 32000-2 R-7.5.2-4・Table 15・§14.3.3 と、#28 の原則（版を変えるのは明示した変換だけ）。
 
 #### Scenario: 1.7 と 2.0 の入力で pdfVersion が無い
 
@@ -18,6 +18,11 @@
 
 - **WHEN** PDF 2.0 の文書を含む入力を `pdfVersion: "1.7"` で渡す
 - **THEN** `code` は `INVALID_ARGUMENT`
+
+#### Scenario: 2.0 だけの入力にも trailer の /ID を書く
+
+- **WHEN** PDF 2.0 の文書 2 つを `pdfVersion` なしで渡す
+- **THEN** 出力のヘッダーは `%PDF-2.0` で、trailer に `/ID` がある
 
 #### Scenario: 1.7 だけの入力は今までどおり
 
@@ -52,6 +57,11 @@ XMP を作り直す経路（`set_metadata`・`ensure_pdfa`）は、変更を指�
 - **WHEN** XMP の `dc:title` に `x-default`・`en`・`de` の 3 項目と、`dc:creator` に 2 人を持つ文書に、`author` だけを渡して `set_metadata` を呼ぶ
 - **THEN** 出力の `dc:title` に同じ 3 項目が同じ値で残り、`dc:creator` に同じ 2 人が同じ順で残る
 
+#### Scenario: 指示していない dc:creator は並びごと残る
+
+- **WHEN** 同じ文書に `subject` だけを渡して `set_metadata` を呼ぶ
+- **THEN** `dc:creator` に元の 2 人が元の順で残る
+
 #### Scenario: 複数の言語の dc:title を持つ文書の題名を変える
 
 - **WHEN** 同じ文書に `title: "New"` で `set_metadata` を呼ぶ
@@ -63,12 +73,22 @@ PDF/UA-2 を宣言した文書に構造要素を足す編集ツール（`tag_for
 
 #### Scenario: PDF/UA-2 の文書に注釈を足す
 
-- **WHEN** `tagged: true`・`pdfVersion: "2.0"` で作った文書に `add_annotation` でリンクを足す
-- **THEN** warnings に既定の名前空間に置いた構造型（`Link` または `Annot`）が書かれている
+- **WHEN** `tagged: true`・`pdfVersion: "2.0"` で作った文書に `add_annotation` で注釈を足す
+- **THEN** warnings に既定の名前空間に置いた構造型（`Annot`）が書かれている
+
+#### Scenario: PDF/UA-2 の文書のフォームにタグを付ける
+
+- **WHEN** PDF/UA-2 で作った文書にテキストフィールドを足し、`tag_form_fields` を呼ぶ
+- **THEN** warnings に `Form` と名前空間のことが書かれている
+
+#### Scenario: PDF/UA-1 の文書には書かない
+
+- **WHEN** `tagged: true` だけで作った文書に `add_annotation` で注釈を足す
+- **THEN** warnings に名前空間のことは書かれていない
 
 ### Requirement: SPEC-WRITER-OUTPUT-VERSION-005 結果で出力の版と宣言を伝える
 
-ファイルを書く全ツールの結果は `output` を持ち、`output.pdfVersion` に出力のヘッダーの版（`"1.7"` か `"2.0"`）、`output.declares` に出力の XMP が宣言している規格を書く（SHALL）。`declares.pdfua` は `pdfuaid:part` の数（1 か 2）、`declares.pdfa` は `pdfaid:part` と `pdfaid:conformance` を小文字でつないだ文字列（`"3b"`・`"4"`・`"4f"` など）とし、宣言の無い規格のキーは置かない（SHALL）。値は書いた後のバイト列から読む（引数から推測しない）（SHALL）。`split_pdf` は各ファイルに `output` を持つ。
+ファイルを書く全ツールの結果は `output` を持ち、`output.pdfVersion` に出力の版（ヘッダーと catalog の `/Version` のうち新しいほう。例 `"1.7"`・`"2.0"`）、`output.declares` に出力の XMP が宣言している規格を書く（SHALL）。`declares.pdfua` は `pdfuaid:part` の数（1 か 2）、`declares.pdfa` は `pdfaid:part` と `pdfaid:conformance` を小文字でつないだ文字列（`"3b"`・`"4"`・`"4f"` など）とし、宣言の無い規格のキーは置かない（SHALL）。値は書いた後のバイト列から読む（引数から推測しない）（SHALL）。`split_pdf` は各ファイルに `output` を持つ。
 
 #### Scenario: PDF/UA-2 で作る
 
@@ -84,6 +104,11 @@ PDF/UA-2 を宣言した文書に構造要素を足す編集ツール（`tag_for
 
 - **WHEN** `create_text_pdf` に既定の引数で渡す
 - **THEN** `output` は `{ "pdfVersion": "1.7", "declares": {} }`
+
+#### Scenario: split_pdf は各ファイルに output を持つ
+
+- **WHEN** PDF 2.0 の文書を `split_pdf` で分ける
+- **THEN** `files[0].output` は `{ "pdfVersion": "2.0", "declares": {} }`
 
 ### Requirement: SPEC-WRITER-OUTPUT-VERSION-006 版を理由に断るエラーは版を名指す
 

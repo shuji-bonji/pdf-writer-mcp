@@ -41,6 +41,7 @@ import { PdfWriterError } from '../errors.js';
 import type { CommonEditOptions, EditResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import type { OpenedForEdit } from './edit-open.js';
+import { describeOutput } from './output-declares.js';
 import { touchModDate } from './output-edited.js';
 import { writeOutputFile } from './output-write.js';
 
@@ -118,7 +119,12 @@ export async function appendOpened(
   }
 
   const pageCount = (await editor.pages()).length;
-  const result: EditResult = { pageCount, bytes: bytes.length, incremental: true };
+  const result: EditResult = {
+    pageCount,
+    bytes: bytes.length,
+    incremental: true,
+    output: await describeOutput(bytes),
+  };
 
   if (opts.outputPath) {
     const abs = resolve(opts.outputPath);

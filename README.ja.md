@@ -79,11 +79,29 @@ veraPDF 1.30.0（`pdfua-2`、1,728 規則）で、生成 3 ツールの出力、
 
 編集しても宣言は残ります。XMP を作り直すツールは `pdfuaid:rev` を `pdfuaid:part` と一緒に引き継ぎ、Info 辞書に `Title` が無ければ `dc:title` を引き継ぎます（PDF 2.0 の出力は Info に `Title` を置きません）。`add_bookmarks` は、PDF/UA-2 の文書では §8.8 のとおり structure destination で書きます。GoTo アクションの `SD` に、指したページで始まる構造要素を書き、`SD` を読まないビューアのために `D` にページの行き先を残します。構造要素の内容が無いページはページの行き先のまま書き、`warnings` で名指します。
 
+### 版と宣言
+
+編集の出力は入力の版のままです。版を変えるのは明示した変換だけで、`ensure_pdfa` の `flavour: "pdfa-4"`・`"pdfa-4f"`（PDF 2.0 にします）と、`merge_pdfs` の `pdfVersion` です。版を下げることはしません。
+
+- 出力の版や、ファイルが宣言している規格の shall に反するものは `INVALID_ARGUMENT` で断ります。エラーの文に入力の版と宣言を書き、`next_actions` で合う呼び方を示します。例: PDF 2.0 と PDF 1.x の入力を `pdfVersion` なしで渡した `merge_pdfs`、PDF 2.0 の入力への `ensure_pdfa(flavour: "pdfa-3b")`（PDF/A-3 はヘッダーが `%PDF-1.n` でなければなりません）。
+- 出力の版で非推奨の書き方は、その版の書き方で書きます。PDF 2.0 の入力への `set_metadata` は XMP に書き、Info に項目を足しません（ISO 32000-2 §14.3.3）。PDF/UA-2 の入力では、既存の Info の項目を XMP に移してから消します（ISO 14289-2 §6.2）。
+- 規格が許す混在は書いて、結果で伝えます。PDF/UA-2 のファイルに `add_annotation`・`tag_form_fields` が足す構造要素には `/NS` が無く、PDF 1.7 の名前空間に入ります（§8.2.4 は許します）。そのことを `warnings` に書きます。
+
+どのツールの結果にも、書いたファイルから読み戻した `output` があります。
+
+```json
+{ "output": { "pdfVersion": "2.0", "declares": { "pdfua": 2, "pdfa": "4" } } }
+```
+
+`declares.pdfua` は `pdfuaid:part`、`declares.pdfa` は `pdfaid:part` と `pdfaid:conformance` をつないだもの（`"3b"`・`"4"`・`"4f"`）です。宣言が無い規格のキーは置きません。宣言は自称なので、pdf-verify-mcp で測ってください。
+
+XMP を書き直すツール（`set_metadata`・`ensure_pdfa`）は、渡されなかった値を書かれていたとおりに運びます。`dc:title` のほかの言語の項目、`dc:creator` の全員、このサーバが知らない名前空間の値が残ります。`title` を変えると `x-default` の項目を書き換え、ほかの言語を `warnings` で名指します。
+
 ### 編集 — ページ操作
 
 | ツール | 役割 |
 |--------|------|
-| `merge_pdfs` | 2〜50 個の PDF を指定順に結合。メタデータは先頭ファイルから引き継ぎ |
+| `merge_pdfs` | 2〜50 個の PDF を指定順に結合。メタデータは先頭ファイルから引き継ぎ。PDF 2.0 と PDF 1.x が混ざる入力には `pdfVersion: "2.0"` が要ります |
 | `split_pdf` | ページ範囲ごとに 1 ファイルへ分割 |
 | `extract_pages` | 指定順を保持して抽出（並べ替えを兼ねる） |
 | `delete_pages` | ページ削除（全ページの削除はエラー） |

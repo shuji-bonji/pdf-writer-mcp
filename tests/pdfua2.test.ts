@@ -221,7 +221,9 @@ describe('SPEC-WRITER-PDFUA2-005 編集で XMP を作り直しても PDF/UA-2 �
     const outputPath = join(dir, 'meta-ncr-out.pdf');
     await handleSetMetadata({ inputPath: input, author: 'someone', outputPath });
     const out = xmpOf((await load(outputPath)).doc);
-    expect(out).toMatch(/<dc:title>[\s\S]*A \u2014 B[\s\S]*<\/dc:title>/);
+    // 0.28.0（SPEC-WRITER-OUTPUT-VERSION-003）から、指示されていない dc:title は書かれていた
+    // とおりに運ぶので、数値文字参照のまま残る。XML としては同じ値
+    expect(out).toMatch(/<dc:title>[\s\S]*A (\u2014|&#x2014;) B[\s\S]*<\/dc:title>/);
     expect(out).not.toContain('&amp;#x2014;');
   });
 });
@@ -405,6 +407,21 @@ describe('SPEC-WRITER-ENSURE-PDFA-003 PDF/UA-2 を宣言した入力に PDF/A-3b
   it('SPEC-WRITER-ENSURE-PDFA-003 PDF/UA-2 の入力に pdfa-3b', async () => {
     const input = await createUa2Text('pdfa3b-in.pdf');
     const outputPath = join(dir, 'pdfa3b-out.pdf');
+    await expect(
+      handleEnsurePdfa({ inputPath: input, flavour: 'pdfa-3b', outputPath }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT',
+      options: { next_actions: [{ example: { flavour: 'pdfa-4' } }] },
+    });
+    expect(existsSync(outputPath)).toBe(false);
+  });
+});
+
+describe('SPEC-WRITER-ENSURE-PDFA-004 PDF 2.0 の入力に PDF/A-3b を名乗らせない', () => {
+  it('SPEC-WRITER-ENSURE-PDFA-004 タグ無しの PDF 2.0 に pdfa-3b', async () => {
+    const input = join(dir, 'pdfa3b-untagged-in.pdf');
+    await handleCreateTextPdf({ text: 'body text', pdfVersion: '2.0', outputPath: input });
+    const outputPath = join(dir, 'pdfa3b-untagged-out.pdf');
     await expect(
       handleEnsurePdfa({ inputPath: input, flavour: 'pdfa-3b', outputPath }),
     ).rejects.toMatchObject({

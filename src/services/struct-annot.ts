@@ -261,3 +261,17 @@ export async function appendAnnotationToStructTree(
 ): Promise<AppendAnnotResult> {
   return appendObjRefToStructTree(editor, page, annotRef, 'Annot', alt);
 }
+
+/**
+ * SPEC-WRITER-OUTPUT-VERSION-004（#28）: PDF/UA-2 を宣言した文書に、`/NS` を書かずに
+ * 構造要素を足したことを伝える文。足した要素は既定の PDF 1.7 の名前空間に入る。
+ * ISO 14289-2 §8.2.4 は PDF 1.7・PDF 2.0 のどちらの名前空間でもよいとするので断らない
+ * （許される混在は書いて、結果で伝える）。
+ */
+export function defaultNamespaceNote(types: readonly string[]): string {
+  return (
+    `The document declares PDF/UA-2. The added ${types.join(', ')} structure element(s) carry no /NS, ` +
+    'so they belong to the default PDF 1.7 namespace rather than the PDF 2.0 namespace. ' +
+    'ISO 14289-2 §8.2.4 allows either; measure the file with pdf-verify-mcp ("pdfua-2") if it matters.'
+  );
+}

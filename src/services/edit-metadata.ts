@@ -21,9 +21,10 @@ import { textString } from './cos.js';
 import { assertDocMdpAllows } from './doc-mdp.js';
 import { openForEdit } from './edit-open.js';
 import { appendOpened } from './incremental-append.js';
-import { setInfoEntries } from './info-dict.js';
+import { infoKeys, removeInfoEntriesExcept, setInfoEntries } from './info-dict.js';
 import { saveOpened } from './output-edited.js';
-import { createXmpFromInfo, syncXmpWithInfo } from './xmp-cos.js';
+import { readXmpDeclarations } from './pdfa-cos.js';
+import { createXmpFromInfo, syncXmpWithInfo, type XmpInstructed } from './xmp-cos.js';
 
 export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
   const opened = await openForEdit(args.inputPath, args);
@@ -34,14 +35,35 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
     await assertDocMdpAllows(opened.editor, 'metadata-or-outline');
   }
 
-  await setInfoEntries(opened.editor, [
-    ['Title', args.title === undefined ? undefined : textString(args.title)],
-    ['Author', args.author === undefined ? undefined : textString(args.author)],
-    ['Subject', args.subject === undefined ? undefined : textString(args.subject)],
+  const instructed: XmpInstructed = {
+    ...(args.title !== undefined ? { title: args.title } : {}),
+    ...(args.author !== undefined ? { author: args.author } : {}),
+    ...(args.subject !== undefined ? { subject: args.subject } : {}),
     // 旧実装（pdf-lib の `setKeywords`）と同じく空白 1 つで繋ぐ
-    ['Keywords', args.keywords === undefined ? undefined : textString(args.keywords.join(' '))],
-    ['Creator', args.creator === undefined ? undefined : textString(args.creator)],
-  ]);
+    ...(args.keywords !== undefined ? { keywords: args.keywords.join(' ') } : {}),
+    ...(args.creator !== undefined ? { creator: args.creator } : {}),
+  };
+  const infoValues: Array<readonly [string, string | undefined]> = [
+    ['Title', instructed.title],
+    ['Author', instructed.author],
+    ['Subject', instructed.subject],
+    ['Keywords', instructed.keywords],
+    ['Creator', instructed.creator],
+  ];
+
+  // SPEC-WRITER-OUTPUT-VERSION-002（#28）: PDF 2.0 では Info の文書メタデータは
+  // CreationDate・ModDate 以外が非推奨（§14.3.3・Table 349）。値は XMP に書き、Info に
+  // 新しい鍵を足さない。既にある鍵は、PDF/UA-2 の文書では XMP に移して除き
+  // （ISO 14289-2 §6.2 should not）、それ以外では同じ値に揃えて残す
+  const pdf20 = Number.parseFloat(opened.editor.base.version) >= 2;
+  const ua2 = pdf20 && (await readXmpDeclarations(opened.editor)).pdfuaPart === 2;
+  const present = new Set(pdf20 ? await infoKeys(opened.editor) : []);
+  await setInfoEntries(
+    opened.editor,
+    infoValues
+      .filter(([key]) => !pdf20 || (!ua2 && present.has(key)))
+      .map(([key, value]) => [key, value === undefined ? undefined : textString(value)] as const),
+  );
 
   // B-9: XMP を持つ文書では Info と `/Metadata` を同期させる（§14.3.3）。
   // #4: TDMRep は XMP にしか書けない。既存 XMP があれば上書き指定として渡し、
@@ -53,20 +75,35 @@ export async function setMetadata(args: SetMetadataArgs): Promise<EditResult> {
           ...(args.tdmPolicy !== undefined ? { tdmPolicy: args.tdmPolicy } : {}),
         }
       : undefined;
-  const sync = await syncXmpWithInfo(opened.editor, tdm);
+  const sync = await syncXmpWithInfo(opened.editor, tdm, instructed);
   const warnings = [...sync.warnings];
   if (sync.updated) {
     warnings.push(
-      'The document carries XMP metadata (/Metadata); it was regenerated to stay ' +
-        'consistent with the updated Info dictionary (dc:title etc.).',
+      'The document carries XMP metadata (/Metadata); it was rewritten with the given values ' +
+        '(dc:title etc.), and XMP values you did not pass were carried over as written.',
     );
-  } else if (tdm !== undefined && sync.warnings.length === 0) {
-    // Info は上で更新済みなので、ここから引き継げば args と既存の値の両方が XMP に載る
-    await createXmpFromInfo(opened.editor, tdm);
+  } else if (sync.warnings.length === 0 && (tdm !== undefined || pdf20)) {
+    // Info は上で更新済みなので、ここから引き継げば args と既存の値の両方が XMP に載る。
+    // PDF 2.0 では Info に書かなかった値を instructed で渡す
+    await createXmpFromInfo(opened.editor, tdm ?? {}, instructed);
     warnings.push(
-      'The document had no XMP metadata (/Metadata); one was created to carry the TDMRep ' +
-        'statement (tdm:reservation), which has no place in the Info dictionary.',
+      tdm !== undefined
+        ? 'The document had no XMP metadata (/Metadata); one was created to carry the TDMRep ' +
+            'statement (tdm:reservation), which has no place in the Info dictionary.'
+        : 'The document had no XMP metadata (/Metadata); one was created, because PDF 2.0 ' +
+            'deprecates document metadata in the Info dictionary (ISO 32000-2 §14.3.3).',
     );
+  }
+
+  if (ua2) {
+    const removed = await removeInfoEntriesExcept(opened.editor, ['CreationDate', 'ModDate']);
+    if (removed.length > 0) {
+      warnings.push(
+        `The document declares PDF/UA-2, which should not contain features deprecated in PDF 2.0 ` +
+          `(ISO 14289-2 §6.2). The Info entries ${removed.join(', ')} were moved to XMP and ` +
+          'removed from the Info dictionary (ISO 32000-2 §14.3.3).',
+      );
+    }
   }
 
   const result = preserve ? await appendOpened(opened, args) : await saveOpened(opened, args);

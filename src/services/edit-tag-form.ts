@@ -28,6 +28,8 @@ import { assertDocMdpAllows } from './doc-mdp.js';
 import { openForEdit } from './edit-open.js';
 import { appendOpened } from './incremental-append.js';
 import { saveOpened } from './output-edited.js';
+import { readXmpDeclarations } from './pdfa-cos.js';
+import { defaultNamespaceNote } from './struct-annot.js';
 import { isTaggedDoc } from './tagged-cos.js';
 
 export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFieldsResult> {
@@ -78,6 +80,10 @@ export async function tagFormFields(args: TagFormFieldsArgs): Promise<TagFormFie
       `${outcome.orphaned.length} widget(s) were not found in any page's /Annots and were left ` +
         `untouched (${outcome.orphaned.join(', ')}).`,
     );
+  }
+
+  if (outcome.tagged > 0 && (await readXmpDeclarations(opened.editor)).pdfuaPart === 2) {
+    warnings.push(defaultNamespaceNote(['Form']));
   }
 
   logger.info(

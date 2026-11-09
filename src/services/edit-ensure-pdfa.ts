@@ -40,6 +40,9 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   const opened = await openForEdit(args.inputPath, args);
   const preserve = args.preserveSignatures === true;
   const declared = await readXmpDeclarations(opened.editor);
+  // SPEC-WRITER-OUTPUT-VERSION-006: 版を理由に断るときは、入力の版と宣言を名指す
+  const inputVersion = opened.editor.base.version;
+  const inputIs = describeInput(inputVersion, declared.pdfuaPart, declared.pdfa);
 
   // SPEC-WRITER-ENSURE-PDFA-001（#9・F-19）: PDF/A-4 はヘッダーを %PDF-2.0 にし、
   // PDF/UA-1 は ISO 14289-1 §6.1 で版を 1.0〜1.7 とする。両方を名乗るファイルは片方の
@@ -47,7 +50,7 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   // PDF/UA-2（ISO 14289-2 §6.1: 版は 2.0）は PDF/A-4 と両立するので断らない（#26）
   if (isPdfa4 && declared.pdfuaPart !== null && declared.pdfuaPart !== 2) {
     const err = invalidArg(
-      `The input declares PDF/UA-${declared.pdfuaPart} (pdfuaid:part in XMP), and ${flavour} would set the header to PDF 2.0, which PDF/UA-1 does not allow (ISO 14289-1 §6.1: version 1.0 to 1.7). The file would then fail one of its two declarations.`,
+      `${inputIs}. ${flavour} would set the header to PDF 2.0, which PDF/UA-${declared.pdfuaPart} does not allow (ISO 14289-1 §6.1: version 1.0 to 1.7). The file would then fail one of its two declarations.`,
     );
     throw new PdfWriterError(err.message, 'INVALID_ARGUMENT', {
       hint: 'Use flavour "pdfa-3b": it keeps the PDF 1.7 header, so PDF/A-3b and PDF/UA-1 can both hold. To combine PDF/A-4 with accessibility, create the document as PDF/UA-2 (tagged: true with pdfVersion: "2.0").',
@@ -67,7 +70,7 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
   // （veraPDF ISO 19005-3:2012 6.1.2-1、実測 2026-11-09）。ensure_pdfa はヘッダーを下げない
   if (!isPdfa4 && declared.pdfuaPart === 2) {
     throw new PdfWriterError(
-      `The input declares PDF/UA-2 (pdfuaid:part in XMP), which requires PDF 2.0 (ISO 14289-2 §6.1), and ${flavour} requires a PDF 1.x header. The file would then fail one of its two declarations.`,
+      `${inputIs}. PDF/UA-2 requires PDF 2.0 (ISO 14289-2 §6.1), and ${flavour} requires a PDF 1.x header (%PDF-1.n). The file would then fail one of its two declarations.`,
       'INVALID_ARGUMENT',
       {
         hint: 'Use flavour "pdfa-4" (or "pdfa-4f"): PDF/A-4 is based on PDF 2.0, so PDF/A-4 and PDF/UA-2 can both hold.',
@@ -76,6 +79,27 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
             action: 'retry_with_flavour',
             reason:
               'PDF/A-4 keeps the PDF 2.0 header and can stand together with the PDF/UA-2 declaration. Call again with flavour "pdfa-4".',
+            example: { flavour: 'pdfa-4' },
+          },
+        ],
+      },
+    );
+  }
+
+  // SPEC-WRITER-ENSURE-PDFA-004（#28）: PDF/UA の宣言が無くても、PDF 2.0 の入力に PDF/A-3b を
+  // 名乗らせると、ヘッダーが 2.0 のまま残り PDF/A-3 のヘッダーの規則（%PDF-1.n、n は 0〜7。
+  // veraPDF ISO 19005-3:2012 6.1.2-1）で必ず落ちる。ensure_pdfa はヘッダーを下げない
+  // （版を下げると PDF 2.0 にしか無い機能を持つ文書が 1.x を名乗る）
+  if (!isPdfa4 && Number.parseFloat(inputVersion) >= 2) {
+    throw new PdfWriterError(
+      `${inputIs}. ${flavour} requires a PDF 1.x header (%PDF-1.n, n from 0 to 7), and ensure_pdfa does not lower the version of its input. The file would claim PDF/A-3b with a PDF ${inputVersion} header and fail.`,
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Use flavour "pdfa-4" (or "pdfa-4f"): PDF/A-4 is based on PDF 2.0.',
+        next_actions: [
+          {
+            action: 'retry_with_flavour',
+            reason: `PDF/A-4 keeps the PDF ${inputVersion} header. Call again with flavour "pdfa-4".`,
             example: { flavour: 'pdfa-4' },
           },
         ],
@@ -194,4 +218,21 @@ export async function ensurePdfa(args: EnsurePdfaArgs): Promise<EnsurePdfaResult
     ...(declarationRisks.length > 0 ? { declarationRisks } : {}),
     ...(all.length > 0 ? { warnings: all } : {}),
   };
+}
+
+/**
+ * SPEC-WRITER-OUTPUT-VERSION-006: 断る理由が版のとき、エラーの文の頭に置く入力の版と宣言。
+ * 例「The input is PDF 2.0 and declares PDF/UA-2 (pdfuaid:part in XMP)」
+ */
+function describeInput(
+  version: string,
+  pdfuaPart: number | null,
+  pdfa: { part: number; conformance: string | null } | null,
+): string {
+  const claims: string[] = [];
+  if (pdfuaPart !== null) claims.push(`PDF/UA-${pdfuaPart} (pdfuaid:part in XMP)`);
+  if (pdfa !== null) {
+    claims.push(`PDF/A-${pdfa.part}${(pdfa.conformance ?? '').toLowerCase()} (pdfaid in XMP)`);
+  }
+  return `The input is PDF ${version}${claims.length > 0 ? ` and declares ${claims.join(' and ')}` : ' and declares no PDF/UA or PDF/A conformance'}`;
 }
