@@ -1,6 +1,6 @@
 ---
-approved:
-pr:
+approved: 2026-11-10
+pr: 56
 implementation: required
 targets: [output-version, ensure-pdfa]
 ---
