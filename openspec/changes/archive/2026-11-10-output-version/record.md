@@ -16,7 +16,7 @@
 - PDF 2.0 の文書の既存の Info の鍵は、PDF/UA-2 の文書だけ XMP に移して消す。一度「すべて残す」と決めたが、ISO 14289-2 §6.2 に照らして決め直した
 - XMP の項目はそのまま運ぶ。`dc:title` は x-default だけ書き換え、ほかの言語は残して warnings で名指す
 - 結果は `output: { pdfVersion, declares }`（Issue の形）。生成系に「適合は確かめていない」の warnings は足さない
-- 承認: proposal の front matter に `approved: 2026-11-10`・`pr: 56`（🔴 PR の番号は 30。56 の PR は存在しない）
+- 承認: proposal の front matter に `approved: 2026-11-10`・`pr: 30`
 
 ## 仕様と実装のずれ（実装中に delta を直したもの）
 
