@@ -123,12 +123,12 @@ Page specs use `"1,3-5,8-"` (1-based; `-3` means up to page 3, `8-` means page 8
 |------|---------|
 | `set_metadata` | Update Info dictionary fields (`title` / `author` / `subject` / `keywords` / `creator`), preserving the rest. On documents carrying XMP, `dc:title` etc. are kept in sync (PDF/UA and PDF/A declarations preserved). `tdmReservation` (0 \| 1) and `tdmPolicy` write the W3C **TDMRep** rights statement to XMP (`tdm:reservation` / `tdm:policy`, namespace `http://www.w3.org/ns/tdmrep/`); a document without XMP gets one, and a PDF/A document also gets the schema described in `pdfaExtension:schemas`, so veraPDF does not fail ISO 19005-2 6.6.2.3 on it (v0.22.0) |
 | `add_bookmarks` | Set the outline (bookmarks); nestable via `children`, replaces any existing outline |
-| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it |
+| `add_annotation` | Add a sticky note (`text`), `highlight`, or `square` annotation. On tagged PDFs the annotation is nested in an `Annot` element and stays PDF/UA conformant — pass `alt` to describe it. On PDF/UA-2, `alt` is also written as `Contents` (§8.9.4.2 requires them to match), and a different `contents` is refused |
 | `attach_file` | Embed a file (`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`) — the PDF/A-3 shape |
 | `stamp_page_numbers` | Stamp page numbers (`{n}` / `{total}`, six positions, `pages`, `startAt`). Becomes an artifact on tagged PDFs, so conformance holds |
 | `fill_form` | Fill AcroForm fields. Japanese values via an embedded font; can flatten in the same pass |
 | `flatten_form` | Flatten a form into static content. Refuses tagged PDFs by default (breaks PDF/UA) |
-| `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1 (nest widgets in `Form`, set `/Tabs S`, add `/TU` alternate names; pass `labels` for human-readable names). Idempotent |
+| `tag_form_fields` | Repair the form inside a tagged PDF for PDF/UA-1 (nest widgets in `Form`, set `/Tabs S`, add `/TU` alternate names; pass `labels` for human-readable names). On PDF/UA-2, widgets also get `/Contents` (§8.10.2.3). Idempotent |
 | `ensure_tagged` | Put an existing PDF into the PDF/UA-1 container → [Scaffolding an untagged PDF](#scaffolding-an-untagged-pdf-ensure_tagged) |
 | `ensure_pdfa` | Put an existing PDF into the **PDF/A-3b / PDF/A-4 / PDF/A-4f** container (`flavour`) → [The archival container](#the-archival-container-ensure_pdfa) |
 | `add_watermark` | Overlay a diagonal watermark ("社外秘" / "DRAFT"). Behind the body content by default; artifact on tagged PDFs |

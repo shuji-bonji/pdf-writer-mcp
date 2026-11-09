@@ -337,7 +337,9 @@ export const addAnnotationShape = {
     .optional()
     .describe(
       'Alt text for assistive technology. In tagged PDFs the annotation is enclosed in an Annot structure ' +
-        "element (PDF/UA 7.18.1-1) and this becomes that element's /Alt. Ignored in untagged documents.",
+        "element (PDF/UA 7.18.1-1) and this becomes that element's /Alt. Ignored in untagged documents. " +
+        "On a PDF/UA-2 document the annotation's Contents must equal the Alt (ISO 14289-2 §8.9.4.2): " +
+        'alt alone is also written as Contents, and a different contents is refused.',
     ),
   color: z
     .string()

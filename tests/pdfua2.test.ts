@@ -15,20 +15,24 @@ import {
   PDFArray,
   PDFDict,
   PDFDocument,
+  PDFHexString,
   PDFName,
   PDFNumber,
   PDFRawStream,
   PDFRef,
   PDFString,
+  StandardFonts,
 } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  handleAddAnnotation,
   handleAddBookmarks,
   handleCreateMarkdownPdf,
   handleCreateTextPdf,
   handleEnsurePdfa,
   handleEnsureTagged,
   handleSetMetadata,
+  handleTagFormFields,
 } from '../src/tools/handlers.js';
 
 const PDF20_NS = 'http://iso.org/pdf2/ssn';
@@ -429,5 +433,117 @@ describe('SPEC-WRITER-ENSURE-PDFA-004 PDF 2.0 の入力に PDF/A-3b を名乗ら
       options: { next_actions: [{ example: { flavour: 'pdfa-4' } }] },
     });
     expect(existsSync(outputPath)).toBe(false);
+  });
+});
+
+/** 1 ページ目の注釈のうち `subtype` のものの辞書 */
+function annotsOf(doc: PDFDocument, subtype: string): PDFDict[] {
+  const annots = doc.getPage(0).node.lookup(PDFName.of('Annots'));
+  if (!(annots instanceof PDFArray)) return [];
+  return annots
+    .asArray()
+    .map((a) => (a instanceof PDFRef ? doc.context.lookup(a) : a))
+    .filter(
+      (d): d is PDFDict =>
+        d instanceof PDFDict && (d.get(PDFName.of('Subtype')) as PDFName)?.decodeText() === subtype,
+    );
+}
+
+const textOf = (v: unknown) =>
+  v instanceof PDFString || v instanceof PDFHexString ? v.decodeText() : undefined;
+
+/** 構造木で、`target` の注釈を OBJR で持つ要素の `/Alt` */
+function altOfAnnot(doc: PDFDocument, target: PDFDict): string | undefined {
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFDict)) continue;
+    const k = obj.lookup(PDFName.of('K'));
+    if (!(k instanceof PDFDict)) continue;
+    if ((k.get(PDFName.of('Type')) as PDFName | undefined)?.decodeText() !== 'OBJR') continue;
+    if (k.lookup(PDFName.of('Obj')) === target) return textOf(obj.get(PDFName.of('Alt')));
+  }
+  return undefined;
+}
+
+const SQUARE = { page: 1, type: 'square', rect: { x1: 50, y1: 50, x2: 150, y2: 70 } } as const;
+
+describe('SPEC-WRITER-PDFUA2-007 PDF/UA-2 の文書に足す注釈の Contents を Alt と揃える', () => {
+  it('SPEC-WRITER-PDFUA2-007 alt だけを渡す', async () => {
+    const input = await createUa2Text('annot-alt-in.pdf');
+    const outputPath = join(dir, 'annot-alt-out.pdf');
+    await handleAddAnnotation({ ...SQUARE, inputPath: input, alt: 'Box', outputPath });
+    const { doc } = await load(outputPath);
+    const [annot] = annotsOf(doc, 'Square');
+    expect(textOf(annot?.get(PDFName.of('Contents')))).toBe('Box');
+    expect(altOfAnnot(doc, annot as PDFDict)).toBe('Box');
+  });
+
+  it('SPEC-WRITER-PDFUA2-007 contents と alt が違う', async () => {
+    const input = await createUa2Text('annot-diff-in.pdf');
+    const outputPath = join(dir, 'annot-diff-out.pdf');
+    await expect(
+      handleAddAnnotation({
+        ...SQUARE,
+        inputPath: input,
+        contents: 'Note',
+        alt: 'Box',
+        outputPath,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    expect(existsSync(outputPath)).toBe(false);
+  });
+
+  it('SPEC-WRITER-PDFUA2-007 PDF/UA-1 の文書は今までどおり', async () => {
+    const input = join(dir, 'annot-ua1-in.pdf');
+    await handleCreateTextPdf({ ...BASE, text: 'body text', tagged: true, outputPath: input });
+    const outputPath = join(dir, 'annot-ua1-out.pdf');
+    await handleAddAnnotation({ ...SQUARE, inputPath: input, alt: 'Box', outputPath });
+    const { doc } = await load(outputPath);
+    expect(textOf(annotsOf(doc, 'Square')[0]?.get(PDFName.of('Contents')))).toBe('');
+  });
+});
+
+/** タグ付きの文書にテキストフィールド `user.name` を足す（PDF 2.0 ならヘッダーを戻す） */
+async function withTextField(base: string, name: string): Promise<string> {
+  const bytes = new Uint8Array(readFileSync(base));
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  doc
+    .getForm()
+    .createTextField('user.name')
+    .addToPage(doc.getPage(0), { x: 50, y: 200, width: 200, height: 24, font });
+  const saved = await doc.save({ useObjectStreams: false });
+  // pdf-lib は %PDF-1.7 で書く。同じ長さなのでオフセットは動かない
+  if (headerOf(bytes) === '%PDF-2.0') saved.set(new TextEncoder().encode('%PDF-2.0'), 0);
+  const out = join(dir, name);
+  writeFileSync(out, saved);
+  return out;
+}
+
+function widgetContents(doc: PDFDocument): string | undefined {
+  return textOf(annotsOf(doc, 'Widget')[0]?.get(PDFName.of('Contents')));
+}
+
+describe('SPEC-WRITER-PDFUA2-008 PDF/UA-2 の文書のウィジェットに Contents を書く', () => {
+  it('SPEC-WRITER-PDFUA2-008 labels を渡したフィールド', async () => {
+    const input = await withTextField(await createUa2Text('form-l-base.pdf'), 'form-l-in.pdf');
+    const outputPath = join(dir, 'form-l-out.pdf');
+    await handleTagFormFields({ inputPath: input, labels: { 'user.name': 'Name' }, outputPath });
+    expect(widgetContents((await load(outputPath)).doc)).toBe('Name');
+  });
+
+  it('SPEC-WRITER-PDFUA2-008 labels を渡さないフィールド', async () => {
+    const input = await withTextField(await createUa2Text('form-n-base.pdf'), 'form-n-in.pdf');
+    const outputPath = join(dir, 'form-n-out.pdf');
+    await handleTagFormFields({ inputPath: input, outputPath });
+    expect(widgetContents((await load(outputPath)).doc)).toBe('user.name');
+  });
+
+  it('SPEC-WRITER-PDFUA2-008 PDF/UA-1 の文書は今までどおり', async () => {
+    const base = join(dir, 'form-ua1-base.pdf');
+    await handleCreateTextPdf({ ...BASE, text: 'body text', tagged: true, outputPath: base });
+    const input = await withTextField(base, 'form-ua1-in.pdf');
+    const outputPath = join(dir, 'form-ua1-out.pdf');
+    await handleTagFormFields({ inputPath: input, labels: { 'user.name': 'Name' }, outputPath });
+    expect(widgetContents((await load(outputPath)).doc)).toBeUndefined();
   });
 });

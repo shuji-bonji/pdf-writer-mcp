@@ -123,12 +123,12 @@ XMP を書き直すツール（`set_metadata`・`ensure_pdfa`）は、渡され�
 |--------|------|
 | `set_metadata` | Info 辞書の更新（`title` / `author` / `subject` / `keywords` / `creator`）。指定フィールドのみ変更。XMP を持つ文書では `dc:title` 等も同期する（PDF/UA・PDF/A 宣言は保持）。`tdmReservation`（0 \| 1）と `tdmPolicy` で W3C **TDMRep** の権利表明を XMP に書く（`tdm:reservation` / `tdm:policy`、名前空間 `http://www.w3.org/ns/tdmrep/`）。XMP の無い文書には XMP を新設し、PDF/A 文書では `pdfaExtension:schemas` にスキーマの記述も同梱するので、veraPDF が ISO 19005-2 6.6.2.3 で落とさない（v0.22.0） |
 | `add_bookmarks` | しおり（アウトライン）の設定。`children` で入れ子にでき、既存のしおりは置換 |
-| `add_annotation` | 付箋（`text`）/ ハイライト（`highlight`）/ 矩形（`square`）の注釈を追加。タグ付き PDF では `Annot` 構造要素に内包して PDF/UA 準拠を維持（`alt` で説明を渡す） |
+| `add_annotation` | 付箋（`text`）/ ハイライト（`highlight`）/ 矩形（`square`）の注釈を追加。タグ付き PDF では `Annot` 構造要素に内包して PDF/UA 準拠を維持（`alt` で説明を渡す）。PDF/UA-2 では `alt` を `Contents` にも書き（§8.9.4.2 が同じ値を求めるため）、値の違う `contents` は断ります |
 | `attach_file` | ファイルを埋め込む（`/Names /EmbeddedFiles` + catalog `/AF` + `/AFRelationship`）。PDF/A-3 が要求する形式 |
 | `stamp_page_numbers` | ページ番号を刻む（`{n}` / `{total}`、6 箇所の配置、`pages`、`startAt`）。タグ付き PDF では Artifact になり準拠を維持 |
 | `fill_form` | AcroForm に値を記入。日本語は埋め込みフォントで描画。同時にフラット化も可能 |
 | `flatten_form` | フォームを静的な内容に焼き込む。タグ付き PDF は既定で拒否（PDF/UA が壊れるため） |
-| `tag_form_fields` | タグ付き PDF 内のフォームを PDF/UA-1 準拠へ修復（Widget を `Form` に内包・`/Tabs S`・代替名 `/TU`。`labels` で人間可読名）。冪等 |
+| `tag_form_fields` | タグ付き PDF 内のフォームを PDF/UA-1 準拠へ修復（Widget を `Form` に内包・`/Tabs S`・代替名 `/TU`。`labels` で人間可読名）。PDF/UA-2 ではウィジェットに `/Contents` も書きます（§8.10.2.3）。冪等 |
 | `ensure_tagged` | 既存 PDF を PDF/UA-1 の「器」に載せる → [タグ無し PDF への足場作り](#タグ無し-pdf-への足場作りensure_tagged) |
 | `ensure_pdfa` | 既存 PDF を **PDF/A-3b / PDF/A-4 / PDF/A-4f** の「器」に載せる（`flavour`） → [長期保存の器](#長期保存の器ensure_pdfa) |
 | `add_watermark` | 斜めの透かしを重ねる（"社外秘" / "DRAFT"）。既定で本文の背面。タグ付き PDF では Artifact になる |

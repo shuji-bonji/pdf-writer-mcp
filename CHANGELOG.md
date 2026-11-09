@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.1] - 2026-11-10
+
+Proposed version: 0.28.1. OpenSpec change `pdfua2-contents` (SPEC-WRITER-PDFUA2-007 and 008
+added). Output on PDF/UA-1 and untagged documents is byte-identical to 0.28.0.
+
+### Fixed
+
+- **`add_annotation` with `alt` on a PDF/UA-2 document failed ISO 14289-2 8.9.4.2-1** (#31). The
+  annotation's `/Contents` was written as an empty string (or `contents`) while the enclosing
+  `Annot` element's `/Alt` was `alt`, and §8.9.4.2 requires the two to be identical. On a PDF/UA-2
+  document, `alt` alone is now also written as `/Contents` (§8.9.4.1: the alternative description
+  of an annotation goes in `Contents`), and `contents` that differs from `alt` is refused with
+  `INVALID_ARGUMENT`. 0.27.0 and 0.28.0 behave the same way; the test only checked that `/Alt` was
+  written, and no measurement put `alt` on a PDF/UA-2 file until #28.
+- **`tag_form_fields` on a PDF/UA-2 document failed ISO 14289-2 8.10.2.3-1** (#32). The tool
+  creates no `Lbl` element, so a widget it binds has no label, and it wrote no `/Contents` either.
+  On a PDF/UA-2 document each newly bound widget without `/Contents` now gets one: the `labels`
+  value, else the field's `/TU`, else the field name (§8.10.2.3 allows `TU` and `Contents` to be
+  identical). Widgets that already have `/Contents`, or that were already bound, are untouched.
+
+### Measured
+
+veraPDF 1.30.0 (`pdfua-2`, 1,728 rules): `add_annotation` with `alt` on a PDF/UA-2 file, and
+`tag_form_fields` on a PDF/UA-2 file with a text field drawn in an embedded font, both pass. The
+same form input through 0.28.0 fails 8.10.2.3-1 only.
+
 ## [0.28.0] - 2026-11-10
 
 Proposed version: 0.28.0. OpenSpec change `output-version` (#28; new capability `output-version`,

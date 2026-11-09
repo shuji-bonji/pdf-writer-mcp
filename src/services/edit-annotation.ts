@@ -10,6 +10,7 @@
  * - `reserveExistingObjectNumbers` が要らない
  */
 
+import { PdfWriterError } from '../errors.js';
 import type { AddAnnotationArgs, EditResult } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { addAnnotationDict } from './annotation-cos.js';
@@ -27,7 +28,33 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
     await assertDocMdpAllows(opened.editor, 'annotation');
   }
 
-  const added = await addAnnotationDict(opened.editor, args);
+  // SPEC-WRITER-PDFUA2-007（#31）: PDF/UA-2 では注釈の代替記述は /Contents で書き（ISO 14289-2
+  // §8.9.4.1）、/Contents と直接囲む構造要素の /Alt は同じ値でなければならない（§8.9.4.2）。
+  // 0.28.0 までは alt だけを渡すと /Contents が空文字になり、8.9.4.2-1 で落ちていた
+  const ua2 = (await readXmpDeclarations(opened.editor)).pdfuaPart === 2;
+  const alt = args.alt !== undefined && args.alt !== '' ? args.alt : undefined;
+  if (ua2 && alt !== undefined && args.contents !== undefined && args.contents !== alt) {
+    throw new PdfWriterError(
+      "The document declares PDF/UA-2, where an annotation's Contents and the Alt of the structure " +
+        'element enclosing it shall be identical (ISO 14289-2 §8.9.4.2). "contents" and "alt" differ.',
+      'INVALID_ARGUMENT',
+      {
+        hint: 'Pass only "alt" (it is also written as Contents), or pass the same text in both.',
+        next_actions: [
+          {
+            action: 'retry_with_alt_as_contents',
+            reason:
+              'In PDF/UA-2 the alternative description of an annotation is its Contents (§8.9.4.1); one text serves both.',
+            example: { contents: alt, alt },
+          },
+        ],
+      },
+    );
+  }
+  const added = await addAnnotationDict(
+    opened.editor,
+    ua2 && alt !== undefined && args.contents === undefined ? { ...args, contents: alt } : args,
+  );
 
   // タグ付き PDF なら構造木にも結び付ける（PDF/UA 7.18.1-1 / 7.18.3-1）。
   // タグ無し文書では何もしない —— 注釈のためだけに構造木を作り始めない。
@@ -45,7 +72,7 @@ export async function addAnnotation(args: AddAnnotationArgs): Promise<EditResult
     );
   }
 
-  if (linked.tagged && (await readXmpDeclarations(opened.editor)).pdfuaPart === 2) {
+  if (linked.tagged && ua2) {
     warnings.push(defaultNamespaceNote(['Annot']));
   }
 

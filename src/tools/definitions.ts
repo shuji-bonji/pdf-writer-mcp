@@ -236,6 +236,7 @@ export const tools: ToolDefinition[] = [
       "Repair a tagged PDF's form to PDF/UA-1: enclose Widget annotations in Form structure elements " +
       '(7.18.4-1), set /Tabs S on the affected pages (7.18.3-1), and give fields alternate names /TU ' +
       '(7.18.1-3). Pass human-readable names for screen readers via labels. ' +
+      'On a PDF/UA-2 document each newly bound widget without /Contents also gets one (ISO 14289-2 §8.10.2.3; no Lbl is created): the label, else the existing /TU, else the field name. ' +
       'Widgets already bound to the structure tree are skipped, so it is safe to run repeatedly. ' +
       "Untagged documents are out of scope (rebuild with the create tools' tagged: true, or run ensure_tagged first). " +
       'For signed PDFs, preserveSignatures: true repairs while keeping the signatures intact (approval signatures only; certification signatures are refused).',

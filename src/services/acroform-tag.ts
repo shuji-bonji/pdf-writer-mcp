@@ -16,10 +16,20 @@
  * 構造要素が重複しない。
  */
 
-import { type CosDict, type CosObject, type CosRef, dictGetRaw } from 'normativepdf';
+import {
+  COS_NULL,
+  type CosDict,
+  type CosObject,
+  type CosRef,
+  dictGet,
+  dictGetRaw,
+  type PdfDocumentEditor,
+} from 'normativepdf';
 import { type AcroForm, unknownFieldError } from './acroform-read.js';
 import { textString } from './cos.js';
+import { textOf } from './cos-read.js';
 import type { OpenedForEdit } from './edit-open.js';
+import { readXmpDeclarations } from './pdfa-cos.js';
 import { appendObjRefToStructTree } from './struct-annot.js';
 
 export interface TagWidgetsOutcome {
@@ -79,6 +89,10 @@ export async function tagWidgets(
     editor.set(field.ref.objectNumber, { kind: 'dict', entries }, field.ref.generationNumber);
   }
 
+  // SPEC-WRITER-PDFUA2-008（#32）: PDF/UA-2 ではラベルの無いウィジェットに /Contents を書く
+  // （ISO 14289-2 §8.10.2.3）。このツールは Lbl を作らないので、結んだウィジェットにラベルは無い
+  const contentsForUa2 = (await readXmpDeclarations(editor)).pdfuaPart === 2;
+
   // 7.18.4-1 / 7.18.3-1: Widget を `Form` 構造要素へ
   const index = await indexAnnots(opened);
   const outcome: TagWidgetsOutcome = { tagged: 0, skipped: 0, orphaned: [], unlabeled };
@@ -96,8 +110,34 @@ export async function tagWidgets(
         continue;
       }
       const appended = await appendObjRefToStructTree(editor, page, widget.ref, 'Form');
-      if (appended.tagged) outcome.tagged++;
+      if (appended.tagged) {
+        outcome.tagged++;
+        if (contentsForUa2) await giveWidgetContents(editor, widget.ref, field, labels);
+      }
     }
   }
   return outcome;
+}
+
+/**
+ * SPEC-WRITER-PDFUA2-008: `/Contents` を持たないウィジェットに `/Contents` を書く。
+ * 値は labels の値 → フィールドの `/TU` → フィールド名（§8.10.2.3: `TU` と同じ値でよい）。
+ * `/TU` は上で書き終えているので、ここで読む値はこの呼び出しの labels を反映している。
+ */
+async function giveWidgetContents(
+  editor: PdfDocumentEditor,
+  widgetRef: CosRef,
+  field: { ref: CosRef; name: string },
+  labels: Record<string, string>,
+): Promise<void> {
+  const widget = await editor.resolve(widgetRef);
+  if (widget.kind !== 'dict' || dictGetRaw(widget, 'Contents') !== undefined) return;
+  const fieldDict = await editor.resolve(field.ref);
+  const tu =
+    fieldDict.kind === 'dict'
+      ? textOf(await editor.resolve(dictGet(fieldDict, 'TU') ?? COS_NULL))
+      : undefined;
+  const entries = new Map<string, CosObject>(widget.entries);
+  entries.set('Contents', textString(labels[field.name] ?? tu ?? field.name));
+  editor.set(widgetRef.objectNumber, { kind: 'dict', entries }, widgetRef.generationNumber);
 }
